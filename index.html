@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Faraday Workbench — Private</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@600;700&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --forest:#1C3424; --forest-deep:#12241A; --forest-panel:#20402C;
+  --gold:#C4922A; --gold-bright:#E0B054;
+  --warm:#F8F5F0; --warm-dim:#CFC9BD;
+  --sage:#8CA68A;
+  --live:#7FBF7A; --amber:#D9A648; --idle:#7E8B82; --red:#C86A5A;
+  --hair:rgba(248,245,240,.12);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--forest-deep);color:var(--warm);font-family:'Bricolage Grotesque',sans-serif;line-height:1.55}
+a{color:inherit}
+.mono{font-family:'IBM Plex Mono',monospace}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+
+/* header */
+header{border-bottom:1px solid var(--hair);background:var(--forest);position:sticky;top:0;z-index:9}
+.hbar{display:flex;align-items:center;gap:20px;padding:14px 0}
+.bolt{width:26px;height:26px;flex:none}
+.brand{font-family:'IBM Plex Serif',serif;font-weight:700;font-size:19px;letter-spacing:.01em}
+.brand small{display:block;font-family:'IBM Plex Mono',monospace;font-weight:400;font-size:10px;letter-spacing:.22em;color:var(--gold);text-transform:uppercase}
+nav{margin-left:auto;display:flex;gap:26px;font-size:14px}
+nav a{text-decoration:none;color:var(--warm-dim)}
+nav a:hover,nav a:focus-visible{color:var(--gold-bright)}
+.priv{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.2em;border:1px solid var(--gold);color:var(--gold);padding:4px 10px;border-radius:2px}
+
+/* hero strip */
+.hero{padding:54px 0 30px}
+.hero h1{font-family:'IBM Plex Serif',serif;font-size:clamp(30px,4.5vw,46px);font-weight:700;line-height:1.12}
+.hero h1 em{font-style:normal;color:var(--gold-bright)}
+.hero p{margin-top:10px;color:var(--warm-dim);max-width:56ch}
+.ticker{margin-top:26px;border:1px solid var(--hair);border-radius:4px;background:var(--forest);overflow:hidden}
+.ticker-inner{display:flex;gap:44px;white-space:nowrap;padding:10px 0;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--warm-dim);animation:tick 42s linear infinite;width:max-content}
+.ticker-inner b{color:var(--warm);font-weight:500}
+@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce){.ticker-inner{animation:none;flex-wrap:wrap;white-space:normal;width:auto;padding:10px 16px}}
+
+/* sections */
+section{padding:46px 0;border-top:1px solid var(--hair)}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold)}
+h2{font-family:'IBM Plex Serif',serif;font-size:27px;margin:6px 0 22px}
+
+/* observability */
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:12px}
+.card{background:var(--forest);border:1px solid var(--hair);border-radius:4px;padding:16px 16px 14px;display:flex;flex-direction:column;gap:8px}
+.card .row{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.card h3{font-size:15.5px;font-weight:600}
+.pill{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;padding:3px 8px;border-radius:2px;flex:none}
+.p-live{background:rgba(127,191,122,.14);color:var(--live)}
+.p-build{background:rgba(217,166,72,.14);color:var(--amber)}
+.p-concept{background:rgba(126,139,130,.16);color:var(--idle)}
+.p-warn{background:rgba(200,106,90,.16);color:var(--red)}
+.card .note{font-size:12.5px;color:var(--warm-dim)}
+.card .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--sage);display:flex;justify-content:space-between;margin-top:auto;padding-top:8px;border-top:1px dashed var(--hair)}
+.card .meta a{color:var(--sage);text-decoration:none}
+.card .meta a:hover{color:var(--gold-bright)}
+.subhead{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--warm-dim);margin:28px 0 12px}
+.engines{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.eng{display:flex;align-items:center;gap:10px;background:var(--forest);border:1px solid var(--hair);border-radius:4px;padding:10px 12px;font-size:13.5px}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.d-live{background:var(--live)} .d-amber{background:var(--amber)} .d-idle{background:var(--idle)}
+.eng .mono{margin-left:auto;font-size:10px;color:var(--warm-dim)}
+
+/* store */
+.packs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.pack{background:var(--forest);border:1px solid var(--hair);border-radius:4px;padding:24px 20px;text-align:left;position:relative}
+.pack.featured{border-color:var(--gold)}
+.pack .tk{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--sage);letter-spacing:.1em}
+.pack .price{font-family:'IBM Plex Serif',serif;font-size:38px;font-weight:700;margin:6px 0 2px}
+.pack .price span{font-size:15px;color:var(--warm-dim);font-family:'Bricolage Grotesque',sans-serif;font-weight:400}
+.pack ul{list-style:none;margin:14px 0 18px;font-size:13.5px;color:var(--warm-dim)}
+.pack li{padding:4px 0;border-bottom:1px dashed var(--hair)}
+.pack button{width:100%;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;padding:11px;border-radius:3px;border:1px solid var(--gold);background:transparent;color:var(--gold-bright);cursor:pointer}
+.pack button:hover,.pack button:focus-visible{background:var(--gold);color:var(--forest-deep)}
+.pack .badge{position:absolute;top:-9px;right:14px;background:var(--gold);color:var(--forest-deep);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;padding:2px 8px;border-radius:2px}
+.storenote{margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--amber)}
+
+/* links */
+.links{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.lk{display:flex;flex-direction:column;gap:3px;background:var(--forest);border:1px solid var(--hair);border-radius:4px;padding:13px 15px;text-decoration:none}
+.lk:hover,.lk:focus-visible{border-color:var(--gold)}
+.lk b{font-size:14.5px;font-weight:600}
+.lk span{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--sage)}
+footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--warm-dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+:focus-visible{outline:2px solid var(--gold-bright);outline-offset:2px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hbar">
+    <svg class="bolt" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="#C4922A"/></svg>
+    <div class="brand">Faraday Workbench<small>Private · Back of house</small></div>
+    <nav>
+      <a href="#observability">Observability</a>
+      <a href="#store">Store</a>
+      <a href="#links">Quick links</a>
+    </nav>
+    <span class="priv">MYKE ONLY</span>
+  </div>
+</header>
+
+<div class="wrap hero">
+  <h1>Everything Faraday, <em>one bench.</em></h1>
+  <p>Live posture across the eight storefronts and seven engines, the token store, and one-tap paths to every tool. Your unfair advantage — pointed inward.</p>
+  <div class="ticker" aria-label="Status ticker">
+    <div class="ticker-inner" id="ticker"></div>
+  </div>
+</div>
+
+<section id="observability">
+  <div class="wrap">
+    <div class="eyebrow">Observability</div>
+    <h2>Storefront board</h2>
+    <div class="board" id="storefronts"></div>
+    <div class="subhead">Engine dashboard — Fundamental Intelligence Engine</div>
+    <div class="engines" id="engines"></div>
+  </div>
+</section>
+
+<section id="store">
+  <div class="wrap">
+    <div class="eyebrow">Store</div>
+    <h2>Token packs</h2>
+    <div class="packs">
+      <div class="pack">
+        <div class="tk">500 TOKENS</div>
+        <div class="price">$49</div>
+        <ul><li>Spend against any per-product meter</li><li>Jurisdiction unlocks · briefings · agent queries</li><li>No expiry inside the season</li></ul>
+        <button data-pack="500">Buy 500 tokens</button>
+      </div>
+      <div class="pack featured">
+        <div class="badge">MOST BOUGHT</div>
+        <div class="tk">1,000 TOKENS</div>
+        <div class="price">$89 <span>· best per-token</span></div>
+        <ul><li>Everything in 500</li><li>Priority Live Agent lane</li><li>Season leaderboard flair</li></ul>
+        <button data-pack="1000">Buy 1,000 tokens</button>
+      </div>
+      <div class="pack">
+        <div class="tk">10,000 TOKENS</div>
+        <div class="price">$799</div>
+        <ul><li>Desk-scale bucket for teams</li><li>All meters, all storefronts</li><li>Direct analyst escalation path</li></ul>
+        <button data-pack="10000">Buy 10,000 tokens</button>
+      </div>
+    </div>
+    <div class="storenote" id="storenote">⏳ Checkout dark — awaiting Stripe keys &amp; per-meter pricing (FAR-46). Buttons are wired to /api/checkout stubs.</div>
+  </div>
+</section>
+
+<section id="links">
+  <div class="wrap">
+    <div class="eyebrow">Quick links</div>
+    <h2>Storefronts &amp; tools</h2>
+    <div class="subhead">Storefronts</div>
+    <div class="links" id="sf-links"></div>
+    <div class="subhead">Operating stack</div>
+    <div class="links" id="tool-links"></div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <span>FARADAY INTELLIGENCE · WORKBENCH v1.0</span>
+  <span>Follow the Thread, catch the Signals.</span>
+</footer>
+
+<script>
+const storefronts=[
+ {n:"Daily Challenge",s:"warn",tag:"LIVE / STALE",note:"Static page live; fresh-content rotation broken — serving, D2 reachability & rotator unwired. Bank healthy: 373 puzzles to 2026-07-31.",jira:"FAR-21",url:"https://mykesfoundry.atlassian.net/browse/FAR-21"},
+ {n:"Intelligent Alert",s:"live",tag:"LIVE",note:"3 test issues sent manually via Beehiiv.",jira:"FAR-26",url:"https://mykesfoundry.atlassian.net/browse/FAR-26"},
+ {n:"Jurisdiction Watch",s:"live",tag:"LIVE",note:"Phases 1–5 deployed at jurisdiction-watch.com; first-dollar chain pending Stripe secrets.",jira:"FAR-27",url:"https://mykesfoundry.atlassian.net/browse/FAR-27"},
+ {n:"Briefing Library",s:"live",tag:"LIVE / BUILD",note:"19 canonical briefings live; 417 Coming Soon placeholders seeded.",jira:"FAR-28",url:"https://mykesfoundry.atlassian.net/browse/FAR-28"},
+ {n:"Live Agent",s:"build",tag:"IN BUILD",note:"Enrichment cleared 1,493/1,493; RAG Q&A acceptance underway.",jira:"FAR-29",url:"https://mykesfoundry.atlassian.net/browse/FAR-29"},
+ {n:"Faraday Academy",s:"build",tag:"IN BUILD",note:"36 courses in Draft; Academy Course Template in progress.",jira:"FAR-30",url:"https://mykesfoundry.atlassian.net/browse/FAR-30"},
+ {n:"Signal Room",s:"build",tag:"IN BUILD",note:"Configurator surface; update in progress 6-20-26.",jira:"FAR-31",url:"https://mykesfoundry.atlassian.net/browse/FAR-31"},
+ {n:"Thought Forge",s:"concept",tag:"CONCEPT",note:"Commission surface — engine and storefront both pre-build.",jira:"FAR-32",url:"https://mykesfoundry.atlassian.net/browse/FAR-32"}
+];
+const engines=[
+ {n:"IDF 4.0",s:"live",m:"OPERATIONAL"},{n:"JPS",s:"live",m:"20 JURISDICTIONS"},
+ {n:"Two-Analyst System",s:"live",m:"CANONICAL"},{n:"Intelligence Baseline",s:"live",m:"Q1 2026"},
+ {n:"Velocity Play",s:"live",m:"OPERATIONAL"},{n:"Prognostications",s:"amber",m:"DRAFT"},
+ {n:"Thought Forge (engine)",s:"idle",m:"CONCEPT"}
+];
+const sfLinks=[
+ {b:"Jurisdiction Watch",u:"https://jurisdiction-watch.com",s:"jurisdiction-watch.com"},
+ {b:"Faraday Intelligence — homepage",u:"https://faraday-intelligence.ai",s:"faraday-intelligence.ai"},
+ {b:"Daily Challenge",u:"https://faraday-intelligence.ai/daily-challenge",s:"7 puzzle games · free / email capture"},
+ {b:"Briefing Library",u:"https://faraday-intelligence.ai/briefing-library",s:"19 canonical · Gamma shelf"},
+ {b:"Intelligent Alert",u:"https://faraday-intelligence.ai",s:"Beehiiv publication"},
+ {b:"Faraday Academy",u:"https://faraday-intelligence.ai",s:"LearnWorlds · 36 draft courses"},
+ {b:"Signal Room",u:"https://github.com/Mykemiller/Faraday-Signal-Room",s:"repo — surface TBD"},
+ {b:"Live Agent",u:"https://faraday-intelligence.ai",s:"Claude + Pinecone RAG"}
+];
+const toolLinks=[
+ {b:"Jira — FAR board",u:"https://mykesfoundry.atlassian.net/jira/software/projects/FAR/boards/1/backlog",s:"backlog & sprints"},
+ {b:"Notion — Project Hub",u:"https://app.notion.com/p/37189a0c1680808a9107c87d093f032a",s:"canonical operating reference"},
+ {b:"Google Drive — Faraday Specs",u:"https://drive.google.com/drive/folders/1wwISpRcxTXniyK2FeaWYh5w4Ch0ssKJ0",s:"specs folder"},
+ {b:"GitHub — Faraday-intelligence",u:"https://github.com/Mykemiller/Faraday-intelligence",s:"homepage repo"},
+ {b:"GitHub — faraday-jurisdiction-watch",u:"https://github.com/Mykemiller/faraday-jurisdiction-watch",s:"JW frontend (supersedes jw)"},
+ {b:"GitHub — v0-faraday-daily-challenge",u:"https://github.com/Mykemiller/v0-faraday-daily-challenge",s:"Daily Challenge lobby"},
+ {b:"GitHub — Faraday-Briefing-Library-",u:"https://github.com/Mykemiller/Faraday-Briefing-Library-",s:"briefing shelf"},
+ {b:"Supabase — ycadmmngkdhvpcsrcuaq",u:"https://supabase.com/dashboard/project/ycadmmngkdhvpcsrcuaq",s:"backend project"},
+ {b:"Airtable — primary base",u:"https://airtable.com/appxfti7VuoHYUeu6",s:"companies · briefings · puzzle bank"},
+ {b:"Vercel — Project Foundry",u:"https://vercel.com/project-foundry",s:"deployments"},
+ {b:"Doppler",u:"https://dashboard.doppler.com",s:"secrets store"},
+ {b:"Beehiiv — faraday-intelligence",u:"https://app.beehiiv.com",s:"newsletter ops"}
+];
+const pillClass={live:"p-live",build:"p-build",concept:"p-concept",warn:"p-warn"};
+document.getElementById("storefronts").innerHTML=storefronts.map(s=>`
+ <div class="card"><div class="row"><h3>${s.n}</h3><span class="pill ${pillClass[s.s]}">${s.tag}</span></div>
+ <div class="note">${s.note}</div>
+ <div class="meta"><a href="${s.url}" target="_blank" rel="noopener">${s.jira} ↗</a><span>SYNC 06-20-26</span></div></div>`).join("");
+document.getElementById("engines").innerHTML=engines.map(e=>`
+ <div class="eng"><span class="dot d-${e.s==="live"?"live":e.s==="amber"?"amber":"idle"}"></span>${e.n}<span class="mono">${e.m}</span></div>`).join("");
+const lk=a=>a.map(l=>`<a class="lk" href="${l.u}" target="_blank" rel="noopener"><b>${l.b}</b><span>${l.s}</span></a>`).join("");
+document.getElementById("sf-links").innerHTML=lk(sfLinks);
+document.getElementById("tool-links").innerHTML=lk(toolLinks);
+const t=storefronts.map(s=>`<span><b>${s.n}</b> ${s.tag}</span>`).join("");
+document.getElementById("ticker").innerHTML=t+t;
+document.querySelectorAll(".pack button").forEach(b=>b.addEventListener("click",()=>{
+  document.getElementById("storenote").textContent=`⏳ Checkout for the ${Number(b.dataset.pack).toLocaleString()}-token pack is dark until Stripe keys + FAR-46 pricing land. Nothing was charged.`;
+}));
+</script>
+</body>
+</html>
