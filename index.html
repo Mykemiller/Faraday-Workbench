@@ -76,6 +76,31 @@ h2{font-family:'IBM Plex Serif',serif;font-size:27px;margin:6px 0 22px}
 .stat .num{font-family:'IBM Plex Serif',serif;font-size:26px;font-weight:700;color:var(--gold-bright);line-height:1.1}
 .stat .lbl{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--warm-dim);margin-top:5px}
 .stat .sub{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--sage);margin-top:2px}
+.stat.warn{border-color:rgba(200,106,90,.45)}
+.stat.warn .num{color:var(--red)}
+.stat.warn .sub{color:var(--red)}
+
+/* health */
+.hnote{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--sage);margin:2px 0 14px}
+.seasonbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 16px}
+.seasonbar b{font-family:'IBM Plex Serif',serif;font-size:16px}
+.dscroll{overflow-x:auto;border:1px solid var(--hair);border-radius:4px;background:var(--forest)}
+.dtable{width:100%;border-collapse:collapse;font-size:12px;min-width:560px}
+.dtable th{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--warm-dim);text-align:right;padding:9px 12px;border-bottom:1px solid var(--hair);font-weight:500;white-space:nowrap}
+.dtable th:first-child{text-align:left}
+.dtable td{padding:9px 12px;border-bottom:1px solid var(--hair);text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--warm-dim);white-space:nowrap}
+.dtable td:first-child{text-align:left;font-family:'Bricolage Grotesque',sans-serif;font-size:13.5px;color:var(--warm)}
+.dtable tbody tr:last-child td{border-bottom:none}
+.dtable tr.dark td:first-child{color:var(--red)}
+.dtable .feed-ok{color:var(--live);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em}
+.dtable .feed-no{color:var(--red);font-weight:600;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em}
+.dtable .feed-part{color:var(--amber);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em}
+.dtable td.part{color:var(--amber)}
+.dtable .zero{color:var(--idle)}
+.feedless{margin-top:12px;font-size:12px}
+.feedless summary{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--amber);cursor:pointer;padding:8px 0}
+.fl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 16px;padding:8px 0 4px}
+.fl-grid span{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--warm-dim)}
 
 /* store */
 .packs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
@@ -128,9 +153,16 @@ footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Ple
     <div class="eyebrow">Observability</div>
     <h2>Storefront board</h2>
     <div class="board" id="storefronts"></div>
+
+    <div class="subhead">IDF Health — Fundamental Intelligence Engine feed coverage</div>
+    <div id="idf-health"><div class="hnote">Loading live IDF health…</div></div>
+
+    <div class="subhead">Daily Challenge Health</div>
+    <div id="dc-health"><div class="hnote">Loading live Daily Challenge health…</div></div>
+
     <div class="subhead">Engine dashboard — Fundamental Intelligence Engine</div>
     <div class="engines" id="engines"></div>
-    <div class="subhead">Engine stats — Supabase counts · as of 07-04-26</div>
+    <div class="subhead" id="stats-subhead">Engine stats — Supabase counts · as of 07-04-26</div>
     <div class="stats" id="stats"></div>
   </div>
 </section>
@@ -251,6 +283,116 @@ document.getElementById("ticker").innerHTML=t+t;
 document.querySelectorAll(".pack button").forEach(b=>b.addEventListener("click",()=>{
   document.getElementById("storenote").textContent=`⏳ Checkout for the ${Number(b.dataset.pack).toLocaleString()}-token pack is dark until Stripe keys + FAR-46 pricing land. Nothing was charged.`;
 }));
+
+/* ---- live health: fetch workbench_health() RPC and render IDF/DC/engine health ---- */
+const SB_URL="https://ycadmmngkdhvpcsrcuaq.supabase.co";
+const SB_KEY="sb_publishable_fDRdRxznJ7E7syPxfNt7hw__Yukn6Tg";
+const fmt=n=>Number(n).toLocaleString("en-US");
+const esc=s=>String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function statCard(s){return `<div class="stat${s.warn?" warn":""}"><div class="num">${s.v}</div><div class="lbl">${s.l}</div>${s.sub?`<div class="sub">${s.sub}</div>`:""}</div>`;}
+
+function renderHealth(h){
+  const idf=h.idf, jps=h.jps, dc=h.dc, sig=h.signals, es=h.engine_stats;
+
+  /* IDF Health */
+  const idfHead=[
+    {v:fmt(idf.domains_active),l:"Domains monitored",sub:`${idf.domains_dark} dark`,warn:idf.domains_dark>0},
+    {v:fmt(idf.subdomains_total),l:"Subdomains",sub:`${idf.subdomains_no_feed} with no feed`,warn:idf.subdomains_no_feed>0},
+    {v:fmt(idf.companies),l:"Companies tracked"},
+    {v:fmt(idf.entities),l:"Entities tracked"},
+    {v:fmt(idf.artifacts_7d),l:"New artifacts · 7d"},
+    {v:fmt(idf.artifacts_total),l:"Artifacts · all-time"}
+  ].map(statCard).join("");
+  const feedCell=d=>{
+    if(d.all_art===0) return '<span class="feed-no">NO FEED</span>';
+    if(d.subs_no_feed>0) return `<span class="feed-part">◐ ${d.subs_no_feed}/${d.subdomains} dark</span>`;
+    return '<span class="feed-ok">● LIVE</span>';
+  };
+  const rows=idf.by_domain.map(d=>`<tr class="${d.all_art===0?"dark":""}">
+    <td>${d.emoji?esc(d.emoji)+" ":""}${d.code} · ${esc(d.name)}</td>
+    <td class="${d.subs_no_feed?"part":""}">${d.subdomains-d.subs_no_feed}/${d.subdomains}</td>
+    <td class="${d.all_art?"":"zero"}">${fmt(d.all_art)}</td>
+    <td class="${d.new_7d?"":"zero"}">${fmt(d.new_7d)}</td>
+    <td>${feedCell(d)}</td></tr>`).join("");
+  const feedless=idf.feedless_subdomains||[];
+  const feedlessList=feedless.length?`<details class="feedless"><summary>▸ ${feedless.length} feedless subdomains — zero artifacts ever (click to expand)</summary><div class="fl-grid">${feedless.map(s=>`<span>${esc(s.code)} · ${esc(s.name)}</span>`).join("")}</div></details>`:"";
+  document.getElementById("idf-health").innerHTML=`
+    <div class="stats" style="margin-bottom:14px">${idfHead}</div>
+    <div class="hnote">${idf.domains_dark} domain dark (no feed at all) · ${idf.subdomains_no_feed} of ${idf.subdomains_total} subdomains have no data feed. "Subs" = live / total; ◐ marks partial coverage.</div>
+    <div class="dscroll"><table class="dtable"><thead><tr>
+      <th>Domain</th><th>Subs live</th><th>Artifacts</th><th>New · 7d</th><th>Feed</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+    ${feedlessList}`;
+
+  /* Daily Challenge Health */
+  const bank=dc.bank||{};
+  const closed=dc.season_status!=="open";
+  const seasonPill=closed?'<span class="pill p-warn">CLOSED</span>':'<span class="pill p-live">OPEN</span>';
+  const daysTxt=closed?`0 days left · between seasons`:`${dc.days_left} days left`;
+  const dcHead=[
+    {v:fmt(bank.total??0),l:"Puzzle bank · total"},
+    {v:fmt(bank.remaining_scheduled??0),l:`Scheduled ahead${bank.through?" · to "+bank.through:""}`},
+    {v:fmt(bank.unpublished??0),l:"Unpublished · unscheduled"},
+    {v:fmt(bank.live_today??0),l:"Live today"},
+    {v:fmt(dc.players_24h_total??0),l:"Players · 24h",warn:false}
+  ].map(statCard).join("");
+  const prows=(dc.puzzles_today||[]).map(p=>`<tr>
+    <td>${esc(p.name)}</td>
+    <td style="text-align:left;color:var(--sage)">${esc(p.type)}</td>
+    <td style="text-align:left;color:var(--warm-dim)">${esc(p.topic)}</td>
+    <td class="${p.players_24h?"":"zero"}">${fmt(p.players_24h)}</td>
+    <td class="${p.high_score_24h?"":"zero"}">${fmt(p.high_score_24h)}</td></tr>`).join("");
+  document.getElementById("dc-health").innerHTML=`
+    <div class="seasonbar"><b>${esc(dc.season_name||"—")}</b>${seasonPill}<span class="hnote" style="margin:0">${daysTxt}${dc.season_ends_on?" · ended "+dc.season_ends_on:""}</span></div>
+    <div class="stats" style="margin-bottom:14px">${dcHead}</div>
+    <div class="hnote">Bank source: ${esc(bank.source||"Airtable")}${bank.synced_on?" · synced "+bank.synced_on:""} · ${bank.retired??0} retired, ${bank.published??0} published. Per-puzzle play stats below are live from Supabase.</div>
+    <div class="dscroll"><table class="dtable puzz"><thead><tr>
+      <th>Today's puzzle</th><th style="text-align:left">Format</th><th style="text-align:left">Topic</th><th>Players · 24h</th><th>High · 24h</th>
+    </tr></thead><tbody>${prows}</tbody></table></div>`;
+
+  /* Engine dashboard — fix JPS card source (#3) */
+  const jpsEng=engines.find(e=>e.n==="JPS");
+  if(jpsEng) jpsEng.m=`${fmt(jps.scored)} / ${fmt(jps.total)} SCORED`;
+  document.getElementById("engines").innerHTML=engines.map(e=>`
+   <div class="eng"><span class="dot d-${e.s==="live"?"live":e.s==="amber"?"amber":"idle"}"></span>${e.n}<span class="mono">${e.m}</span></div>`).join("");
+
+  /* Engine stats — live, with corrected JPS (#3) and honest Signals (#4) */
+  const liveStats=[
+    {v:fmt(es.automations_24h),l:"Automations ran · 24h",sub:`${es.automations_succeeded_24h} succeeded`},
+    {v:fmt(es.jurisdictions),l:"Jurisdictions",sub:`${fmt(es.jurisdictions_active)} active`},
+    {v:fmt(jps.scored),l:"JPS-scored jurisdictions",sub:`out of ${fmt(jps.total)} · ${Math.round(jps.scored/jps.total*100)}%`},
+    {v:fmt(jps.jpas_scored),l:"JPAS-scored jurisdictions"},
+    {v:fmt(es.artifacts_total),l:"Artifacts"},
+    {v:fmt(es.new_artifacts_24h),l:"New artifacts · 24h"},
+    {v:fmt(sig.last_24h),l:"Signals · 24h",sub:sig.status==="stalled"?`stalled · last ${sig.last_fired?sig.last_fired.slice(0,10):"—"} · ${fmt(sig.candidates_24h)} unpromoted`:`${fmt(sig.total)} all-time · ${fmt(sig.candidates_24h)} candidates`,warn:sig.status==="stalled"},
+    {v:fmt(es.predictions),l:"Predictions"},
+    {v:fmt(es.new_predictions_24h),l:"New predictions · 24h"},
+    {v:fmt(es.companies),l:"Companies tracked"},
+    {v:fmt(es.companies_new_signals_7d),l:"Companies w/ new signals · 7d",warn:es.companies_new_signals_7d===0}
+  ];
+  document.getElementById("stats").innerHTML=liveStats.map(statCard).join("");
+
+  const gen=new Date(h.generated_at);
+  const stamp=gen.toLocaleString("en-US",{month:"2-digit",day:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"});
+  document.getElementById("stats-subhead").textContent=`Engine stats — Supabase counts · live · ${stamp}`;
+}
+
+async function loadHealth(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/workbench_health`,{
+      method:"POST",
+      headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":"application/json"},
+      body:"{}"
+    });
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    renderHealth(await r.json());
+  }catch(e){
+    console.warn("workbench_health fetch failed — static board retained.",e);
+    document.getElementById("idf-health").innerHTML=`<div class="hnote" style="color:var(--red)">IDF health unavailable — live fetch failed (${esc(e.message)}). Engine stats above are the last static snapshot.</div>`;
+    document.getElementById("dc-health").innerHTML=`<div class="hnote" style="color:var(--red)">Daily Challenge health unavailable — live fetch failed (${esc(e.message)}).</div>`;
+  }
+}
+loadHealth();
 </script>
 </body>
 </html>
