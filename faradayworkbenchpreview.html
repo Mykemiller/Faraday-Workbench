@@ -364,7 +364,7 @@ function renderHealth(h){
     {v:fmt(jps.jpas_scored),l:"JPAS-scored jurisdictions"},
     {v:fmt(es.artifacts_total),l:"Artifacts"},
     {v:fmt(es.new_artifacts_24h),l:"New artifacts · 24h"},
-    {v:fmt(sig.last_24h),l:"Signals · 24h",sub:`stalled · last ${sig.last_fired?sig.last_fired.slice(0,10):"—"} · ${fmt(sig.candidates_24h)} unpromoted`,warn:sig.status==="stalled"},
+    {v:fmt(sig.last_24h),l:"Signals · 24h",sub:sig.status==="stalled"?`stalled · last ${sig.last_fired?sig.last_fired.slice(0,10):"—"} · ${fmt(sig.candidates_24h)} unpromoted`:`${fmt(sig.total)} all-time · ${fmt(sig.candidates_24h)} candidates`,warn:sig.status==="stalled"},
     {v:fmt(es.predictions),l:"Predictions"},
     {v:fmt(es.new_predictions_24h),l:"New predictions · 24h"},
     {v:fmt(es.companies),l:"Companies tracked"},
