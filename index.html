@@ -71,6 +71,11 @@ h2{font-family:'IBM Plex Serif',serif;font-size:27px;margin:6px 0 22px}
 .dot{width:8px;height:8px;border-radius:50%;flex:none}
 .d-live{background:var(--live)} .d-amber{background:var(--amber)} .d-idle{background:var(--idle)}
 .eng .mono{margin-left:auto;font-size:10px;color:var(--warm-dim)}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:8px}
+.stat{background:var(--forest);border:1px solid var(--hair);border-radius:4px;padding:14px 14px 12px}
+.stat .num{font-family:'IBM Plex Serif',serif;font-size:26px;font-weight:700;color:var(--gold-bright);line-height:1.1}
+.stat .lbl{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--warm-dim);margin-top:5px}
+.stat .sub{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--sage);margin-top:2px}
 
 /* store */
 .packs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
@@ -125,6 +130,8 @@ footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Ple
     <div class="board" id="storefronts"></div>
     <div class="subhead">Engine dashboard — Fundamental Intelligence Engine</div>
     <div class="engines" id="engines"></div>
+    <div class="subhead">Engine stats — Supabase counts · as of 07-04-26</div>
+    <div class="stats" id="stats"></div>
   </div>
 </section>
 
@@ -214,6 +221,19 @@ const toolLinks=[
  {b:"Doppler",u:"https://dashboard.doppler.com",s:"secrets store"},
  {b:"Beehiiv — faraday-intelligence",u:"https://app.beehiiv.com",s:"newsletter ops"}
 ];
+const engineStats=[
+ {v:"93",l:"Automations ran · 24h",sub:"92 succeeded"},
+ {v:"39,324",l:"Jurisdictions",sub:"39,307 active"},
+ {v:"19,806",l:"JPS-scored jurisdictions"},
+ {v:"390",l:"JPAS-scored jurisdictions"},
+ {v:"5,191",l:"Artifacts"},
+ {v:"320",l:"New artifacts · 24h"},
+ {v:"0",l:"Signals · 24h",sub:"3 all-time"},
+ {v:"21",l:"Predictions"},
+ {v:"0",l:"New predictions · 24h"},
+ {v:"473",l:"Companies tracked"},
+ {v:"0",l:"Companies w/ new signals · 7d"}
+];
 const pillClass={live:"p-live",build:"p-build",concept:"p-concept",warn:"p-warn"};
 document.getElementById("storefronts").innerHTML=storefronts.map(s=>`
  <div class="card"><div class="row"><h3>${s.n}</h3><span class="pill ${pillClass[s.s]}">${s.tag}</span></div>
@@ -221,6 +241,8 @@ document.getElementById("storefronts").innerHTML=storefronts.map(s=>`
  <div class="meta"><a href="${s.url}" target="_blank" rel="noopener">${s.jira} ↗</a><span>SYNC 06-20-26</span></div></div>`).join("");
 document.getElementById("engines").innerHTML=engines.map(e=>`
  <div class="eng"><span class="dot d-${e.s==="live"?"live":e.s==="amber"?"amber":"idle"}"></span>${e.n}<span class="mono">${e.m}</span></div>`).join("");
+document.getElementById("stats").innerHTML=engineStats.map(s=>`
+ <div class="stat"><div class="num">${s.v}</div><div class="lbl">${s.l}</div>${s.sub?`<div class="sub">${s.sub}</div>`:""}</div>`).join("");
 const lk=a=>a.map(l=>`<a class="lk" href="${l.u}" target="_blank" rel="noopener"><b>${l.b}</b><span>${l.s}</span></a>`).join("");
 document.getElementById("sf-links").innerHTML=lk(sfLinks);
 document.getElementById("tool-links").innerHTML=lk(toolLinks);
