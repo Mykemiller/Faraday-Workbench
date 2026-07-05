@@ -142,7 +142,7 @@ footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Ple
 
 <div class="wrap hero">
   <h1>Everything Faraday, <em>one bench.</em></h1>
-  <p>Live posture across the eight storefronts and seven engines, the token store, and one-tap paths to every tool. Your unfair advantage — pointed inward.</p>
+  <p>Live posture across the nine storefronts and seven engines, the token store, and one-tap paths to every tool. Your unfair advantage — pointed inward.</p>
   <div class="ticker" aria-label="Status ticker">
     <div class="ticker-inner" id="ticker"></div>
   </div>
@@ -221,7 +221,9 @@ const storefronts=[
  {n:"Live Agent",s:"build",tag:"IN BUILD",note:"Enrichment cleared 1,493/1,493; RAG Q&A acceptance underway.",jira:"FAR-29",url:"https://mykesfoundry.atlassian.net/browse/FAR-29"},
  {n:"Faraday Academy",s:"build",tag:"IN BUILD",note:"36 courses in Draft; Academy Course Template in progress.",jira:"FAR-30",url:"https://mykesfoundry.atlassian.net/browse/FAR-30"},
  {n:"Signal Room",s:"build",tag:"IN BUILD",note:"Configurator surface; update in progress 6-20-26.",jira:"FAR-31",url:"https://mykesfoundry.atlassian.net/browse/FAR-31"},
- {n:"Thought Forge",s:"concept",tag:"CONCEPT",note:"Commission surface — engine and storefront both pre-build.",jira:"FAR-32",url:"https://mykesfoundry.atlassian.net/browse/FAR-32"}
+ {n:"Thought Forge",s:"concept",tag:"CONCEPT",note:"Commission surface — engine and storefront both pre-build.",jira:"FAR-32",url:"https://mykesfoundry.atlassian.net/browse/FAR-32"},
+ {n:"League Office",s:"live",tag:"LIVE",note:"Daily Challenge Commissioner console — Tier 1 read screens + Tier 2 audited write-actions shipped (FAR-221 PRs #82/#83). Staff-gated, mykemiller@gmail.com allowlist.",jira:"FAR-221",url:"https://mykesfoundry.atlassian.net/browse/FAR-221"},
+ {n:"Civic-Host",s:"live",tag:"LIVE",note:"Free, verified township websites — a Jurisdiction Watch company. Live within 24 hours, no IT department required, free for first 3 years.",jira:"FAR-305",url:"https://mykesfoundry.atlassian.net/browse/FAR-305"}
 ];
 const engines=[
  {n:"IDF 4.0",s:"live",m:"OPERATIONAL"},{n:"JPS",s:"live",m:"20 JURISDICTIONS"},
@@ -231,12 +233,13 @@ const engines=[
 ];
 const sfLinks=[
  {b:"Jurisdiction Watch",u:"https://jurisdiction-watch.com",s:"jurisdiction-watch.com"},
+ {b:"Civic-Host",u:"https://civic-host.vercel.app",s:"townships · free verified gov websites"},
  {b:"Faraday Intelligence — homepage",u:"https://faraday-intelligence.ai",s:"faraday-intelligence.ai"},
  {b:"Daily Challenge",u:"https://faraday-intelligence.ai/daily-challenge",s:"7 puzzle games · free / email capture"},
  {b:"Briefing Library",u:"https://faraday-intelligence.ai/briefing-library",s:"19 canonical · Gamma shelf"},
  {b:"Intelligent Alert",u:"https://faraday-intelligence.ai",s:"Beehiiv publication"},
  {b:"Faraday Academy",u:"https://faraday-intelligence.ai",s:"LearnWorlds · 36 draft courses"},
- {b:"Signal Room",u:"https://github.com/Mykemiller/Faraday-Signal-Room",s:"repo — surface TBD"},
+ {b:"Signal Room",u:"https://faraday-signal-room.com/signal-room",s:"faraday-signal-room.com/signal-room"},
  {b:"Live Agent",u:"https://faraday-intelligence.ai",s:"Claude + Pinecone RAG"}
 ];
 const toolLinks=[
@@ -251,7 +254,8 @@ const toolLinks=[
  {b:"Airtable — primary base",u:"https://airtable.com/appxfti7VuoHYUeu6",s:"companies · briefings · puzzle bank"},
  {b:"Vercel — Project Foundry",u:"https://vercel.com/project-foundry",s:"deployments"},
  {b:"Doppler",u:"https://dashboard.doppler.com",s:"secrets store"},
- {b:"Beehiiv — faraday-intelligence",u:"https://app.beehiiv.com",s:"newsletter ops"}
+ {b:"Beehiiv — faraday-intelligence",u:"https://app.beehiiv.com",s:"newsletter ops"},
+ {b:"League Office",u:"https://faraday-intelligence.ai/league-office",s:"Commissioner console · staff only"}
 ];
 const engineStats=[
  {v:"93",l:"Automations ran · 24h",sub:"92 succeeded"},
