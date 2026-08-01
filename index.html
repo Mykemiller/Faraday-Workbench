@@ -102,6 +102,14 @@ h2{font-family:'IBM Plex Serif',serif;font-size:27px;margin:6px 0 22px}
 .dtable .feed-part{color:var(--amber);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em}
 .dtable td.part{color:var(--amber)}
 .dtable .zero{color:var(--idle)}
+.dtable td.delta{text-align:center}
+/* span table is all-numeric: no label column, so drop the first-child override */
+.dtable.spans th:first-child{text-align:right}
+.dtable.spans td:first-child{text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--warm-dim)}
+/* must out-specify `.dtable td{color:var(--warm-dim)}` */
+.dtable td.d-good{color:var(--live)} .dtable td.d-bad{color:var(--red)} .dtable td.d-flat{color:var(--idle)}
+.dtable td.alert{color:var(--red);font-weight:600}
+.dtable td .inline{color:var(--sage);font-family:'Bricolage Grotesque',sans-serif;font-size:11.5px}
 .feedless{margin-top:12px;font-size:12px}
 .feedless summary{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--amber);cursor:pointer;padding:8px 0}
 .fl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 16px;padding:8px 0 4px}
@@ -164,6 +172,9 @@ footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Ple
 
     <div class="subhead">Daily Challenge Health</div>
     <div id="dc-health"><div class="hnote">Loading live Daily Challenge health…</div></div>
+
+    <div class="subhead">Faraday Forecast Model</div>
+    <div id="forecast-model"><div class="hnote">Loading forecast-model status…</div></div>
 
     <div class="subhead">Engine dashboard — Fundamental Intelligence Engine</div>
     <div class="engines" id="engines"></div>
@@ -402,6 +413,100 @@ async function loadHealth(){
   }
 }
 loadHealth();
+
+/* ---- Faraday Forecast Model: workbench_forecast_model() RPC ----
+   Ported from v0-faraday-daily-challenge#146, which landed this panel as a
+   Next server component in the engine repo by mistake. The two sources
+   (forecast_model_metrics_snapshots, v_legacy_span_counts) are RLS-denied to
+   anon, so the read goes through a SECURITY DEFINER RPC over a cron-refreshed
+   cache — the span view scans ~2.2M rows and cannot run on the request path. */
+const MODEL_METRICS=[
+  {k:"total_backlog_years",  l:"Backlog (source-years)",          good:"down"},
+  {k:"vintages_total",       l:"Forecast vintages held",          good:"up"},
+  {k:"observations_total",   l:"Forecast observations extracted", good:"up"},
+  {k:"active_but_empty",     l:"Active-but-empty sources",        good:"zero"},
+  {k:"health_fail_rate_7d",  l:"Ingest failure rate, 7d (%)",     good:"down", pct:true},
+  {k:"briefs_generated_7d",  l:"JW briefs generated, 7d",         good:"up"},
+  {k:"edgar_artifacts_total",l:"SEC EDGAR artifacts",             good:"up"},
+  {k:"cited_depth_pct",      l:"Cited source depth (%)",          good:"up",   pct:true}
+];
+function fmtMetric(v,pct){
+  if(v==null||!Number.isFinite(Number(v))) return "—";
+  const n=Number(v);
+  const s=Number.isInteger(n)?n.toLocaleString("en-US"):n.toLocaleString("en-US",{maximumFractionDigits:2});
+  return pct?s+"%":s;
+}
+/* Arrow direction is the raw move; colour is whether that move is healthy. */
+function deltaCell(last,curr,good){
+  const l=last==null?null:Number(last), c=curr==null?null:Number(curr);
+  if(l===null||c===null||!Number.isFinite(l)||!Number.isFinite(c)) return {g:"—",c:"d-flat"};
+  const d=c-l;
+  if(d===0) return {g:"—",c:"d-flat"};
+  const up=d>0;
+  return {g:up?"▲":"▼", c:(good==="up"?up:!up)?"d-good":"d-bad"};
+}
+function stampUTC(iso){
+  const d=new Date(iso);
+  return isNaN(d.getTime())?String(iso):d.toISOString().slice(0,16).replace("T"," ")+" UTC";
+}
+function renderForecastModel(p){
+  const snaps=p.snapshots||[], spans=p.spans||[];
+  const thisWk=snaps[0]||null, lastWk=snaps[1]||null;
+
+  let sectionA;
+  if(!thisWk){
+    sectionA='<div class="hnote">No metrics snapshots yet.</div>';
+  }else{
+    const rows=MODEL_METRICS.map(m=>{
+      const curr=thisWk[m.k], last=lastWk?lastWk[m.k]:null;
+      const d=deltaCell(last,curr,m.good);
+      /* 'zero' metrics are a standing must-be-0 invariant: any non-zero
+         current value is red regardless of which way it moved. */
+      const alert=m.good==="zero"&&Number.isFinite(Number(curr))&&Number(curr)>0;
+      const inline=m.k==="cited_depth_pct"
+        ? ` <span class="inline">· ${fmtMetric(thisWk.multi_vintage_sources)} multi-vintage sources</span>`
+        : "";
+      return `<tr>
+        <td>${esc(m.l)}</td>
+        <td>${fmtMetric(last,m.pct)}</td>
+        <td class="${alert?"alert":""}">${fmtMetric(curr,m.pct)}${inline}</td>
+        <td class="delta ${d.c}">${d.g}</td></tr>`;
+    }).join("");
+    sectionA=`<div class="dscroll"><table class="dtable">
+      <thead><tr><th>Metric</th><th>Last week</th><th>This week</th><th>Δ</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+      <div class="hnote" style="margin-top:8px">as of ${esc(stampUTC(thisWk.captured_at))}${lastWk?"":" · single snapshot on file — no week-over-week deltas yet"}</div>`;
+  }
+
+  const sectionB=spans.length
+    ? `<div class="dscroll" style="margin-top:6px"><table class="dtable spans" style="min-width:0">
+         <thead><tr>${spans.map(s=>`<th>${esc(s.span)}</th>`).join("")}</tr></thead>
+         <tbody><tr>${spans.map(s=>`<td>${fmt(s.legacy_rows)}</td>`).join("")}</tr></tbody>
+       </table></div>
+       <div class="hnote" style="margin-top:8px">Content-dated rows across all legacy data sources; counts grow as the backfill queue drains.${p.computed_at?" Cache computed "+esc(stampUTC(p.computed_at))+".":""}</div>`
+    : '<div class="hnote">No span counts returned.</div>';
+
+  document.getElementById("forecast-model").innerHTML=
+    sectionA+
+    '<div class="subhead" style="margin-top:20px">Legacy artifact coverage by span</div>'+
+    sectionB;
+}
+async function loadForecastModel(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/workbench_forecast_model`,{
+      method:"POST",
+      headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":"application/json"},
+      body:"{}"
+    });
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    renderForecastModel(await r.json());
+  }catch(e){
+    console.warn("workbench_forecast_model fetch failed.",e);
+    document.getElementById("forecast-model").innerHTML=
+      `<div class="hnote" style="color:var(--red)">Forecast-model status unavailable — live fetch failed (${esc(e.message)}).</div>`;
+  }
+}
+loadForecastModel();
 </script>
 </body>
 </html>
