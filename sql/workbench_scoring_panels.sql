@@ -395,11 +395,18 @@ select jsonb_build_object(
     'power_contention_rows',          (select count(*) from jurisdiction_power_contention),
     'power_contention_rows_measured',
       (select count(*) from jurisdiction_power_contention where queue_coverage = 'measured')),
-  'caveats', jsonb_build_array(
-    jsonb_build_object(
-      'caveat', 'The JDS composer is on no schedule',
-      'effect', 'Scores are a snapshot of the last manual run, not a current reading.',
-      'status', 'Live'),
+  -- The "no schedule" caveat is DERIVED from the same cron lookup that feeds
+  -- composer_is_scheduled, not hardcoded. It was a literal until
+  -- CC-JDS-DAILY-REFRESH-1.0 registered jds-county-rollup-daily, at which point
+  -- the payload asserted both "scheduled: true" and "on no schedule" at once.
+  -- One source of truth; it returns automatically if the cron is ever removed.
+  'caveats', (case when (select exists (select 1 from cron.job
+                                         where active and command ilike '%jw_rollup_county_jds%'))
+                     then '[]'::jsonb
+                     else jsonb_build_array(jsonb_build_object(
+                       'caveat', 'The JDS composer is on no schedule',
+                       'effect', 'Scores are a snapshot of the last manual run, not a current reading.',
+                       'status', 'Live')) end) || jsonb_build_array(
     jsonb_build_object(
       'caveat', 'Half the supply term rests on imputed contention',
       'effect', 'Exactly half the scored counties have measured queue coverage; the rest take an '
