@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Open** — work applied 2026-08-19; closes when the 21:00 UTC initial pass is verified |
+| Status | **Closed** 2026-08-19 |
 | Version | 1.0 |
 | Owner | Myke |
 | Opened | 2026-08-19 |
@@ -350,10 +350,16 @@ one-off), and the hourly job is gone.
   (`15 10 * * *`)** and **238 `workbench-scoring-panels-initial-pass` (`0 21 19 8 *`,
   the one-off 16:00 America/Chicago run Myke asked for)** created. No new SQL object; no
   score touched.
+- **Initial pass verified and cleaned up (2026-08-19 21:08 UTC):** job 238 fired at
+  **21:00:00.13 UTC** exactly (16:00 America/Chicago), `status = succeeded`, and
+  `workbench_scoring_cache.computed_at` advanced to **21:00:00.14 UTC**. Job 238 has been
+  **unscheduled**; `cron.job` now matches exactly one row on `%scoring_panels%` — jobid 237
+  `workbench-scoring-panels-refresh-daily` `15 10 * * *`. Nothing date-pinned remains.
+  - **Correction to the ~12 s figure quoted in §5.3:** that was a warm in-session
+    measurement. The real cron run took **26.3 s** end-to-end. Still far inside any
+    tolerance for a background job, and 10:15 UTC is a quiet slot, but the honest number
+    is 26 s, not 12.
 - **What is still open:**
-  - **Job 238 must be unscheduled once it has fired** — it is date-pinned to 19 August and
-    would otherwise recur next year. Verification of that run and the unschedule is the
-    last item before this CC closes.
   - Every defect the panels render remains unfixed by design (§3). The page now states
     each of them in red or amber, every day, until someone acts.
   - The C1 Proposed decision in §7 awaits Accept-or-reverse.
