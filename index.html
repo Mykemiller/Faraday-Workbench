@@ -110,6 +110,29 @@ h2{font-family:'IBM Plex Serif',serif;font-size:27px;margin:6px 0 22px}
 .dtable td.d-good{color:var(--live)} .dtable td.d-bad{color:var(--red)} .dtable td.d-flat{color:var(--idle)}
 .dtable td.alert{color:var(--red);font-weight:600}
 .dtable td .inline{color:var(--sage);font-family:'Bricolage Grotesque',sans-serif;font-size:11.5px}
+/* --- CC-WORKBENCH-SCORING-PANELS-UI-1.0: caveat blocks ---
+   Governing rule (§5.2): in every scoring panel the caveat block renders ABOVE
+   the data block. This is an internal instrument panel, not a marketing surface —
+   a reader who stops after the first screen must already have the bad news.
+   Colour grammar, applied consistently and stated on the page: RED = live defect
+   or something not running; AMBER = a documented characteristic or a Proposed
+   (not yet Confirmed) decision; GREEN = an invariant currently holding. */
+.caveat{border-left:2px solid var(--amber);background:rgba(217,166,72,.06);padding:9px 12px;margin:0 0 8px;border-radius:0 3px 3px 0}
+.caveat.bad{border-left-color:var(--red);background:rgba(200,106,90,.08)}
+.caveat.ok{border-left-color:var(--live);background:rgba(127,191,122,.06)}
+.caveat .ct{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);margin-bottom:4px}
+.caveat.bad .ct{color:var(--red)}
+.caveat.ok .ct{color:var(--live)}
+.caveat .cb{font-size:12.5px;color:var(--warm-dim);line-height:1.45}
+.caveat .cs{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--sage);margin-top:5px;line-height:1.5}
+.legend{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--idle);margin:0 0 10px}
+.legend b{font-weight:500}
+.legend .lr{color:var(--red)} .legend .la{color:var(--amber)} .legend .lg{color:var(--live)}
+.dtable td.imp-hi{color:var(--red);font-weight:600}
+.dtable td.imp-mid{color:var(--amber)}
+/* must out-specify `.dtable td{white-space:nowrap}` — same trap as the colour
+   overrides above, and without this the code lists force a very wide scroll */
+.dtable td.codes{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--sage);white-space:normal;text-align:left;max-width:520px;line-height:1.5}
 .feedless{margin-top:12px;font-size:12px}
 .feedless summary{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--amber);cursor:pointer;padding:8px 0}
 .fl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 16px;padding:8px 0 4px}
@@ -175,6 +198,20 @@ footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Ple
 
     <div class="subhead">Faraday Forecast Model</div>
     <div id="forecast-model"><div class="hnote">Loading forecast-model status…</div></div>
+
+    <div class="subhead">Scoring panels — JPAS · JDS · JTS</div>
+    <div id="scoring-age"></div>
+    <div class="legend"><b class="lr">RED</b> live defect or not running &nbsp;·&nbsp; <b class="la">AMBER</b> documented characteristic, or a Proposed decision &nbsp;·&nbsp; <b class="lg">GREEN</b> invariant holding</div>
+
+    <div class="subhead" style="margin-top:18px">JPAS — tier status</div>
+    <div id="jpas-panel"><div class="hnote">Loading JPAS tier status…</div></div>
+
+    <div class="subhead" style="margin-top:22px">JDS — demand signal status</div>
+    <div id="jds-panel"><div class="hnote">Loading JDS status…</div></div>
+
+    <div class="subhead" style="margin-top:22px">JTS — readiness</div>
+    <div id="jts-panel"><div class="hnote">Loading JTS readiness…</div></div>
+
 
     <div class="subhead">Engine dashboard — Fundamental Intelligence Engine</div>
     <div class="engines" id="engines"></div>
@@ -507,6 +544,235 @@ async function loadForecastModel(){
   }
 }
 loadForecastModel();
+
+/* ---- Scoring panels: workbench_scoring_panels() RPC ----
+   CC-WORKBENCH-SCORING-PANELS-UI-1.0. One fetch serves all three panels — the
+   payload is a single cache row with jpas/jds/jts keys (CC-2.0 D2), so the
+   panels can never disagree about "as of when".
+
+   The reader is cache-only by design: the underlying compute takes ~12s across
+   ~745k jpas_attributes rows and would blow the anon statement timeout, so a
+   miss returns nulls rather than hanging. Refresh is daily at 10:15 UTC —
+   which is why the age banner is load-bearing, not decorative. */
+
+/* Severity rule, applied to every payload-supplied caveat: a defect whose
+   status starts "Live" is red; anything else (notably DEC-31's "Proposed, not
+   Confirmed") is amber. The page must never round a Proposed decision up to a
+   settled fact. */
+const sevOf = st => /^live/i.test(String(st||"")) ? "bad" : "";
+
+function caveat(sev, title, body, sub){
+  return `<div class="caveat${sev?" "+sev:""}">
+    <div class="ct">${esc(title)}</div>
+    <div class="cb">${esc(body)}</div>
+    ${sub?`<div class="cs">${sub}</div>`:""}</div>`;
+}
+function agoText(iso){
+  const t=new Date(iso).getTime();
+  if(isNaN(t)) return null;
+  const h=(Date.now()-t)/36e5;
+  return {h, txt: h<1 ? Math.round(h*60)+"m" : h<48 ? h.toFixed(1)+"h" : Math.floor(h/24)+"d"};
+}
+
+function renderScoringAge(p){
+  const el=document.getElementById("scoring-age");
+  if(!p.computed_at){
+    el.innerHTML=caveat("bad","Payload age","No computed_at on the cache — the refresh has never run.",
+      "Force one: select public.workbench_scoring_panels_refresh(); (service_role)");
+    return;
+  }
+  const a=agoText(p.computed_at);
+  const sev = !a ? "bad" : a.h < 26 ? "ok" : a.h <= 50 ? "" : "bad";
+  const body = sev==="ok"
+    ? "Cache is current."
+    : sev==="" ? "Cache is older than one refresh cycle — a scheduled run may have been missed."
+               : "Cache is stale by more than two refresh cycles. Treat every number below as historical.";
+  el.innerHTML=caveat(sev, "Payload age — "+(a?a.txt:"unknown")+" old", body,
+    "Computed "+esc(stampUTC(p.computed_at))+" · refreshed daily at 10:15 UTC, so a break occurring after that time does not appear here until the next run.");
+}
+
+/* ---- Panel 1: JPAS tier status ---- */
+function renderJpas(j){
+  if(!j){document.getElementById("jpas-panel").innerHTML='<div class="hnote" style="color:var(--red)">No JPAS payload in cache.</div>';return;}
+
+  /* Caveats first (§5.2). Composer defects verbatim from the payload — the page
+     restates neither the defect nor its status, so the two cannot drift. */
+  let cav=(j.composer_defects||[]).map(d=>
+    caveat(sevOf(d.status), "Composer defect — "+(d.status||"unknown status"), d.defect,
+      esc(d.effect)+(d.decision_ref?' <span style="color:var(--idle)">· '+esc(d.decision_ref)+'</span>':""))
+  ).join("");
+
+  const wi=j.weight_integrity||{};
+  const wiBad = wi.budget_is_100===false || Number(wi.tiers_with_split_weight)>0 || Number(wi.tiers_attr_weights_off_one)>0;
+  cav+=caveat(wiBad?"bad":"ok", "Weight budget "+(wiBad?"BREACHED":"holding"),
+    wiBad ? "The live tier weight vector no longer sums to 100, or a tier carries a split weight. Every score is silently deflated or inflated until this is corrected."
+          : "The nine live tiers sum to exactly 100, no tier carries a split weight, and every tier's attribute weights sum to 1.0.",
+    "budget "+esc(wi.budget)+" · split-weight tiers "+esc(wi.tiers_with_split_weight)+" · attr-sum off-one "+esc(wi.tiers_attr_weights_off_one)+
+    " · divisor is a "+esc(wi.composer_divisor)+", so nothing enforces this — it is measured, not guaranteed.");
+
+  const rvr=j.registry_vs_reality||{};
+  if(j.legacy_flag_is_dead){
+    cav+=caveat("", "Legacy is_active flag is dead", j.legacy_flag_note||"",
+      esc(rvr.active_flag_contradictions||0)+" registry rows disagree between is_active and quality_is_active. Only quality_is_active gates anything.");
+  }
+
+  const tiers=j.live_tiers||[];
+  const rows=tiers.map(t=>{
+    const im=t.imputation||{}, pct=im.pct_imputed;
+    const cls = pct==null?"" : pct>=90?"imp-hi" : pct>=50?"imp-mid":"";
+    const mix=Object.entries(t.confidence_mix||{}).filter(([,v])=>Number(v)>0)
+      .map(([k,v])=>k+" "+fmt(v)).join(" · ")||"—";
+    const zw=Number(t.attrs_zero_weight)>0?` <span class="inline">(${t.attrs_zero_weight} at weight 0)</span>`:"";
+    return `<tr>
+      <td>${esc(t.tier_code)}</td>
+      <td>${esc(t.tier_weight)}</td>
+      <td>${esc(t.attrs_live)}${zw}</td>
+      <td>${fmt(t.attribute_rows)}</td>
+      <td>${fmt(t.jurisdictions_with_data)}</td>
+      <td class="${cls}">${pct==null?"—":pct+"%"}</td>
+      <td style="text-align:left;font-size:11px">${esc(mix)}</td>
+      <td>${t.last_write?esc(stampUTC(t.last_write)).slice(0,10):"—"}</td></tr>`;
+  }).join("");
+
+  const tierTable=tiers.length?`<div class="dscroll"><table class="dtable">
+    <thead><tr><th>Tier</th><th>Weight</th><th>Live attrs</th><th>Rows</th><th>Jurisdictions</th><th>% imputed</th><th>Confidence mix</th><th>Last write</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+    <div class="hnote" style="margin-top:8px">% imputed is the share of scored jurisdictions taking a median rather than a measured value for that tier — read it against the weight column. Red ≥90%, amber ≥50%.</div>`
+    :'<div class="hnote">No live tiers returned.</div>';
+
+  const rvrRows=[
+    ["Holds data but not quality-active (dark data)", rvr.dark_data_attributes, rvr.dark_data_codes, fmt(rvr.dark_data_jurisdiction_rows||0)+" jurisdiction-rows"],
+    ["Quality-active with zero rows", rvr.live_with_zero_data, rvr.live_with_zero_data_codes, ""],
+    ["Quality-active but registry says gated / not built", (rvr.live_but_registry_says_gated||[]).length, rvr.live_but_registry_says_gated, ""],
+    ["is_active ↔ quality_is_active contradictions", rvr.active_flag_contradictions, rvr.active_flag_contradiction_codes, ""]
+  ].map(([label,n,codes,extra])=>{
+    const c=Array.isArray(codes)?codes:[];
+    return `<tr>
+      <td>${esc(label)}</td>
+      <td class="${Number(n)>0?"alert":"zero"}">${esc(n==null?"—":n)}</td>
+      <td class="codes">${c.length?esc(c.join(", ")):"—"}${extra?' <span style="color:var(--idle)">· '+esc(extra)+'</span>':""}</td></tr>`;
+  }).join("");
+
+  const rvrTable=`<div class="subhead" style="margin-top:18px">Registry vs reality — standing drift instrumentation</div>
+    <div class="dscroll"><table class="dtable">
+    <thead><tr><th>Divergence</th><th>Count</th><th>Attribute codes</th></tr></thead>
+    <tbody>${rvrRows}</tbody></table></div>`;
+
+  const head=`<div class="hnote">Composer <b>${esc(j.live_composer)}</b> · ${esc(j.live_tier_count)} live tiers · ${esc(j.attributes_live)} of ${esc(j.attributes_registered)} attributes live · ${fmt(j.attribute_rows_total)} attribute rows · ${fmt(j.jurisdictions_scored)} of ${fmt(j.jurisdictions_total)} jurisdictions scored · mean quality ${esc(j.avg_quality)} · mean completeness ${esc(j.avg_completeness)} · last recomputed ${j.last_recomputed_at?esc(stampUTC(j.last_recomputed_at)):"—"}</div>`;
+
+  document.getElementById("jpas-panel").innerHTML=cav+head+tierTable+rvrTable;
+}
+
+/* ---- Panel 2: JDS status ---- */
+function renderJds(d){
+  if(!d){document.getElementById("jds-panel").innerHTML='<div class="hnote" style="color:var(--red)">No JDS payload in cache.</div>';return;}
+
+  let cav="";
+  if(d.composer_is_scheduled===false){
+    const a=d.last_computed_at?agoText(d.last_computed_at):null;
+    cav+=caveat("bad","No schedule — nothing refreshes this score",
+      "The JDS composer runs on no cron. Every number below is a snapshot of the last manual run, not a current reading.",
+      "composer "+esc(d.composer)+" · last computed "+(d.last_computed_at?esc(stampUTC(d.last_computed_at)):"never")+(a?" ("+a.txt+" ago)":""));
+  }
+  const lc=d.layer_coverage||{};
+  if(lc.flat_columns_stale){
+    cav+=caveat("bad","Flat layer columns are stale",
+      "jurisdictions.jds_l1..l4_count read 0 on every scored row while the persisted breakdown carries the real counts. Any consumer reading the flat columns sees an empty pipeline.",
+      "This panel deliberately reads "+esc(lc.source)+" instead.");
+  }
+  const im=d.imputation||{};
+  cav+=caveat("","Half the supply term rests on imputed contention",
+    "Only counties with measured queue coverage carry a directly observed contention value. The rest take an imputed one, or — where there is no infrastructure at all — have imputation suppressed entirely.",
+    fmt(im.supply_contention_imputed||0)+" imputed ("+esc(im.pct_supply_contention_imputed)+"%) · "+
+    fmt(im.supply_contention_not_imputed||0)+" not imputed, of which only "+fmt(im.power_contention_rows_measured||0)+
+    " are actually measured · "+fmt(im.imputation_suppressed_no_infrastructure||0)+
+    " suppressed for absent infrastructure. \"Not imputed\" is not the same as \"measured\".");
+
+  /* Any caveat the payload carries that this page has not already surfaced by
+     name is rendered verbatim, so a caveat added server-side cannot go unshown. */
+  const shown=/schedule|flat |contention/i;
+  cav+=(d.caveats||[]).filter(c=>!shown.test(c.caveat||"")).map(c=>
+    caveat(sevOf(c.status), c.caveat, c.effect, esc(c.status||""))).join("");
+
+  const w=(d.weights||[])[0];
+  const wTxt=w&&w.weights?Object.entries(w.weights).map(([k,v])=>esc(k)+" "+esc(v)).join(" · "):"—";
+  const fv=(d.formula_versions||[]).map(f=>esc(f.formula_version)+" ("+fmt(f.jurisdictions)+")").join(" · ")||"—";
+  const qc=(im.queue_coverage||[]).map(q=>esc(q.coverage)+" "+fmt(q.jurisdictions)).join(" · ")||"—";
+
+  const head=`<div class="hnote">${fmt(d.jurisdictions_scored)} ${esc(d.grain)} jurisdictions scored · formula ${fv} · weights ${wTxt} <span style="color:var(--idle)">(read from the persisted breakdown, not restated)</span> · score ${esc(d.min_score)}–${esc(d.max_score)}, mean ${esc(d.avg_score)} · queue coverage ${qc}</div>`;
+
+  const tiers=(d.tier_distribution||[]).map(t=>`<tr><td>${esc(t.tier)}</td><td>${fmt(t.jurisdictions)}</td></tr>`).join("");
+  const tierTable=`<div class="dscroll"><table class="dtable"><thead><tr><th>JDS tier</th><th>Jurisdictions</th></tr></thead><tbody>${tiers}</tbody></table></div>`;
+
+  const layers=[["L1 operating",lc.l1_with_facilities,lc.l1_total],["L2 construction",lc.l2_with_facilities,lc.l2_total],
+                ["L3 permitted",lc.l3_with_facilities,lc.l3_total],["L4 parcels",lc.l4_with_parcels,lc.l4_total]]
+    .map(([l,c,t])=>`<tr><td>${esc(l)}</td><td class="${Number(c)?"":"zero"}">${fmt(c||0)}</td><td class="${Number(t)?"":"zero"}">${fmt(t||0)}</td></tr>`).join("");
+  const layerTable=`<div class="subhead" style="margin-top:18px">Layer coverage <span style="text-transform:none;letter-spacing:0">— from ${esc(lc.source||"breakdown")}</span></div>
+    <div class="dscroll"><table class="dtable"><thead><tr><th>Layer</th><th>Counties with any</th><th>Total records</th></tr></thead><tbody>${layers}</tbody></table></div>`;
+
+  document.getElementById("jds-panel").innerHTML=cav+head+tierTable+layerTable;
+}
+
+/* ---- Panel 3: JTS readiness ---- */
+function renderJts(t){
+  if(!t){document.getElementById("jts-panel").innerHTML='<div class="hnote" style="color:var(--red)">No JTS payload in cache.</div>';return;}
+
+  let cav="";
+  if(!t.formula_exists){
+    cav+=caveat("bad","No model registered — nothing computes a trajectory score",
+      t.readiness_note||"",
+      "jts_model_registry "+esc(t.models_registered)+" models · jts_snapshots "+fmt(t.snapshots)+" rows · "+
+      esc(t.attributes_active)+" of "+esc(t.attributes_registered)+" registry attributes marked active, none of them composed.");
+  }
+
+  const attrs=(t.attributes||[]).map(a=>`<tr>
+    <td>${esc(a.attribute_code)} <span class="inline">${esc(a.attribute_name)}</span></td>
+    <td style="text-align:left;font-size:11px">${esc(a.construct)}</td>
+    <td>${esc(a.default_confidence_label)}</td>
+    <td><span class="${a.is_active?"feed-ok":"feed-no"}">${a.is_active?"ACTIVE":"INACTIVE"}</span></td>
+    <td class="alert" style="text-align:left;font-size:11px">${esc(a.blocked_by)}</td>
+    <td class="codes">${a.blocking_note?esc(a.blocking_note):"—"}</td></tr>`).join("");
+  const attrTable=`<div class="dscroll"><table class="dtable">
+    <thead><tr><th>Attribute</th><th>Construct</th><th>Confidence</th><th>Registry</th><th>Blocked by</th><th>Registry note</th></tr></thead>
+    <tbody>${attrs}</tbody></table></div>`;
+
+  const feeds=(t.feeds||[]).map(f=>`<tr>
+    <td>${esc(f.feed)}</td>
+    <td style="text-align:left;font-size:11px">${esc(f.purpose)}</td>
+    <td class="${f.has_data?"":"alert"}">${fmt(f.rows)}</td>
+    <td><span class="${f.has_data?"feed-ok":"feed-no"}">${f.has_data?"HAS DATA":"EMPTY"}</span></td></tr>`).join("");
+  const feedTable=`<div class="subhead" style="margin-top:18px">Candidate feeds — ${esc(t.feeds_empty)} empty</div>
+    <div class="dscroll"><table class="dtable">
+    <thead><tr><th>Feed</th><th>Purpose</th><th>Rows</th><th>State</th></tr></thead><tbody>${feeds}</tbody></table></div>`;
+
+  const p=t.adjacent_live_system||{};
+  const pfiModels=(p.models_detail||[]).map(m=>esc(m.model_version)).join(" · ")||"—";
+  const pfi=`<div class="subhead" style="margin-top:22px">${esc(p.system||"Adjacent system")} — adjacent, NOT JTS</div>
+    ${caveat("","This is not a trajectory score", p.relationship||"",
+      "models "+esc(p.models)+" ("+pfiModels+") · forecasts "+fmt(p.forecasts||0)+" · JPS snapshots "+fmt(p.jps_snapshots||0)+" · trend features "+fmt(p.trend_features||0))}`;
+
+  document.getElementById("jts-panel").innerHTML=cav+attrTable+feedTable+pfi;
+}
+
+async function loadScoringPanels(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/workbench_scoring_panels`,{
+      method:"POST",
+      headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":"application/json"},
+      body:"{}"
+    });
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const p=await r.json();
+    renderScoringAge(p); renderJpas(p.jpas); renderJds(p.jds); renderJts(p.jts);
+  }catch(e){
+    console.warn("workbench_scoring_panels fetch failed.",e);
+    /* Never leave a stale or blank panel presented as current. */
+    const msg=`<div class="hnote" style="color:var(--red)">Scoring panel unavailable — live fetch failed (${esc(e.message)}).</div>`;
+    document.getElementById("scoring-age").innerHTML="";
+    ["jpas-panel","jds-panel","jts-panel"].forEach(id=>{document.getElementById(id).innerHTML=msg;});
+  }
+}
+loadScoringPanels();
 </script>
 </body>
 </html>
