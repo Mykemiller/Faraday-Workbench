@@ -9,7 +9,7 @@
 | Product | Faraday Workbench |
 | Jira | — |
 | Supersedes CC | None. Companion to CC-WORKBENCH-SCORING-PANELS-2.0 (merged, PR #8) |
-| Notion CC record | — |
+| Notion CC record | Decision Log entry: https://app.notion.com/p/3c189a0c168081ceb8c7e370e9ea6d87 |
 
 **Surfaces held:** Public claims & surface (the Workbench page) · Agent operations (refresh cadence)
 
@@ -334,9 +334,14 @@ one-off), and the hourly job is gone.
 | --- | --- | --- | --- |
 | Workbench scoring panels refresh **daily at 10:15 UTC**, not hourly — cadence matches source cadence, and payload age is rendered on the page | CC-2.0 D2 (cadence only; the one-cache/one-cron shape stands) | Agent operations | **Approved by Myke 2026-08-19** ("the timing is fine") |
 | The Workbench page is an **internal instrument panel**: caveats render above the data they qualify, and no field is withheld for presentation | — | Public claims & surface | **Approved by Myke 2026-08-19** |
-| JPAS **quality** tier weights are rendered client-side on the Workbench. The CLAUDE.md "service-role-only, invariant-#2 discipline" note is scoped to per-jurisdiction `jpas_quality_breakdown` rows and to JPS weights, and does **not** extend to the registry tier vector. **Consequence, stated plainly: the live weight vector is readable by any holder of the publishable key, because the page is not access-controlled.** | Clarifies the CLAUDE.md note | Scoring models · Public claims & surface | **Proposed** — flows from Myke's "proceed as is" (§1 C1); should be flipped to Accepted or reversed deliberately, not left implicit |
+| JPAS **quality** tier weights are rendered client-side on the Workbench. The CLAUDE.md "service-role-only, invariant-#2 discipline" note is scoped to per-jurisdiction `jpas_quality_breakdown` rows and to JPS weights, and does **not** extend to the registry tier vector. **Consequence, stated plainly: the live weight vector is readable by any holder of the publishable key, because the page is not access-controlled.** | Clarifies the CLAUDE.md note | Scoring models · Public claims & surface | **ACCEPTED by Myke 2026-08-19.** Canon amended in `faraday-jurisdiction-watch/CLAUDE.md` so the note carries its own scope — an accepted decision that leaves the contradicting canon untouched is the outcome this CC set out to avoid. |
 
-**A decision that exists only in the session transcript did not happen.**
+**A decision that exists only in the session transcript did not happen.** — Accordingly the
+accepted C1 decision is written to the **Faraday Decision Log** as `Status = Accepted`,
+`Decided by = Myke`, `Decided on = 2026-08-19`:
+https://app.notion.com/p/3c189a0c168081ceb8c7e370e9ea6d87
+The two cadence/presentation decisions above were approved in-session and are recorded here;
+they are process choices local to this CC rather than Log-level records.
 
 ---
 
@@ -362,7 +367,8 @@ one-off), and the hourly job is gone.
 - **What is still open:**
   - Every defect the panels render remains unfixed by design (§3). The page now states
     each of them in red or amber, every day, until someone acts.
-  - The C1 Proposed decision in §7 awaits Accept-or-reverse.
+  - ~~The C1 Proposed decision in §7 awaits Accept-or-reverse.~~ **Accepted 2026-08-19**;
+    the CLAUDE.md note was amended in the same pass. Nothing from this CC is now pending.
 - **Surfaces released:** Public claims & surface · Agent operations
 - **Follow-on CC required:** registering a JDS cron is the strongest candidate — the panel
   now says "NO SCHEDULE" in red on every load until it exists.
