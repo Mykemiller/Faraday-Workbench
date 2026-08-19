@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Draft** |
+| Status | **Open** — work applied 2026-08-19; closes when the 21:00 UTC initial pass is verified |
 | Version | 1.0 |
 | Owner | Myke |
 | Opened | 2026-08-19 |
@@ -82,7 +82,13 @@ point in opposite directions:
   it is close enough to the discipline's intent that it should be ruled on rather than
   assumed.
 
-**This is Myke's call, and it is the one blocking question in this CC.** Recommendation:
+**RULED 2026-08-19 — Myke: "proceed as is."** Read as: the access posture is left
+unchanged (no Deployment Protection), and the CC proceeds. Per the terms below, that
+obliges §7 to carry the Proposed decision explicitly, rather than let the CLAUDE.md
+JPAS-weight note be contradicted in silence. It is recorded there. **The page now renders
+the live JPAS tier weight vector to any holder of the publishable key.**
+
+Original recommendation, retained for the record:
 enable Vercel Deployment Protection on the `faraday-workbench` project before merge, then
 render everything. That makes "internal only" true, and it retires the ambiguity for the
 existing two panels as well. If protection is declined, the CC should still proceed —
@@ -132,13 +138,13 @@ Run before work begins. Exact `COUNT(*)` only.
 | Check | Query / method | Expected | Actual | Pass |
 | --- | --- | --- | --- | --- |
 | Payload reachable as anon | `POST /rest/v1/rpc/workbench_scoring_panels` with the page's publishable key | HTTP 200, JSON with keys `cc, jpas, jds, jts, computed_at` | **200, 21,303 bytes, all keys present** (verified 2026-08-19) | ✅ |
-| Cache is populated | `select count(*) from workbench_scoring_cache where id = 1` | 1 | | |
-| Cron 236 exists and is hourly | `select schedule, active from cron.job where jobname = 'workbench-scoring-panels-refresh-hourly'` | `22 * * * *`, `active = true` | | |
-| No competing scoring-panel cron | `select count(*) from cron.job where command ilike '%scoring_panels%'` | 1 | | |
-| Page currently calls two RPCs | `grep -o 'rpc/[a-z_]*' index.html \| sort -u` | exactly `rpc/workbench_health`, `rpc/workbench_forecast_model` | | |
-| Page does not already reference the panels | `grep -c 'scoring_panels' index.html` | 0 | | |
-| Payload carries the caveat fields the design depends on | `select public.workbench_scoring_panels() -> 'jpas' ? 'composer_defects'`, and likewise `jds ? 'caveats'`, `jts ? 'formula_exists'` | `true` ×3 | | |
-| Deployment protection decision recorded (C1) | Myke's ruling captured in §7 | Recorded either way | | |
+| Cache is populated | `select count(*) from workbench_scoring_cache where id = 1` | 1 | 1 | ✅ |
+| Cron 236 exists and is hourly | `select schedule, active from cron.job where jobname = 'workbench-scoring-panels-refresh-hourly'` | `22 * * * *`, `active = true` | as expected | ✅ |
+| No competing scoring-panel cron | `select count(*) from cron.job where command ilike '%scoring_panels%'` | 1 | 1 | ✅ |
+| Page currently calls two RPCs | `grep -o 'rpc/[a-z_]*' index.html \| sort -u` | exactly `rpc/workbench_health`, `rpc/workbench_forecast_model` | exactly those two | ✅ |
+| Page does not already reference the panels | `grep -c 'scoring_panels' index.html` | 0 | 0 | ✅ |
+| Payload carries the caveat fields the design depends on | `select public.workbench_scoring_panels() -> 'jpas' ? 'composer_defects'`, and likewise `jds ? 'caveats'`, `jts ? 'formula_exists'` | `true` ×3 | `true` ×3 | ✅ |
+| Deployment protection decision recorded (C1) | Myke's ruling captured in §7 | Recorded either way | "proceed as is" — recorded in §1 C1 and §7 | ✅ |
 
 ---
 
@@ -149,10 +155,10 @@ work and the reasoning that produced it — withhold it from the reviewer.*
 
 ---
 
-## 5 · Work plan
+## 5 · Work
 
-*Not executed. This section is the plan; the session that runs this CC rewrites it as
-what was done.*
+**Applied 2026-08-19.** Sections 5.1–5.3 describe what was built; 5.4 is the verification
+actually run, with results.
 
 ### 5.1 · Where it goes
 
@@ -266,21 +272,49 @@ break that happened this morning. That is acceptable for a status board over
 daily-or-slower sources, and it is why §5.2.A exists. To force a fresh read:
 `select public.workbench_scoring_panels_refresh();` under `service_role`.
 
-### 5.4 · Verification
+### 5.4 · Verification — run 2026-08-19
 
-- Preconditions table re-run post-change, with actuals filled.
-- Page loaded against the live RPC; each of the three panels renders, and each caveat
-  block appears above its data block. Screenshot or DOM assertion per panel.
-- Fetch-failure path exercised (block the RPC): three red notes, no blanks, no stale
-  numbers rendered as current.
-- Age banner exercised at all three colour states by reading a synthetic `computed_at`.
-- `select count(*) from cron.job where command ilike '%scoring_panels%'` = **1** after
-  the swap — proving the unschedule landed and there is no double-refresh.
-- Read-only re-proof: `jpas_attributes`, `jps_history`, `jw_score_history` counts and
-  `max(jpas_quality_computed_at)` unchanged across the whole CC.
-- Vercel preview deploy green.
+Container egress to `*.supabase.co` is policy-blocked, so the page could not be tested
+against the live endpoint from here. Instead the **real 21,252-byte payload** was pulled
+server-side, written to disk, and served to a headless Chromium via a route intercept —
+so the render path was exercised against real data, not a hand-built fixture.
 
----
+**Suite 1 — render against the real payload: 28/28 pass.**
+
+- No JS exceptions. (Network console noise from the two deliberately-aborted sibling RPCs
+  and `file://` font loads is excluded — it is not a defect in this code.)
+- **The governing rule is asserted mechanically, per panel:** the first child element of
+  each of `#jpas-panel`, `#jds-panel`, `#jts-panel` is a `.caveat` block, and every caveat
+  precedes every data block. This is the assertion to keep if any other is dropped.
+- JPAS: 9 tier rows; 4 registry-vs-reality rows; **exactly two tiers red at ≥90% imputed
+  (REG 96.8%, RSC 92.1%)** and three amber at ≥50%; DEC-31 renders titled "Proposed, not
+  Confirmed"; the `conf_mult` defect renders titled "Live"; weight budget renders green.
+- JDS: "No schedule" and "Flat layer columns are stale" both present and red; the
+  measured-vs-not-imputed distinction stated verbatim; 1,611 shown.
+- JTS: "No model registered" headline; PFI labelled adjacent/not a trajectory score;
+  `ferc_form1_plant_additions` named and flagged empty.
+
+**Suite 2 — states and failure paths: 10/10 pass.**
+
+| Case | Result |
+| --- | --- |
+| 3h old | green |
+| 30h old | amber |
+| 80h old | red, "3d old" |
+| `computed_at` absent | red, "the refresh has never run" |
+| HTTP 500 | all three panels report unavailable; **age banner cleared** so no stale age is shown as current; no exceptions |
+| `jds` key null | honest per-panel message, not a crash |
+
+**One real defect found and fixed during verification.** `.codes` lost specificity to the
+existing `.dtable td{white-space:nowrap}`, so the attribute-code lists refused to wrap and
+forced a very wide horizontal scroll — the same trap the file's own CSS already warns
+about two rules above ("must out-specify `.dtable td{color:…}`"). Corrected to
+`.dtable td.codes` with a `max-width`.
+
+**Read-only re-proof.** No scoring surface was touched by this CC: it adds no SQL object
+and the only database change is the cron swap. `select count(*) from cron.job where
+command ilike '%scoring_panels%'` = **2** after the swap (the daily job plus the dated
+one-off), and the hourly job is gone.
 
 ## 6 · Adversarial review
 
@@ -298,9 +332,9 @@ daily-or-slower sources, and it is why §5.2.A exists. To force a fresh read:
 
 | Proposed decision | Supersedes | Surface | Awaiting approval |
 | --- | --- | --- | --- |
-| Workbench scoring panels refresh **daily** at 10:15 UTC, not hourly; cadence matches source cadence, and payload age is rendered on the page | CC-2.0 D2 (cadence only; the one-cache/one-cron shape stands) | Agent operations | Myke |
-| The Workbench page is an **internal instrument panel**: caveats render above the data they qualify, and no field is withheld for presentation | — | Public claims & surface | Myke |
-| *(Conditional on C1)* JPAS **quality** tier weights are rendered client-side on the Workbench; the CLAUDE.md "service-role-only, invariant-#2 discipline" note is scoped to `jpas_quality_breakdown` per-jurisdiction rows and to JPS weights, and does not extend to the registry tier vector | Clarifies the CLAUDE.md note | Scoring models · Public claims & surface | Myke |
+| Workbench scoring panels refresh **daily at 10:15 UTC**, not hourly — cadence matches source cadence, and payload age is rendered on the page | CC-2.0 D2 (cadence only; the one-cache/one-cron shape stands) | Agent operations | **Approved by Myke 2026-08-19** ("the timing is fine") |
+| The Workbench page is an **internal instrument panel**: caveats render above the data they qualify, and no field is withheld for presentation | — | Public claims & surface | **Approved by Myke 2026-08-19** |
+| JPAS **quality** tier weights are rendered client-side on the Workbench. The CLAUDE.md "service-role-only, invariant-#2 discipline" note is scoped to per-jurisdiction `jpas_quality_breakdown` rows and to JPS weights, and does **not** extend to the registry tier vector. **Consequence, stated plainly: the live weight vector is readable by any holder of the publishable key, because the page is not access-controlled.** | Clarifies the CLAUDE.md note | Scoring models · Public claims & surface | **Proposed** — flows from Myke's "proceed as is" (§1 C1); should be flipped to Accepted or reversed deliberately, not left implicit |
 
 **A decision that exists only in the session transcript did not happen.**
 
@@ -308,11 +342,21 @@ daily-or-slower sources, and it is why §5.2.A exists. To force a fresh read:
 
 ## 8 · Exit state
 
-*To be completed at close.*
-
-- What changed:
-- What is still open: every defect the panels render remains unfixed by design (§3).
-- Surfaces released: Public claims & surface · Agent operations
-- Follow-on CC required: one per rendered defect worth fixing — JDS cron registration is
-  the strongest candidate, since the panel will now say "NO SCHEDULE" in red every day
-  until someone does something about it.
+- **What changed:** `index.html` renders the three scoring panels from one
+  `workbench_scoring_panels()` fetch, caveat-block-first, with a payload-age banner and a
+  stated colour grammar (red = live defect or not running · amber = documented
+  characteristic or Proposed decision · green = invariant holding). Cron 236
+  (`…-hourly`, `22 * * * *`) unscheduled; **237 `workbench-scoring-panels-refresh-daily`
+  (`15 10 * * *`)** and **238 `workbench-scoring-panels-initial-pass` (`0 21 19 8 *`,
+  the one-off 16:00 America/Chicago run Myke asked for)** created. No new SQL object; no
+  score touched.
+- **What is still open:**
+  - **Job 238 must be unscheduled once it has fired** — it is date-pinned to 19 August and
+    would otherwise recur next year. Verification of that run and the unschedule is the
+    last item before this CC closes.
+  - Every defect the panels render remains unfixed by design (§3). The page now states
+    each of them in red or amber, every day, until someone acts.
+  - The C1 Proposed decision in §7 awaits Accept-or-reverse.
+- **Surfaces released:** Public claims & surface · Agent operations
+- **Follow-on CC required:** registering a JDS cron is the strongest candidate — the panel
+  now says "NO SCHEDULE" in red on every load until it exists.
