@@ -66,6 +66,10 @@ h2{font-family:'IBM Plex Serif',serif;font-size:27px;margin:6px 0 22px}
 .p-build{background:rgba(217,166,72,.14);color:var(--amber)}
 .p-concept{background:rgba(126,139,130,.16);color:var(--idle)}
 .p-warn{background:rgba(200,106,90,.16);color:var(--red)}
+.p-stale{background:rgba(200,106,90,.16);color:var(--red);margin-left:6px}
+.card .metrics{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--gold-bright);display:flex;flex-wrap:wrap;gap:4px 10px}
+.card .metrics .nofeed{color:var(--sage);opacity:.75}
+.card .metrics .perr{color:var(--red)}
 .card .note{font-size:12.5px;color:var(--warm-dim)}
 .card .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--sage);display:flex;justify-content:space-between;margin-top:auto;padding-top:8px;border-top:1px dashed var(--hair)}
 .card .meta a{color:var(--sage);text-decoration:none}
@@ -281,10 +285,6 @@ const engineStats=[
  {v:"0",l:"Companies w/ new signals · 7d"}
 ];
 const pillClass={live:"p-live",build:"p-build",concept:"p-concept",warn:"p-warn"};
-document.getElementById("storefronts").innerHTML=storefronts.map(s=>`
- <div class="card"><div class="row"><h3>${s.n}</h3><span class="pill ${pillClass[s.s]}">${s.tag}</span></div>
- <div class="note">${s.note}</div>
- <div class="meta"><a href="${s.url}" target="_blank" rel="noopener">${s.jira} ↗</a><span>SYNC 06-20-26</span></div></div>`).join("");
 document.getElementById("engines").innerHTML=engines.map(e=>`
  <div class="eng"><span class="dot d-${e.s==="live"?"live":e.s==="amber"?"amber":"idle"}"></span>${e.n}<span class="mono">${e.m}</span></div>`).join("");
 document.getElementById("stats").innerHTML=engineStats.map(s=>`
@@ -292,8 +292,79 @@ document.getElementById("stats").innerHTML=engineStats.map(s=>`
 const lk=a=>a.map(l=>`<a class="lk" href="${l.u}" target="_blank" rel="noopener"><b>${l.b}</b><span>${l.s}</span></a>`).join("");
 document.getElementById("sf-links").innerHTML=lk(sfLinks);
 document.getElementById("tool-links").innerHTML=lk(toolLinks);
-const t=storefronts.map(s=>`<span><b>${s.n}</b> ${s.tag}</span>`).join("");
-document.getElementById("ticker").innerHTML=t+t;
+/* ---- storefront board: cache-backed via workbench_storefront() RPC ----
+   CC-WORKBENCH-STOREFRONT-WIRING-1.0. Editorial copy (name / status chip / blurb)
+   and the metrics both come from Supabase; the array above is the offline fallback
+   and is the ONLY place copy is duplicated. The SYNC stamp is the real
+   workbench_storefront_cache.computed_at, never a literal. The STALE threshold is
+   served in the payload (workbench_storefront_config.stale_after_hours) so retuning
+   it is an UPDATE, not a redeploy. */
+const SF_FALLBACK=storefronts.map(s=>({
+  name:s.n,status:s.s,status_tag:s.tag,blurb:s.note,jira_key:s.jira,jira_url:s.url,
+  metrics:{},metric_basis:"fallback"}));
+const METRIC_LABEL={bank_rows:"bank",max_go_live_date:"thru",catalog_rows:"catalog",
+  promoted_jurisdictions:"promoted",briefings:"briefings",courses_total:"courses",
+  enrich_batches:"batches",signals:"signals",audit_log_rows:"audit entries"};
+const mlabel=k=>METRIC_LABEL[k]||k.replace(/_/g," ");
+const mval=v=>typeof v==="number"?Number(v).toLocaleString("en-US"):String(v);
+
+function metricsHtml(t){
+  if(t.metric_basis==="no_feed")
+    return '<span class="nofeed">no feed — not zero</span>';
+  if(t.metric_basis==="probe_error")
+    return '<span class="perr">probe error — see stale_lanes</span>';
+  if(t.metric_basis==="fallback")
+    return '<span class="nofeed">metrics unavailable</span>';
+  const m=t.metrics||{};
+  const parts=[];
+  for(const k of Object.keys(m)){
+    const v=m[k];
+    if(v&&typeof v==="object"&&!Array.isArray(v)){
+      for(const k2 of Object.keys(v)) parts.push(`<span>${esc(k2)} <b>${esc(mval(v[k2]))}</b></span>`);
+    }else if(v!=null){
+      parts.push(`<span>${esc(mlabel(k))} <b>${esc(mval(v))}</b></span>`);
+    }
+  }
+  return parts.length?parts.join(""):'<span class="nofeed">no metrics</span>';
+}
+
+function renderStorefronts(tiles,computedAt,staleAfterHours){
+  const hrs=Number(staleAfterHours)||26;
+  let stamp="SYNC UNAVAILABLE",stale=!computedAt;
+  if(computedAt){
+    const d=new Date(computedAt);
+    stamp="SYNC "+d.toLocaleString("en-US",{month:"2-digit",day:"2-digit",year:"2-digit",
+      hour:"2-digit",minute:"2-digit"});
+    stale=(Date.now()-d.getTime())>hrs*3600*1000;
+  }
+  const badge=stale?`<span class="pill p-stale">STALE &gt;${hrs}H</span>`:"";
+  document.getElementById("storefronts").innerHTML=tiles.map(t=>`
+ <div class="card"><div class="row"><h3>${esc(t.name)}</h3><span class="pill ${pillClass[t.status]||"p-concept"}">${esc(t.status_tag)}</span></div>
+ <div class="note">${esc(t.blurb)}</div>
+ <div class="metrics">${metricsHtml(t)}</div>
+ <div class="meta"><a href="${esc(t.jira_url)}" target="_blank" rel="noopener">${esc(t.jira_key)} ↗</a><span>${esc(stamp)}${badge}</span></div></div>`).join("");
+  const tk=tiles.map(t=>`<span><b>${esc(t.name)}</b> ${esc(t.status_tag)}</span>`).join("");
+  document.getElementById("ticker").innerHTML=tk+tk;
+}
+
+async function loadStorefront(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/workbench_storefront`,{
+      method:"POST",
+      headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":"application/json"},
+      body:"{}"
+    });
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const d=await r.json();
+    if(!d||!Array.isArray(d.tiles)||!d.tiles.length) throw new Error("empty payload");
+    renderStorefronts(d.tiles,d.computed_at,d.stale_after_hours);
+    if(Array.isArray(d.stale_lanes)&&d.stale_lanes.length)
+      console.warn("workbench_storefront degraded probes:",d.stale_lanes);
+  }catch(e){
+    console.warn("workbench_storefront fetch failed — fallback board retained.",e);
+    renderStorefronts(SF_FALLBACK,null,26);
+  }
+}
 
 /* ---- live health: fetch workbench_health() RPC and render IDF/DC/engine health ---- */
 const SB_URL="https://ycadmmngkdhvpcsrcuaq.supabase.co";
@@ -404,6 +475,7 @@ async function loadHealth(){
   }
 }
 loadHealth();
+loadStorefront();
 
 /* ---- Faraday Forecast Model: workbench_forecast_model() RPC ----
    Ported from v0-faraday-daily-challenge#146, which landed this panel as a
