@@ -256,3 +256,47 @@ drop table if exists public.workbench_storefront_tiles;
 
 Front end: close PR #13 without merging. `origin/main` is untouched, and the verbatim
 tile array in §1 restores the original copy exactly.
+
+---
+
+## 9. Applied after review — Myke approved 2026-08-20
+
+Migration `workbench_storefront_approved_copy_and_chips`.
+
+**Blurbs (5).** Applied as approved. Live Agent's figures were re-measured immediately
+before the write and had already moved from the §4 proposal (179,813/179,988 across 817
+→ **180,052/180,165 across 818**, in roughly one hour); the approved wording was kept and
+the current values used.
+
+| Tile | Blurb now |
+|---|---|
+| Daily Challenge | "…Bank healthy: 252 puzzles through 2026-09-04." |
+| Briefing Library | "25 briefings available; 363 Coming Soon placeholders seeded." |
+| Live Agent | "Enrichment cleared 180,052/180,165 artifacts across 818 batches; RAG Q&A acceptance underway." |
+| Faraday Academy | "126 courses — 90 approved, 36 in backlog; Academy Course Template in progress." |
+| Signal Room | "Configurator surface live; 1,104 signals, 933 in the last 30 days." |
+
+**Chips (3).** `Intelligent Alert` LIVE → **IN BUILD**; `Signal Room` IN BUILD → **LIVE**;
+`Faraday Academy` IN BUILD → **LIVE / BUILD**.
+
+**Daily Challenge chip left at `LIVE / STALE`** — deliberately not changed. It was posed
+as an open question in §4 (the rotator claim is not verifiable from Supabase) and was not
+ruled on. One `UPDATE` when you decide.
+
+The in-page fallback array in `index.html` was updated to match, so an RPC outage cannot
+serve superseded copy. Verified in-browser: 10 cards, new chips and blurbs, no console
+errors.
+
+### Open concern: four of the five approved blurbs now carry counts that will drift
+
+This is the drift the CC set out to kill, re-entering through the copy layer. Live Agent's
+numbers moved *while this change was being applied*. Each of these tiles also renders a
+live metrics line directly beneath the blurb, so the board now states the same quantity
+twice — once live, once frozen. On Daily Challenge the two lines are adjacent and
+identical today ("Bank healthy: 252 puzzles through 2026-09-04" above `bank 252 thru
+2026-09-04`), and will visibly disagree as soon as the bank changes.
+
+Recommended follow-up, not applied: strip the counts from the blurbs and let them carry
+only the qualitative status, since the metrics line already carries the number. E.g.
+Live Agent → "Enrichment pipeline draining; RAG Q&A acceptance underway." That is one
+`UPDATE` per tile plus the fallback array.
