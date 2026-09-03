@@ -1,0 +1,11 @@
+{
+  "name": "faraday-workbench",
+  "private": true,
+  "description": "Private internal instrument panel for the Faraday estate. Static page; no build step.",
+  "scripts": {
+    "test": "node test/scoring-panels.render.mjs && node test/scoring-panels.states.mjs && node test/information-architecture.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

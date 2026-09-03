@@ -9,11 +9,28 @@ exercises the real render path against real data rather than a hand-built fixtur
 
 ```bash
 npm i playwright                     # or use a global install
-# capture a fresh payload (needs DB access):
-#   select payload from public.workbench_scoring_cache where id = 1;  -> /tmp/payload.json
 node test/scoring-panels.render.mjs  # 28 assertions
 node test/scoring-panels.states.mjs  # 10 assertions: age states + failure paths
 ```
+
+Paths are resolved from the test file, so the suite runs from any checkout. A
+committed capture of the real payload lives at
+`test/fixtures/scoring-panels.payload.json` (taken 2026-09-02), so no manual
+capture step is needed to run the suite. To test against fresher data:
+
+```bash
+#   select payload from public.workbench_scoring_cache where id = 1;  -> /tmp/payload.json
+WB_PAYLOAD=/tmp/payload.json node test/scoring-panels.render.mjs
+```
+
+Overrides: `WB_PAYLOAD` · `WB_PAGE` · `WB_CHROME` · `WB_PLAYWRIGHT` · `WB_SHOT`.
+
+Assertions that depend on live values are **derived from the payload, not frozen**
+— the imputation red/amber counts and the JDS `NO SCHEDULE` caveat are checked as
+rendering *rules* against whatever the payload says. Freezing them meant the suite
+failed when the estate improved: REG imputation fell to 89.7% after the NAAQS
+rebuild, and the JDS composer acquired a cron (`jds-county-rollup-daily`,
+`50 9 * * *`), which flipped `composer_is_scheduled` to true.
 
 The assertion worth keeping above all others is the structural one: in each panel the
 **first child element is a `.caveat` block, and every caveat precedes every data block.**

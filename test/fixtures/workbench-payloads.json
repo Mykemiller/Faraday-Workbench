@@ -1,0 +1,958 @@
+{
+"health": {
+"dc": {
+"bank": {
+"total": 373,
+"source": "Airtable · Faraday Puzzle Bank",
+"retired": 119,
+"through": "2026-07-31",
+"published": 238,
+"synced_on": "2026-07-04",
+"live_today": 7,
+"unpublished": 9,
+"remaining_scheduled": 196
+},
+"days_left": 1,
+"season_name": "Hot summer Final Beta",
+"puzzles_today": [
+{
+"name": "Waste Heat, Real Rules",
+"type": "Rackl",
+"topic": "Grid & Regulatory",
+"players_24h": 0,
+"high_score_24h": 0
+},
+{
+"name": "Heat Reuse, Grid Access & Data Center Regulation",
+"type": "Circuit",
+"topic": "Grid & Regulatory",
+"players_24h": 0,
+"high_score_24h": 0
+},
+{
+"name": "Fiber & Grid Connectivity Basics",
+"type": "Dark Fiber",
+"topic": "Grid & Regulatory",
+"players_24h": 0,
+"high_score_24h": 0
+},
+{
+"name": "RECs & Renewable Energy Accounting",
+"type": "Frequency",
+"topic": "Grid & Regulatory",
+"players_24h": 0,
+"high_score_24h": 0
+},
+{
+"name": "District heat reuse: temperature of recovered water at district entry",
+"type": "The Stack",
+"topic": "Grid & Regulatory",
+"players_24h": 0,
+"high_score_24h": 0
+},
+{
+"name": "LOADGROWTH",
+"type": "Signal Drop",
+"topic": "Interconnection Queue & Grid Access",
+"players_24h": 0,
+"high_score_24h": 0
+},
+{
+"name": "The Meet-Me Room at the Grid's Edge",
+"type": "The Brief",
+"topic": "Grid & Regulatory",
+"players_24h": 0,
+"high_score_24h": 0
+}
+],
+"season_status": "active",
+"season_ends_on": "2026-09-04",
+"players_24h_total": 0
+},
+"idf": {
+"entities": 18173,
+"by_domain": [
+{
+"num": 1,
+"code": "D1",
+"dark": false,
+"name": "Chips & Density",
+"emoji": "💻",
+"new_7d": 763,
+"all_art": 8736,
+"subdomains": 8,
+"subs_no_feed": 4
+},
+{
+"num": 2,
+"code": "D2",
+"dark": false,
+"name": "Power Architecture",
+"emoji": "⚡",
+"new_7d": 1297,
+"all_art": 17715,
+"subdomains": 11,
+"subs_no_feed": 6
+},
+{
+"num": 3,
+"code": "D3",
+"dark": false,
+"name": "Grid & Regulatory",
+"emoji": "🔌",
+"new_7d": 3604,
+"all_art": 41385,
+"subdomains": 5,
+"subs_no_feed": 0
+},
+{
+"num": 4,
+"code": "D4",
+"dark": false,
+"name": "M&A & Capital Markets",
+"emoji": "💰",
+"new_7d": 378,
+"all_art": 5486,
+"subdomains": 6,
+"subs_no_feed": 6
+},
+{
+"num": 5,
+"code": "D5",
+"dark": false,
+"name": "Hyperscaler Activity",
+"emoji": "🌐",
+"new_7d": 464,
+"all_art": 5921,
+"subdomains": 4,
+"subs_no_feed": 4
+},
+{
+"num": 6,
+"code": "D6",
+"dark": false,
+"name": "New Entrants",
+"emoji": "🚀",
+"new_7d": 772,
+"all_art": 14476,
+"subdomains": 3,
+"subs_no_feed": 3
+},
+{
+"num": 7,
+"code": "D7",
+"dark": false,
+"name": "Cooling & Water Technology",
+"emoji": "🧊",
+"new_7d": 319,
+"all_art": 3788,
+"subdomains": 4,
+"subs_no_feed": 4
+},
+{
+"num": 8,
+"code": "D8",
+"dark": false,
+"name": "People & Signals",
+"emoji": "👥",
+"new_7d": 150,
+"all_art": 1662,
+"subdomains": 5,
+"subs_no_feed": 5
+},
+{
+"num": 9,
+"code": "D9",
+"dark": false,
+"name": "Orchestration Intelligence & Control Plane",
+"emoji": "🎛️",
+"new_7d": 292,
+"all_art": 3880,
+"subdomains": 4,
+"subs_no_feed": 4
+},
+{
+"num": 10,
+"code": "D10",
+"dark": false,
+"name": "Construction",
+"emoji": "🌐",
+"new_7d": 126,
+"all_art": 1369,
+"subdomains": 5,
+"subs_no_feed": 4
+},
+{
+"num": 11,
+"code": "D11",
+"dark": false,
+"name": "Sustainability",
+"emoji": "🤝",
+"new_7d": 514,
+"all_art": 5348,
+"subdomains": 6,
+"subs_no_feed": 3
+},
+{
+"num": 12,
+"code": "D12",
+"dark": false,
+"name": "Networking & Interconnect",
+"emoji": "🏗️",
+"new_7d": 464,
+"all_art": 4449,
+"subdomains": 7,
+"subs_no_feed": 0
+},
+{
+"num": 13,
+"code": "D13",
+"dark": false,
+"name": "Community Relations",
+"emoji": "🌱",
+"new_7d": 5816,
+"all_art": 67602,
+"subdomains": 5,
+"subs_no_feed": 0
+},
+{
+"num": 14,
+"code": "D14",
+"dark": false,
+"name": "Real Estate & Site Selection",
+"emoji": "👷",
+"new_7d": 252,
+"all_art": 2698,
+"subdomains": 7,
+"subs_no_feed": 2
+},
+{
+"num": 15,
+"code": "D15",
+"dark": false,
+"name": "Sovereign AI & Geopolitics",
+"emoji": "🌍",
+"new_7d": 595,
+"all_art": 7663,
+"subdomains": 6,
+"subs_no_feed": 1
+},
+{
+"num": 16,
+"code": "D16",
+"dark": false,
+"name": "Cyber & Physical Security and Resilience",
+"emoji": "🛡️",
+"new_7d": 289,
+"all_art": 2872,
+"subdomains": 6,
+"subs_no_feed": 2
+},
+{
+"num": 17,
+"code": "D17",
+"dark": false,
+"name": "Workforce & Labor Markets",
+"emoji": null,
+"new_7d": 113,
+"all_art": 1136,
+"subdomains": 3,
+"subs_no_feed": 1
+},
+{
+"num": 18,
+"code": "D18",
+"dark": false,
+"name": "Community Opposition & Regulatory Risk",
+"emoji": null,
+"new_7d": 4308,
+"all_art": 54540,
+"subdomains": 3,
+"subs_no_feed": 3
+},
+{
+"num": 19,
+"code": "D19",
+"dark": false,
+"name": "Tax, Incentives & Fiscal Policy",
+"emoji": null,
+"new_7d": 2015,
+"all_art": 19373,
+"subdomains": 5,
+"subs_no_feed": 0
+},
+{
+"num": 20,
+"code": "D20",
+"dark": false,
+"name": "Facility IT & Operational Technology",
+"emoji": null,
+"new_7d": 77,
+"all_art": 789,
+"subdomains": 2,
+"subs_no_feed": 0
+},
+{
+"num": 21,
+"code": "D21",
+"dark": false,
+"name": "Insurance & Risk Markets",
+"emoji": null,
+"new_7d": 246,
+"all_art": 2158,
+"subdomains": 4,
+"subs_no_feed": 0
+},
+{
+"num": 22,
+"code": "D22",
+"dark": false,
+"name": "Industry Media & Analyst Coverage",
+"emoji": null,
+"new_7d": 24626,
+"all_art": 301035,
+"subdomains": 4,
+"subs_no_feed": 0
+},
+{
+"num": 23,
+"code": "D23",
+"dark": false,
+"name": "Outage Intelligence & Emergency Response",
+"emoji": null,
+"new_7d": 175,
+"all_art": 1891,
+"subdomains": 4,
+"subs_no_feed": 0
+}
+],
+"companies": 7824,
+"artifacts_7d": 38401,
+"domains_dark": 0,
+"artifacts_24h": 9614,
+"domains_active": 23,
+"artifacts_total": 488737,
+"subdomains_total": 117,
+"subdomains_no_feed": 52,
+"feedless_subdomains": [
+{
+"code": "D1.1",
+"name": "GPU Architecture & Roadmap",
+"domain": "D1"
+},
+{
+"code": "D1.2",
+"name": "Rack & Power Density Progression",
+"domain": "D1"
+},
+{
+"code": "D1.3",
+"name": "Competing Silicon & Merchant Accelerators",
+"domain": "D1"
+},
+{
+"code": "D1.6",
+"name": "Chip Allocation & Supply Politics",
+"domain": "D1"
+},
+{
+"code": "D10.1",
+"name": "Long-Lead Equipment & Supply Chain",
+"domain": "D10"
+},
+{
+"code": "D10.2",
+"name": "GC/EPC Capacity & Stick-Built Execution",
+"domain": "D10"
+},
+{
+"code": "D10.3",
+"name": "Modular & Prefabricated Delivery",
+"domain": "D10"
+},
+{
+"code": "D10.5",
+"name": "Construction Cost Curves & Inflation",
+"domain": "D10"
+},
+{
+"code": "D11.1",
+"name": "Clean Energy Procurement (PPA/REC/CFE)",
+"domain": "D11"
+},
+{
+"code": "D11.2",
+"name": "Carbon Accounting & Scope 1-3",
+"domain": "D11"
+},
+{
+"code": "D11.6",
+"name": "Embodied Carbon & Materials",
+"domain": "D11"
+},
+{
+"code": "D14.7",
+"name": "Campus Portfolio Strategy & Build Models",
+"domain": "D14"
+},
+{
+"code": "D14.8",
+"name": "Facility Inventory & Classification",
+"domain": "D14"
+},
+{
+"code": "D15.1",
+"name": "Chip Export Controls & Outbound Dual-Use",
+"domain": "D15"
+},
+{
+"code": "D16.5",
+"name": "Software Supply Chain & Vendor Risk",
+"domain": "D16"
+},
+{
+"code": "D16.6",
+"name": "Security Operations & Incident Response",
+"domain": "D16"
+},
+{
+"code": "D17.3",
+"name": "Immigration, Policy & Regional Labor Competition",
+"domain": "D17"
+},
+{
+"code": "D18.1",
+"name": "Project Opposition Register",
+"domain": "D18"
+},
+{
+"code": "D18.2",
+"name": "Regulatory & Permitting Denial Tracking",
+"domain": "D18"
+},
+{
+"code": "D18.3",
+"name": "Reputational & Political Risk Register",
+"domain": "D18"
+},
+{
+"code": "D2.1",
+"name": "800V DC Power Distribution",
+"domain": "D2"
+},
+{
+"code": "D2.11",
+"name": "Power Price Formation & Cost Structure",
+"domain": "D2"
+},
+{
+"code": "D2.2",
+"name": "BTM Strategy & Cross-Cutting Economics",
+"domain": "D2"
+},
+{
+"code": "D2.3",
+"name": "UPS, Storage & Power Conditioning",
+"domain": "D2"
+},
+{
+"code": "D2.4",
+"name": "DC Power Delivery at the Rack",
+"domain": "D2"
+},
+{
+"code": "D2.9",
+"name": "Microgrid Integration & Islanding",
+"domain": "D2"
+},
+{
+"code": "D4.1",
+"name": "PE & Infrastructure Fund Activity",
+"domain": "D4"
+},
+{
+"code": "D4.2",
+"name": "DC REIT Performance & Valuation",
+"domain": "D4"
+},
+{
+"code": "D4.3",
+"name": "Sovereign Wealth & Institutional Capital",
+"domain": "D4"
+},
+{
+"code": "D4.4",
+"name": "Integrated Infrastructure Vendor M&A",
+"domain": "D4"
+},
+{
+"code": "D4.5",
+"name": "Private Credit & DC Debt Financing",
+"domain": "D4"
+},
+{
+"code": "D4.6",
+"name": "GPU-Backed & Neocloud Financing",
+"domain": "D4"
+},
+{
+"code": "D5.1",
+"name": "Big 5 Capex & Campus Announcements",
+"domain": "D5"
+},
+{
+"code": "D5.2",
+"name": "Hyperscaler Custom Silicon Strategy",
+"domain": "D5"
+},
+{
+"code": "D5.3",
+"name": "Build-vs-Lease & Colocation Strategy",
+"domain": "D5"
+},
+{
+"code": "D5.4",
+"name": "Capacity Geography & Region Expansion",
+"domain": "D5"
+},
+{
+"code": "D6.1",
+"name": "Neocloud Infrastructure",
+"domain": "D6"
+},
+{
+"code": "D6.2",
+"name": "Sovereign AI Programs & National Compute",
+"domain": "D6"
+},
+{
+"code": "D6.3",
+"name": "AI Labs & Model Developers as Infrastructure Buyers",
+"domain": "D6"
+},
+{
+"code": "D7.1",
+"name": "Direct-to-Chip Liquid Cooling (DLC)",
+"domain": "D7"
+},
+{
+"code": "D7.2",
+"name": "Immersion Cooling",
+"domain": "D7"
+},
+{
+"code": "D7.3",
+"name": "Water Use & Waterless Cooling Strategies",
+"domain": "D7"
+},
+{
+"code": "D7.4",
+"name": "Thermal Components & Coolant Supply Chain",
+"domain": "D7"
+},
+{
+"code": "D8.1",
+"name": "Executive Movement & C-Suite Intelligence",
+"domain": "D8"
+},
+{
+"code": "D8.2",
+"name": "Conference Intelligence & Speaking Circuit",
+"domain": "D8"
+},
+{
+"code": "D8.3",
+"name": "Talent Flows & Specialized Hiring Signals",
+"domain": "D8"
+},
+{
+"code": "D8.4",
+"name": "Founder & Operator Network Mapping",
+"domain": "D8"
+},
+{
+"code": "D8.5",
+"name": "Earnings-Call & Investor-Day Signal Extraction",
+"domain": "D8"
+},
+{
+"code": "D9.1",
+"name": "AI Factory Orchestration & DCIM",
+"domain": "D9"
+},
+{
+"code": "D9.2",
+"name": "GPU Utilization & Compute Scheduling Economics",
+"domain": "D9"
+},
+{
+"code": "D9.3",
+"name": "Inference Serving & Model-Routing Infrastructure",
+"domain": "D9"
+},
+{
+"code": "D9.4",
+"name": "Power-Aware & Grid-Responsive Workload Orchestration",
+"domain": "D9"
+}
+]
+},
+"jps": {
+"total": 39507,
+"scored": 20130,
+"jpas_scored": 39307
+},
+"signals": {
+"total": 1366,
+"status": "ok",
+"last_24h": 38,
+"last_fired": "2026-09-02T07:30:00.132154+00:00",
+"rules_defined": 0,
+"candidates_24h": 2413
+},
+"engine_stats": {
+"companies": 7824,
+"predictions": 74,
+"jurisdictions": 39507,
+"artifacts_total": 488737,
+"automations_24h": 662,
+"new_artifacts_24h": 9614,
+"new_predictions_24h": 0,
+"jurisdictions_active": 39352,
+"companies_new_signals_7d": 91,
+"automations_succeeded_24h": 654
+},
+"generated_at": "2026-09-03T07:05:00.061175+00:00"
+},
+"idf": {
+"jds": {
+"computed_at": "2026-09-02T21:23:15.792234+00:00",
+"cron_active": 1,
+"cron_paused": 1,
+"scored_rows": 3222,
+"formula_version": "county-v3"
+},
+"linkage": {
+"total": 4284,
+"by_pillar": [
+{
+"links": 2179,
+"pillar": "person",
+"subdomains": 51
+},
+{
+"links": 1703,
+"pillar": "company",
+"subdomains": 112
+},
+{
+"links": 402,
+"pillar": "institution",
+"subdomains": 114
+}
+],
+"legacy_tagspine_subdomain_rules": 31,
+"legacy_artifact_subdomain_candidates": 6919
+},
+"pillars": [
+{
+"n": 1,
+"fa": 0,
+"rev": 39507,
+"conf": 39507,
+"home": "jurisdictions · jpas_attributes",
+"name": "Jurisdictions",
+"rows": 39507,
+"satellite": 799337
+},
+{
+"n": 2,
+"fa": 0,
+"rev": 7953,
+"conf": 7953,
+"home": "companies · _aliases · _facts",
+"name": "Companies",
+"rows": 7953,
+"satellite": 8366
+},
+{
+"n": 3,
+"fa": 0,
+"rev": 1730,
+"conf": 1730,
+"home": "people · person_affiliations",
+"name": "People",
+"rows": 1730,
+"satellite": 1516
+},
+{
+"n": 4,
+"fa": 1609,
+"rev": 18217,
+"conf": 18217,
+"home": "dc_facilities (merged corpus)",
+"name": "DC Facilities",
+"rows": 18217,
+"satellite": 18158
+},
+{
+"n": 5,
+"fa": 0,
+"rev": 176,
+"conf": 176,
+"home": "institutions",
+"name": "Reg. & Research Bodies",
+"rows": 176,
+"satellite": 402
+},
+{
+"n": 6,
+"fa": 0,
+"rev": 11075,
+"conf": 11075,
+"home": "source_registry",
+"name": "Sources",
+"rows": 11075,
+"satellite": 0
+}
+],
+"registry": {
+"themes": 7,
+"domains": 23,
+"subdomains_all": 118,
+"subdomains_active": 117
+},
+"p4_detail": {
+"stored": 18217,
+"fa_bound": 1609,
+"geo_bound": 16420,
+"superseded": 59,
+"publishable": 1613,
+"scorer_visible": 18158,
+"lifecycle_unknown": 16604
+},
+"p4_confidence": {
+"CF0": 10419,
+"CF1": 6185,
+"CF2": 866,
+"CF3": 622,
+"CF4": 125
+},
+"mention_entities": 18159,
+"computed_at": "2026-09-03T06:13:34.227581+00:00"
+},
+"forecast": {
+"spans": [
+{
+"span": "1900-1919",
+"span_start": 1900,
+"legacy_rows": 1262
+},
+{
+"span": "1920-1939",
+"span_start": 1920,
+"legacy_rows": 1850
+},
+{
+"span": "1940-1959",
+"span_start": 1940,
+"legacy_rows": 2644
+},
+{
+"span": "1960-1979",
+"span_start": 1960,
+"legacy_rows": 5335
+},
+{
+"span": "1980-1999",
+"span_start": 1980,
+"legacy_rows": 8985
+},
+{
+"span": "2000-2019",
+"span_start": 2000,
+"legacy_rows": 247473
+},
+{
+"span": "2020-2026",
+"span_start": 2020,
+"legacy_rows": 2001824
+}
+],
+"snapshots": [
+{
+"captured_at": "2026-08-31T12:00:00.115967+00:00",
+"vintages_total": 19,
+"cited_depth_pct": 15.1,
+"active_but_empty": 4,
+"observations_total": 87,
+"briefs_generated_7d": 0,
+"health_fail_rate_7d": 0.6,
+"total_backlog_years": 2003,
+"edgar_artifacts_total": 27674,
+"multi_vintage_sources": 4
+},
+{
+"captured_at": "2026-08-24T12:00:00.159306+00:00",
+"vintages_total": 19,
+"cited_depth_pct": 16.0,
+"active_but_empty": 4,
+"observations_total": 87,
+"briefs_generated_7d": 199,
+"health_fail_rate_7d": 0.6,
+"total_backlog_years": 2003,
+"edgar_artifacts_total": 27611,
+"multi_vintage_sources": 4
+}
+],
+"computed_at": "2026-09-03T06:07:00.019057+00:00"
+},
+"storefront": {
+"tiles": [
+{
+"name": "Daily Challenge",
+"slug": "daily-challenge",
+"blurb": "Static page live; fresh-content rotation broken — serving, D2 reachability & rotator unwired. Bank healthy: 252 puzzles through 2026-09-04.",
+"status": "warn",
+"metrics": {
+"bank_rows": 252,
+"max_go_live_date": "2026-09-04"
+},
+"jira_key": "FAR-21",
+"jira_url": "https://mykesfoundry.atlassian.net/browse/FAR-21",
+"status_tag": "LIVE / STALE",
+"metric_basis": "measured",
+"display_order": 1
+},
+{
+"name": "Intelligent Alert",
+"slug": "intelligent-alert",
+"blurb": "3 test issues sent manually via Beehiiv.",
+"status": "build",
+"metrics": {},
+"jira_key": "FAR-26",
+"jira_url": "https://mykesfoundry.atlassian.net/browse/FAR-26",
+"status_tag": "IN BUILD",
+"metric_basis": "no_feed",
+"display_order": 2
+},
+{
+"name": "Jurisdiction Watch",
+"slug": "jurisdiction-watch",
+"blurb": "Phases 1–5 deployed at jurisdiction-watch.com; first-dollar chain pending Stripe secrets.",
+"status": "live",
+"metrics": {
+"briefings": 5508,
+"promoted_jurisdictions": 325
+},
+"jira_key": "FAR-27",
+"jira_url": "https://mykesfoundry.atlassian.net/browse/FAR-27",
+"status_tag": "LIVE",
+"metric_basis": "measured",
+"display_order": 3
+},
+{
+"name": "Briefing Library",
+"slug": "briefing-library",
+"blurb": "25 briefings available; 363 Coming Soon placeholders seeded.",
+"status": "live",
+"metrics": {
+"catalog_rows": 388
+},
+"jira_key": "FAR-28",
+"jira_url": "https://mykesfoundry.atlassian.net/browse/FAR-28",
+"status_tag": "LIVE / BUILD",
+"metric_basis": "measured",
+"display_order": 4
+},
+{
+"name": "Live Agent",
+"slug": "live-agent",
+"blurb": "Enrichment cleared 180,052/180,165 artifacts across 818 batches; RAG Q&A acceptance underway.",
+"status": "build",
+"metrics": {
+"enrich_batches": 1037
+},
+"jira_key": "FAR-29",
+"jira_url": "https://mykesfoundry.atlassian.net/browse/FAR-29",
+"status_tag": "IN BUILD",
+"metric_basis": "measured",
+"display_order": 5
+},
+{
+"name": "Faraday Academy",
+"slug": "faraday-academy",
+"blurb": "126 courses — 90 approved, 36 in backlog; Academy Course Template in progress.",
+"status": "live",
+"metrics": {
+"by_status": {
+"backlog": 36,
+"approved": 90
+},
+"courses_total": 126
+},
+"jira_key": "FAR-30",
+"jira_url": "https://mykesfoundry.atlassian.net/browse/FAR-30",
+"status_tag": "LIVE / BUILD",
+"metric_basis": "measured",
+"display_order": 6
+},
+{
+"name": "Signal Room",
+"slug": "signal-room",
+"blurb": "Configurator surface live; 1,104 signals, 933 in the last 30 days.",
+"status": "live",
+"metrics": {
+"signals": 1366
+},
+"jira_key": "FAR-31",
+"jira_url": "https://mykesfoundry.atlassian.net/browse/FAR-31",
+"status_tag": "LIVE",
+"metric_basis": "measured",
+"display_order": 7
+},
+{
+"name": "Thought Forge",
+"slug": "thought-forge",
+"blurb": "Commission surface — engine and storefront both pre-build.",
+"status": "concept",
+"metrics": {},
+"jira_key": "FAR-32",
+"jira_url": "https://mykesfoundry.atlassian.net/browse/FAR-32",
+"status_tag": "CONCEPT",
+"metric_basis": "no_feed",
+"display_order": 8
+},
+{
+"name": "League Office",
+"slug": "league-office",
+"blurb": "Daily Challenge Commissioner console — Tier 1 read screens + Tier 2 audited write-actions shipped (FAR-221 PRs #82/#83). Staff-gated, mykemiller@gmail.com allowlist.",
+"status": "live",
+"metrics": {
+"audit_log_rows": 75
+},
+"jira_key": "FAR-221",
+"jira_url": "https://mykesfoundry.atlassian.net/browse/FAR-221",
+"status_tag": "LIVE",
+"metric_basis": "measured",
+"display_order": 9
+},
+{
+"name": "Civic-Host",
+"slug": "civic-host",
+"blurb": "Free, verified township websites — a Jurisdiction Watch company. Live within 24 hours, no IT department required, free for first 3 years.",
+"status": "live",
+"metrics": {},
+"jira_key": "FAR-305",
+"jira_url": "https://mykesfoundry.atlassian.net/browse/FAR-305",
+"status_tag": "LIVE",
+"metric_basis": "no_feed",
+"display_order": 10
+}
+],
+"stale_lanes": [],
+"generated_at": "2026-09-02T10:30:00.077296+00:00",
+"computed_at": "2026-09-02T10:30:00.077296+00:00",
+"stale_after_hours": 26
+}
+}

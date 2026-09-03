@@ -1,14 +1,27 @@
-import { chromium } from '/tmp/node_modules/playwright/index.mjs';
+// specifier is env-overridable, so this must be a dynamic import
+const { chromium } = await import(process.env.WB_PLAYWRIGHT || 'playwright');
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const _p = JSON.parse(fs.readFileSync('/tmp/payload.json','utf8'));
+// Paths are resolved from this file, with env overrides, so the suite runs from
+// any checkout. WB_PAYLOAD defaults to the committed fixture — a fresh capture
+// (see test/README.md) still wins by pointing WB_PAYLOAD at it.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO = path.resolve(HERE, '..');
+const PAYLOAD_PATH = process.env.WB_PAYLOAD || path.join(HERE, 'fixtures', 'scoring-panels.payload.json');
+const PAGE_URL = process.env.WB_PAGE || ('file://' + path.join(REPO, 'index.html'));
+const CHROME = process.env.WB_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+
+
+const _p = JSON.parse(fs.readFileSync(PAYLOAD_PATH,'utf8'));
 // stamp at run time so the assertion is not brittle to the fixture ageing
 _p.computed_at = new Date(Date.now() - 3*3600e3).toISOString();
 const payload = JSON.stringify(_p);
 const fails = [];
 const ok = (c,m)=>{ console.log((c?'PASS':'FAIL')+'  '+m); if(!c) fails.push(m); };
 
-const browser = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await chromium.launch({ executablePath: CHROME });
 const page = await browser.newPage();
 const errs=[];
 page.on('pageerror', e=>errs.push('JS EXCEPTION: '+e));
@@ -22,7 +35,7 @@ await page.route('**/rpc/workbench_scoring_panels', r =>
 await page.route('**/rpc/workbench_health', r=>r.abort());
 await page.route('**/rpc/workbench_forecast_model', r=>r.abort());
 
-await page.goto('file:///home/user/Faraday-Workbench/index.html');
+await page.goto(PAGE_URL);
 await page.waitForFunction(()=>!document.querySelector('#jts-panel .hnote')?.textContent.includes('Loading'), null, {timeout:15000});
 
 ok(errs.length===0, 'no JS exceptions' + (errs.length?': '+errs.slice(0,3).join(' | '):''));
@@ -68,12 +81,27 @@ ok(t.jpasBad>=1 && t.jpasOk>=1, `JPAS: severity grammar applied (bad=${t.jpasBad
 ok(t.jpasCts.some(c=>/Weight budget holding/i.test(c)), 'JPAS: weight budget shows holding (green)');
 ok(t.tierRows===9, `JPAS: 9 tier rows in the tier table (${t.tierRows})`);
 ok(t.rvrRows===4, `JPAS: 4 registry-vs-reality rows (${t.rvrRows})`);
-ok(t.impHi.length===2, `JPAS: two tiers red at >=90% imputed (${t.impHi.join(', ')})`);
-ok(t.impMid.length===3, `JPAS: three tiers amber at >=50% (${t.impMid.join(', ')})`);
+// Derived from the payload, not frozen: the assertion is the RENDERING RULE
+// (red at >=90% imputed, amber at >=50%), so a tier legitimately improving --
+// as REG did, 89.7% after the NAAQS rebuild -- updates the expectation instead
+// of failing the suite.
+const pcts = _p.jpas.live_tiers.map(x=>x.imputation?.pct_imputed).filter(v=>v!=null);
+const wantHi  = pcts.filter(v=>v>=90).length;
+const wantMid = pcts.filter(v=>v>=50 && v<90).length;
+ok(t.impHi.length===wantHi,  `JPAS: ${wantHi} tier(s) red at >=90% imputed (${t.impHi.join(', ')||'none'})`);
+ok(t.impMid.length===wantMid, `JPAS: ${wantMid} tier(s) amber at >=50% (${t.impMid.join(', ')||'none'})`);
 
-ok(t.jdsCts.some(c=>/No schedule/i.test(c)), 'JDS: NO SCHEDULE caveat present');
+// Conditional on the payload: the NO SCHEDULE caveat must appear when, and only
+// when, the composer is genuinely unscheduled. As of 2026-09-02 the live payload
+// reports composer_is_scheduled=true (cron jds-county-rollup-daily, 50 9 * * *),
+// so asserting its presence unconditionally would demand the page lie.
+const jdsScheduled = _p.jds.composer_is_scheduled === true;
+const hasNoSched = t.jdsCts.some(c=>/No schedule/i.test(c));
+ok(jdsScheduled ? !hasNoSched : hasNoSched,
+   `JDS: NO SCHEDULE caveat ${jdsScheduled?'correctly absent (composer is scheduled)':'present'}`);
 ok(t.jdsCts.some(c=>/Flat layer columns are stale/i.test(c)), 'JDS: stale flat columns caveat present');
-ok(t.jdsBad>=2, `JDS: operational failures are red (${t.jdsBad})`);
+const wantJdsBad = (jdsScheduled?0:1) + (_p.jds.layer_coverage?.flat_columns_stale?1:0);
+ok(t.jdsBad>=wantJdsBad, `JDS: operational failures are red (${t.jdsBad} >= ${wantJdsBad})`);
 ok(/"Not imputed" is not the same as "measured"/.test(t.bodyText), 'JDS: measured-vs-not-imputed distinction stated');
 ok(/1,611/.test(t.bodyText), 'JDS: measured count 1,611 shown');
 
@@ -82,7 +110,7 @@ ok(/adjacent, NOT JTS/i.test(t.bodyText) || /not a trajectory score/i.test(t.bod
 ok(t.jtsFeedNo>=1, `JTS: empty feed flagged (${t.jtsFeedNo} markers)`);
 ok(/ferc_form1_plant_additions/.test(t.bodyText), 'JTS: the empty feed is named');
 
-await page.screenshot({ path:'/tmp/panels.png', fullPage:true });
+await page.screenshot({ path: process.env.WB_SHOT || '/tmp/panels.png', fullPage:true });
 await browser.close();
 console.log('\n'+(fails.length?fails.length+' FAILURES':'ALL '+'PASS'));
 process.exit(fails.length?1:0);

@@ -1,8 +1,21 @@
-import { chromium } from '/tmp/node_modules/playwright/index.mjs';
+// specifier is env-overridable, so this must be a dynamic import
+const { chromium } = await import(process.env.WB_PLAYWRIGHT || 'playwright');
 import fs from 'fs';
-const base = JSON.parse(fs.readFileSync('/tmp/payload.json','utf8'));
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Paths are resolved from this file, with env overrides, so the suite runs from
+// any checkout. WB_PAYLOAD defaults to the committed fixture — a fresh capture
+// (see test/README.md) still wins by pointing WB_PAYLOAD at it.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO = path.resolve(HERE, '..');
+const PAYLOAD_PATH = process.env.WB_PAYLOAD || path.join(HERE, 'fixtures', 'scoring-panels.payload.json');
+const PAGE_URL = process.env.WB_PAGE || ('file://' + path.join(REPO, 'index.html'));
+const CHROME = process.env.WB_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+
+const base = JSON.parse(fs.readFileSync(PAYLOAD_PATH,'utf8'));
 const fails=[]; const ok=(c,m)=>{console.log((c?'PASS':'FAIL')+'  '+m); if(!c)fails.push(m);};
-const browser = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const browser = await chromium.launch({ executablePath: CHROME });
 
 async function run(mutate, fulfilOpts){
   const page = await browser.newPage();
@@ -12,7 +25,7 @@ async function run(mutate, fulfilOpts){
                : r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(mutate(structuredClone(base)))}));
   await page.route('**/rpc/workbench_health', r=>r.abort());
   await page.route('**/rpc/workbench_forecast_model', r=>r.abort());
-  await page.goto('file:///home/user/Faraday-Workbench/index.html');
+  await page.goto(PAGE_URL);
   await page.waitForTimeout(1200);
   const out = await page.evaluate(()=>({
     ageCls: document.querySelector('#scoring-age .caveat')?.className||'(none)',
