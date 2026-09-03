@@ -160,6 +160,7 @@ footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Ple
     <div class="brand">Faraday Workbench<small>Private · Back of house</small></div>
     <nav>
       <a href="#observability">Observability</a>
+      <a href="#idf">IDF 5.0</a>
       <a href="#links">Quick links</a>
     </nav>
     <span class="priv">MYKE ONLY</span>
@@ -207,6 +208,30 @@ footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Ple
     <div class="engines" id="engines"></div>
     <div class="subhead" id="stats-subhead">Engine stats — Supabase counts · as of 07-04-26</div>
     <div class="stats" id="stats"></div>
+  </div>
+</section>
+
+<section id="idf">
+  <div class="wrap">
+    <div class="eyebrow">Framework</div>
+    <h2>IDF 5.0 &mdash; spine &amp; the six pillars</h2>
+    <div class="legend">Canonical since 2026-08-26 &middot; four axes &middot; seven satellites &middot; DEC-IDF-01&hellip;24.
+      Volumes below are <b>live</b> from Supabase <span class="mono">ycadmmngkdhvpcsrcuaq</span> &mdash; not the figures printed in Notion.<span id="idf-stamp" class="mono"></span></div>
+
+    <div class="subhead">Registry &mdash; Domains &middot; Sub-Domains &middot; Themes</div>
+    <div class="stats" id="idf-registry"></div>
+
+    <div class="subhead" style="margin-top:18px">The six pillars &mdash; canonical homes, measured now</div>
+    <div id="idf-pillars"><div class="hnote">Loading live pillar state&hellip;</div></div>
+
+    <div class="subhead" style="margin-top:22px">Pillar 4 &mdash; DC Facilities, merged corpus</div>
+    <div id="idf-p4"></div>
+
+    <div class="subhead" style="margin-top:22px">Sub-Domain linkage &mdash; subdomain_entity_link</div>
+    <div id="idf-linkage"></div>
+
+    <div class="subhead" style="margin-top:22px">Drift &mdash; live estate vs. the Notion spine</div>
+    <div id="idf-drift"></div>
   </div>
 </section>
 
@@ -799,6 +824,114 @@ async function loadScoringPanels(){
   }
 }
 loadScoringPanels();
+/* ---- IDF 5.0 spine + six pillars: workbench_idf() RPC ---- */
+function renderIdf(d){
+  const reg=d.registry||{}, pil=d.pillars||[], p4=d.p4_detail||{}, lk=d.linkage||{}, jds=d.jds||{};
+  const pct=(a,b)=>b?Math.round((a/b)*1000)/10:0;
+
+  document.getElementById("idf-registry").innerHTML=[
+    {v:fmt(reg.domains),l:"Domains"},
+    {v:fmt(reg.subdomains_active),l:"Sub-Domains active",sub:`${fmt(reg.subdomains_all)} rows &middot; D14.6 retired`},
+    {v:fmt(reg.themes),l:"Themes",sub:"ceiling 10"},
+    {v:fmt(d.mention_entities),l:"Mention layer",sub:"entities &mdash; not a pillar"}
+  ].map(statCard).join("");
+
+  /* six pillars table */
+  const rows=pil.map(p=>{
+    const faPct=pct(p.fa,p.rows);
+    const faCell=p.fa===0
+      ? '<span class="feed-no">0 &middot; greenfield</span>'
+      : (faPct<50?`<span class="feed-part">&#9689; ${fmt(p.fa)} &middot; ${faPct}%</span>`
+                 :`<span class="feed-ok">&#9679; ${fmt(p.fa)} &middot; ${faPct}%</span>`);
+    return `<tr>
+      <td>P${p.n} &middot; <b>${esc(p.name)}</b><div class="note mono">${esc(p.home)}</div></td>
+      <td>${fmt(p.rows)}</td>
+      <td>${p.satellite?fmt(p.satellite):"&mdash;"}</td>
+      <td class="${p.conf===p.rows?"":"part"}">${pct(p.conf,p.rows)}%</td>
+      <td class="${p.rev===p.rows?"":"part"}">${pct(p.rev,p.rows)}%</td>
+      <td>${faCell}</td></tr>`;}).join("");
+  document.getElementById("idf-pillars").innerHTML=
+    `<div class="dscroll"><table class="dtable">
+      <thead><tr><th>Pillar &middot; canonical home</th><th>Rows</th><th>Satellite</th><th>Confidence</th><th>Review</th><th>Geographic attainment (FA)</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`
+    + caveat("bad","FA is structure, not values",
+        "Confidence and Review state are complete estate-wide. Geographic attainment carries values on Pillar 4 only — the axis the Six Pillars page calls the highest-value single move is still half made.",
+        "fa_band populated on 5 of 6 pillars: 0 rows");
+
+  /* pillar 4 */
+  const cf=d.p4_confidence||{};
+  const cfRow=["CF0","CF1","CF2","CF3","CF4","CF5"].filter(k=>cf[k]!=null)
+    .map(k=>`<td><b>${k}</b> ${fmt(cf[k])}</td>`).join("");
+  document.getElementById("idf-p4").innerHTML=
+    [{v:fmt(p4.stored),l:"Stored rows"},
+     {v:fmt(p4.scorer_visible),l:"Scorer-visible",sub:"superseded_by IS NULL"},
+     {v:fmt(p4.superseded),l:"Superseded"},
+     {v:fmt(p4.geo_bound),l:"Jurisdiction-bound",sub:`${fmt(p4.stored-p4.geo_bound)} unbound`,warn:(p4.stored-p4.geo_bound)>0},
+     {v:fmt(p4.publishable),l:"Publishable",sub:"editorial gate"},
+     {v:fmt(p4.lifecycle_unknown),l:"Lifecycle unknown",sub:"merged rows carry no build stage",warn:true}
+    ].map(statCard).join("")
+    + `<div class="dscroll"><table class="dtable"><thead><tr><th>Confidence band distribution</th></tr></thead>
+       <tbody><tr>${cfRow}</tr></tbody></table></div>`
+    + caveat("","JDS selector runs on "+esc(jds.formula_version||"unknown"),
+        "The county rollup is on "+esc(jds.formula_version||"unknown")+" across "+fmt(jds.scored_rows||0)+" counties. The daily scheduler is currently paused with a dated resume job — a deliberate freeze around the Pillar 4 merge, not a failure.",
+        "cron jobs matching jds: "+fmt(jds.cron_active||0)+" active &middot; "+fmt(jds.cron_paused||0)+" paused");
+
+  /* linkage */
+  const seen={}; (lk.by_pillar||[]).forEach(r=>seen[r.pillar]=r);
+  const allP=["jurisdiction","company","person","facility","institution","source"];
+  const lrows=allP.map(k=>{const r=seen[k];
+    return `<tr class="${r?"":"dark"}"><td>${esc(k)}</td>
+      <td class="${r?"":"zero"}">${r?fmt(r.links):0}</td>
+      <td class="${r?"":"zero"}">${r?fmt(r.subdomains)+" / "+fmt(reg.subdomains_active):"0"}</td>
+      <td>${r?'<span class="feed-ok">&#9679; LINKED</span>':'<span class="feed-no">NOT LINKED</span>'}</td></tr>`;}).join("");
+  document.getElementById("idf-linkage").innerHTML=
+    `<div class="dscroll"><table class="dtable">
+      <thead><tr><th>Pillar</th><th>Links</th><th>Sub-Domains covered</th><th>State</th></tr></thead>
+      <tbody>${lrows}</tbody></table></div>`
+    + caveat("bad","Three linkage engines are live at once",
+        "subdomain_entity_link holds "+fmt(lk.total||0)+" rows across three of six pillars, while both legacy rule engines are still running. The Six Pillars page calls this “the §00 defect reproduced one layer down”, and retirement is required, not optional.",
+        "artifact_subdomain_candidates "+fmt(lk.legacy_artifact_subdomain_candidates||0)+" &middot; tagspine_subdomain_rules "+fmt(lk.legacy_tagspine_subdomain_rules||0));
+
+  /* drift vs Notion */
+  const drift=[
+    ["Pillar 4 home","1,613 canonical + 19,292 candidates, merge not executed",fmt(p4.stored)+" merged rows in dc_facilities","Merge has since executed"],
+    ["P4 stored volume","20,905 predicted at merge",fmt(p4.stored),"2,688 candidates did not land"],
+    ["P4 superseded","1,299 predicted (59 + 1,240 matched)",fmt(p4.superseded),"Matched rows excluded, not stamped"],
+    ["P4 jurisdiction binding","“the merge moves no JDS score at all”",fmt(p4.geo_bound)+" bound","Merged rows did receive bindings"],
+    ["P4 publishable","0 / 1,613",fmt(p4.publishable)+" true","Editorial gate has moved"],
+    ["JDS formula","county-v1 in force, v2 blocked",esc(jds.formula_version||"unknown"),"v3 shipped"]
+  ].map(r=>`<tr><td>${esc(r[0])}</td><td class="zero">${esc(r[1])}</td><td><b>${r[2]}</b></td><td class="delta">${esc(r[3])}</td></tr>`).join("");
+  document.getElementById("idf-drift").innerHTML=
+    `<div class="dscroll"><table class="dtable">
+      <thead><tr><th>Item</th><th>Notion spine (29&ndash;30 Aug)</th><th>Live now</th><th>Reading</th></tr></thead>
+      <tbody>${drift}</tbody></table></div>`
+    + caveat("bad","Notion is the source of truth and is behind the estate",
+        "Every row above is an exact COUNT(*) taken live. Where this panel and the Notion pages disagree, the pages have not yet been reconciled — the estate moved first.",
+        "Reconcile IDF 5.0 §00 and Six Pillars §1 / §6.1 against these figures");
+}
+
+async function loadIdf(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/workbench_idf`,{
+      method:"POST",
+      headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":"application/json"},
+      body:"{}"
+    });
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const d=await r.json();
+    if(!d||!d.registry) throw new Error("empty payload");
+    renderIdf(d);
+    const st=document.getElementById("idf-stamp");
+    if(st&&d.computed_at) st.textContent=" · measured "+new Date(d.computed_at).toISOString().replace("T"," ").slice(0,16)+" UTC";
+  }catch(e){
+    console.warn("workbench_idf fetch failed.",e);
+    const msg=`<div class="hnote" style="color:var(--red)">IDF panel unavailable — live fetch failed (${esc(e.message)}).</div>`;
+    ["idf-pillars","idf-p4","idf-linkage","idf-drift"].forEach(id=>{const n=document.getElementById(id); if(n) n.innerHTML=msg;});
+    document.getElementById("idf-registry").innerHTML="";
+  }
+}
+loadIdf();
+
 </script>
 </body>
 </html>
