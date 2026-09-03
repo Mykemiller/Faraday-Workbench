@@ -151,6 +151,90 @@ h2{font-family:'IBM Plex Serif',serif;font-size:27px;margin:6px 0 22px}
 .lk span{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--sage)}
 footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--warm-dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
 :focus-visible{outline:2px solid var(--gold-bright);outline-offset:2px}
+
+/* ===== CC-WORKBENCH-IA-1.0 — views, triage bar, collapsible detail =====
+   The page had grown to ten panels and ~130 rows in ONE column, so the only way
+   to learn whether anything was broken was to scroll all of it. Two changes fix
+   that without weakening the instrument:
+
+   1. VIEWS. The sections are tab panels; one is shown at a time. Progressive
+      enhancement — `.js-views` is set by script, so with JS dead every section
+      stays visible and the page degrades to exactly what it was.
+   2. TRIAGE BAR. Hiding panels behind tabs would bury bad news, which is the one
+      thing CC-WORKBENCH-SCORING-PANELS-UI-1.0 §5.2 forbids. So every red and
+      amber condition is lifted OUT of its panel and rendered above the fold,
+      across all five views, linking back to the panel that owns it. §5.2 was a
+      per-panel rule; this applies it to the page. Same colour grammar. */
+.hero-line{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:-8px 0 16px}
+.hero-line p{color:var(--warm-dim);max-width:52ch;font-size:13.5px;margin:0;flex:1;min-width:260px}
+/* Edge fade so the clipped ends read as motion rather than as broken text.
+   Height is capped because the reduced-motion rule below unwraps the ticker to
+   static multi-line text, which in this flex slot would otherwise grow tall. */
+.hero-line .ticker{flex:2;min-width:280px;margin:0;max-height:40px;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 22px,#000 calc(100% - 22px),transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 22px,#000 calc(100% - 22px),transparent)}
+.viewnav{display:flex;gap:2px;margin-left:auto;overflow-x:auto;scrollbar-width:none}
+.viewnav::-webkit-scrollbar{display:none}
+.viewnav button{appearance:none;background:none;border:0;border-bottom:2px solid transparent;
+  color:var(--warm-dim);font-family:'Bricolage Grotesque',sans-serif;font-size:14px;
+  padding:8px 13px 7px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:7px;border-radius:3px 3px 0 0}
+.viewnav button:hover{color:var(--warm)}
+.viewnav button[aria-selected="true"]{color:var(--gold-bright);border-bottom-color:var(--gold)}
+.viewnav .vc{font-family:'IBM Plex Mono',monospace;font-size:9.5px;line-height:1;padding:3px 5px;border-radius:8px;font-weight:600}
+.viewnav .vc-red{background:rgba(200,106,90,.22);color:var(--red)}
+.viewnav .vc-amber{background:rgba(217,166,72,.18);color:var(--amber)}
+body.js-views .view{display:none}
+body.js-views .view.is-active{display:block}
+/* first visible section must not double the header's rule */
+body.js-views .view.is-active{border-top:0}
+
+/* Triage bar. Deliberately NOT sticky: at the live count (8 critical) the chips
+   wrap to three rows, and a sticky bar that tall would permanently eat ~200px of
+   viewport — undoing the scrolling fix it ships with. §5.2 is satisfied on
+   arrival, where the full list sits above the fold; persistent awareness after
+   you scroll comes from the per-view count badges in the sticky header, which
+   are always on screen and carry the same numbers. */
+.triage{background:var(--forest-deep);border-bottom:1px solid var(--hair)}
+.triage-in{display:flex;align-items:flex-start;gap:14px;padding:10px 0;flex-wrap:wrap}
+.verdict{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  padding:5px 11px;border-radius:2px;white-space:nowrap;flex:none}
+.v-red{background:rgba(200,106,90,.16);color:var(--red);border:1px solid rgba(200,106,90,.4)}
+.v-amber{background:rgba(217,166,72,.14);color:var(--amber);border:1px solid rgba(217,166,72,.35)}
+.v-ok{background:rgba(127,191,122,.12);color:var(--live);border:1px solid rgba(127,191,122,.35)}
+.v-load{background:transparent;color:var(--idle);border:1px solid var(--hair)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:220px}
+.chip{display:inline-flex;align-items:center;gap:7px;background:var(--forest);border:1px solid var(--hair);
+  border-left-width:2px;border-radius:0 3px 3px 0;padding:5px 10px;font-size:12.5px;color:var(--warm-dim);
+  cursor:pointer;text-align:left;font-family:'Bricolage Grotesque',sans-serif;line-height:1.3}
+.chip:hover{border-color:var(--gold);color:var(--warm)}
+.chip.red{border-left-color:var(--red)}
+.chip.amber{border-left-color:var(--amber)}
+.chip b{font-weight:600;color:var(--warm)}
+.chip .where{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--sage);flex:none}
+.triage details{width:100%}
+.triage summary{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;
+  color:var(--amber);cursor:pointer;padding:4px 0}
+.triage summary::marker{color:var(--idle)}
+
+/* collapsible data blocks — the long tables (23 IDF domains, 10 JPAS tiers,
+   8 JTS feeds) fold behind a one-line headline so a view fits a screen.
+   Caveats are NEVER placed inside one: §5.2 requires them visible on arrival. */
+.fold{border:1px solid var(--hair);border-radius:4px;background:var(--forest);margin-top:8px}
+.fold>summary{list-style:none;cursor:pointer;padding:10px 14px;display:flex;align-items:center;gap:10px;
+  font-size:13px;color:var(--warm-dim)}
+.fold>summary::-webkit-details-marker{display:none}
+.fold>summary::before{content:"▸";color:var(--sage);font-size:10px;flex:none;transition:transform .12s}
+.fold[open]>summary::before{transform:rotate(90deg)}
+.fold>summary:hover{color:var(--warm)}
+.fold>summary b{color:var(--warm);font-weight:600}
+.fold>summary .fx{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--sage)}
+.fold .dscroll{border:0;border-top:1px solid var(--hair);border-radius:0}
+@media (prefers-reduced-motion: reduce){.fold>summary::before{transition:none}}
+@media (max-width:720px){
+  .hbar{flex-wrap:wrap;gap:10px}
+  .viewnav{order:3;width:100%;margin-left:0}
+}
 </style>
 </head>
 <body>
@@ -158,28 +242,44 @@ footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Ple
   <div class="wrap hbar">
     <svg class="bolt" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="#C4922A"/></svg>
     <div class="brand">Faraday Workbench<small>Private · Back of house</small></div>
-    <nav>
-      <a href="#observability">Observability</a>
-      <a href="#idf">IDF 5.0</a>
-      <a href="#links">Quick links</a>
+    <nav class="viewnav" id="viewnav" role="tablist" aria-label="Workbench views">
+      <button role="tab" id="tab-estate"  aria-controls="estate"  data-view="estate">Estate</button>
+      <button role="tab" id="tab-feeds"   aria-controls="feeds"   data-view="feeds">Feeds</button>
+      <button role="tab" id="tab-scoring" aria-controls="scoring" data-view="scoring">Scoring</button>
+      <button role="tab" id="tab-idf"     aria-controls="idf"     data-view="idf">IDF 5.0</button>
+      <button role="tab" id="tab-links"   aria-controls="links"   data-view="links">Links</button>
     </nav>
     <span class="priv">MYKE ONLY</span>
   </div>
 </header>
 
-<div class="wrap hero">
-  <h1>Everything Faraday, <em>one bench.</em></h1>
-  <p>Live posture across the nine storefronts and seven engines, plus one-tap paths to every tool. Your unfair advantage — pointed inward.</p>
-  <div class="ticker" aria-label="Status ticker">
-    <div class="ticker-inner" id="ticker"></div>
+<div class="triage" id="triage">
+  <div class="wrap triage-in" id="triage-in">
+    <span class="verdict v-load" id="verdict">READING LIVE STATE…</span>
   </div>
 </div>
 
-<section id="observability">
+<section id="estate" class="view" role="tabpanel" aria-labelledby="tab-estate" tabindex="-1">
   <div class="wrap">
     <div class="eyebrow">Observability</div>
     <h2>Storefront board</h2>
+    <div class="hero-line">
+      <p>Live posture across the storefronts and engines, plus one-tap paths to every tool. Your unfair advantage — pointed inward.</p>
+      <div class="ticker" aria-label="Status ticker"><div class="ticker-inner" id="ticker"></div></div>
+    </div>
     <div class="board" id="storefronts"></div>
+
+    <div class="subhead">Engine dashboard — Fundamental Intelligence Engine</div>
+    <div class="engines" id="engines"></div>
+    <div class="subhead" id="stats-subhead">Engine stats — Supabase counts · as of 07-04-26</div>
+    <div class="stats" id="stats"></div>
+  </div>
+</section>
+
+<section id="feeds" class="view" role="tabpanel" aria-labelledby="tab-feeds" tabindex="-1">
+  <div class="wrap">
+    <div class="eyebrow">Ingestion</div>
+    <h2>Feed coverage &amp; freshness</h2>
 
     <div class="subhead">IDF Health — Fundamental Intelligence Engine feed coverage</div>
     <div id="idf-health"><div class="hnote">Loading live IDF health…</div></div>
@@ -189,8 +289,13 @@ footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Ple
 
     <div class="subhead">Faraday Forecast Model</div>
     <div id="forecast-model"><div class="hnote">Loading forecast-model status…</div></div>
+  </div>
+</section>
 
-    <div class="subhead">Scoring panels — JPAS · JDS · JTS</div>
+<section id="scoring" class="view" role="tabpanel" aria-labelledby="tab-scoring" tabindex="-1">
+  <div class="wrap">
+    <div class="eyebrow">Engine</div>
+    <h2>Scoring panels — JPAS · JDS · JTS</h2>
     <div id="scoring-age"></div>
     <div class="legend"><b class="lr">RED</b> live defect or not running &nbsp;·&nbsp; <b class="la">AMBER</b> documented characteristic, or a Proposed decision &nbsp;·&nbsp; <b class="lg">GREEN</b> invariant holding</div>
 
@@ -202,16 +307,10 @@ footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Ple
 
     <div class="subhead" style="margin-top:22px">JTS — readiness</div>
     <div id="jts-panel"><div class="hnote">Loading JTS readiness…</div></div>
-
-
-    <div class="subhead">Engine dashboard — Fundamental Intelligence Engine</div>
-    <div class="engines" id="engines"></div>
-    <div class="subhead" id="stats-subhead">Engine stats — Supabase counts · as of 07-04-26</div>
-    <div class="stats" id="stats"></div>
   </div>
 </section>
 
-<section id="idf">
+<section id="idf" class="view" role="tabpanel" aria-labelledby="tab-idf" tabindex="-1">
   <div class="wrap">
     <div class="eyebrow">Framework</div>
     <h2>IDF 5.0 &mdash; spine &amp; the six pillars</h2>
@@ -235,7 +334,7 @@ footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Ple
   </div>
 </section>
 
-<section id="links">
+<section id="links" class="view" role="tabpanel" aria-labelledby="tab-links" tabindex="-1">
   <div class="wrap">
     <div class="eyebrow">Quick links</div>
     <h2>Storefronts &amp; tools</h2>
@@ -368,6 +467,14 @@ function renderStorefronts(tiles,computedAt,staleAfterHours){
  <div class="note">${esc(t.blurb)}</div>
  <div class="metrics">${metricsHtml(t)}</div>
  <div class="meta"><a href="${esc(t.jira_url)}" target="_blank" rel="noopener">${esc(t.jira_key)} ↗</a><span>${esc(stamp)}${badge}</span></div></div>`).join("");
+  const sc=[];
+  tiles.filter(t=>t.status==="warn").forEach(t=>sc.push(cond("red",`${t.name} — ${t.status_tag}`,"estate","storefronts",t.blurb)));
+  if(stale) sc.push(cond("amber",`Storefront cache stale (>${hrs}h)`,"estate","storefronts",
+    computedAt?("computed "+computedAt):"no computed_at on the cache"));
+  if(tiles.some(t=>t.metric_basis==="probe_error")) sc.push(cond("amber","A storefront metric probe errored","estate","storefronts"));
+  if(tiles.some(t=>t.metric_basis==="fallback")) sc.push(cond("amber","Storefront board is on fallback copy — RPC returned nothing","estate","storefronts"));
+  reportConditions("storefront",sc);
+
   const tk=tiles.map(t=>`<span><b>${esc(t.name)}</b> ${esc(t.status_tag)}</span>`).join("");
   document.getElementById("ticker").innerHTML=tk+tk;
 }
@@ -398,6 +505,137 @@ const fmt=n=>Number(n).toLocaleString("en-US");
 const esc=s=>String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 function statCard(s){return `<div class="stat${s.warn?" warn":""}"><div class="num">${s.v}</div><div class="lbl">${s.l}</div>${s.sub?`<div class="sub">${s.sub}</div>`:""}</div>`;}
 
+/* ===== CC-WORKBENCH-IA-1.0 — view switching + triage ==================
+   The page is an instrument panel, so the ordering rule from
+   CC-WORKBENCH-SCORING-PANELS-UI-1.0 §5.2 governs: bad news must reach a reader
+   who stops after the first screen. Tabs alone would BREAK that — four views'
+   worth of defects would sit behind a click. So the two ship together: each
+   loader reports its red/amber conditions here, and the triage bar renders them
+   above every view with a link back to the owning panel.
+
+   Severity grammar is unchanged and deliberate: RED = a live defect or something
+   not running; AMBER = a documented characteristic, or a decision still Proposed
+   rather than Confirmed. A Proposed decision is never rounded up to a fact. */
+const VIEWS = ["estate","feeds","scoring","idf","links"];
+const VIEW_LABEL = {estate:"Estate",feeds:"Feeds",scoring:"Scoring",idf:"IDF 5.0",links:"Links"};
+/* legacy in-page anchors kept working after the split */
+const ANCHOR_VIEW = {observability:"estate", storefronts:"estate", engines:"estate",
+  "idf-health":"feeds","dc-health":"feeds","forecast-model":"feeds",
+  "jpas-panel":"scoring","jds-panel":"scoring","jts-panel":"scoring","scoring-age":"scoring"};
+
+function activateView(id, opts){
+  if(!VIEWS.includes(id)) id = ANCHOR_VIEW[id] || "estate";
+  VIEWS.forEach(v=>{
+    const sec=document.getElementById(v), tab=document.getElementById("tab-"+v);
+    if(!sec||!tab) return;
+    const on = v===id;
+    sec.classList.toggle("is-active", on);
+    tab.setAttribute("aria-selected", on?"true":"false");
+    tab.tabIndex = on?0:-1;              // roving tabindex
+  });
+  const t=document.getElementById("tab-"+id);
+  if(t){
+    if(opts&&opts.focus) t.focus();
+    /* the nav scrolls horizontally on narrow screens, so a view activated from a
+       triage chip or a deep link can land off-screen — bring its tab into view */
+    if(t.scrollIntoView) t.scrollIntoView({block:"nearest",inline:"nearest"});
+  }
+  return id;
+}
+
+function initViews(){
+  const nav=document.getElementById("viewnav");
+  if(!nav) return;
+  document.body.classList.add("js-views");   // progressive enhancement: no JS => all sections visible
+  nav.addEventListener("click", e=>{
+    const b=e.target.closest("button[data-view]"); if(!b) return;
+    const v=activateView(b.dataset.view);
+    history.replaceState(null,"","#"+v);
+  });
+  nav.addEventListener("keydown", e=>{
+    const keys={ArrowLeft:-1,ArrowRight:1,Home:"first",End:"last"};
+    if(!(e.key in keys)) return;
+    e.preventDefault();
+    const cur=VIEWS.findIndex(v=>document.getElementById("tab-"+v)?.getAttribute("aria-selected")==="true");
+    const d=keys[e.key];
+    const next = d==="first"?0 : d==="last"?VIEWS.length-1 : (cur+d+VIEWS.length)%VIEWS.length;
+    const v=activateView(VIEWS[next],{focus:true});
+    history.replaceState(null,"","#"+v);
+  });
+  const fromHash=()=>{
+    const h=(location.hash||"").replace(/^#/,"");
+    const v=activateView(h||"estate");
+    /* a deep link to a panel inside a view still scrolls to that panel */
+    if(h && !VIEWS.includes(h)){ const el=document.getElementById(h); if(el) el.scrollIntoView({block:"start"}); }
+    return v;
+  };
+  addEventListener("hashchange", fromHash);
+  fromHash();
+}
+
+/* --- condition registry -------------------------------------------------
+   Sources report independently and asynchronously; the bar re-renders on each
+   report so it fills in as payloads land rather than waiting for the slowest. */
+const CONDITIONS = new Map();   // source -> [{sev,text,detail,view,anchor}]
+const REPORTED = new Set();
+function reportConditions(source, list){
+  CONDITIONS.set(source, list||[]); REPORTED.add(source); renderTriage();
+}
+const cond=(sev,text,view,anchor,detail)=>({sev,text,view,anchor,detail});
+
+function renderTriage(){
+  const bar=document.getElementById("triage-in"); if(!bar) return;
+  const all=[...CONDITIONS.values()].flat();
+  const red=all.filter(c=>c.sev==="red"), amber=all.filter(c=>c.sev==="amber");
+
+  /* per-view counts on the tabs */
+  VIEWS.forEach(v=>{
+    const tab=document.getElementById("tab-"+v); if(!tab) return;
+    tab.querySelectorAll(".vc").forEach(n=>n.remove());
+    const r=red.filter(c=>c.view===v).length, a=amber.filter(c=>c.view===v).length;
+    const add=(n,cls)=>{ if(!n) return; const el=document.createElement("span");
+      el.className="vc "+cls; el.textContent=n; tab.appendChild(el); };
+    add(r,"vc-red"); add(a,"vc-amber");
+  });
+
+  const pending = REPORTED.size < 5;
+  let vcls,vtxt;
+  if(red.length){ vcls="v-red";  vtxt=red.length+" CRITICAL"+(amber.length?" · "+amber.length+" WARNING":""); }
+  else if(amber.length){ vcls="v-amber"; vtxt=amber.length+" WARNING"+(amber.length>1?"S":""); }
+  else if(pending){ vcls="v-load"; vtxt="READING LIVE STATE…"; }
+  else { vcls="v-ok"; vtxt="ALL CLEAR"; }
+  if(pending && (red.length||amber.length)) vtxt += " · STILL READING";
+
+  const chip=c=>`<button class="chip ${c.sev}" data-view="${esc(c.view)}" data-anchor="${esc(c.anchor||"")}"`
+    + ` title="${esc(c.detail||"")}">${esc(c.text)}<span class="where">${esc(VIEW_LABEL[c.view]||c.view)}</span></button>`;
+
+  /* Every critical condition is shown inline — never behind a disclosure.
+     Warnings fold, because a dozen documented characteristics would drown them. */
+  let html=`<span class="verdict ${vcls}" id="verdict">${esc(vtxt)}</span>`;
+  if(red.length) html+=`<div class="chips">${red.map(chip).join("")}</div>`;
+  else if(!amber.length && !pending) html+=`<div class="chips"><span class="chip" style="border-left-color:var(--live);cursor:default">Nothing red or amber across all five views.</span></div>`;
+  if(amber.length) html+=`<details${red.length?"":" open"}><summary>▸ ${amber.length} warning${amber.length>1?"s":""} — documented characteristics and Proposed decisions</summary>`
+    + `<div class="chips" style="padding-top:6px">${amber.map(chip).join("")}</div></details>`;
+  bar.innerHTML=html;
+
+  bar.querySelectorAll(".chip[data-view]").forEach(b=>b.addEventListener("click",()=>{
+    activateView(b.dataset.view);
+    history.replaceState(null,"","#"+b.dataset.view);
+    const a=b.dataset.anchor && document.getElementById(b.dataset.anchor);
+    if(a) a.scrollIntoView({block:"start",behavior:"smooth"});
+  }));
+}
+
+/* --- fold helper --------------------------------------------------------
+   Wraps a data block behind a one-line headline so a view fits a screen.
+   NEVER wrap a caveat: §5.2 requires caveats visible without interaction. */
+function fold(summaryHtml, bodyHtml, opts){
+  const o=opts||{};
+  return `<details class="fold"${o.open?" open":""}><summary>${summaryHtml}`
+    + (o.extra?`<span class="fx">${o.extra}</span>`:"") + `</summary>${bodyHtml}</details>`;
+}
+initViews();
+
 function renderHealth(h){
   const idf=h.idf, jps=h.jps, dc=h.dc, sig=h.signals, es=h.engine_stats;
 
@@ -426,16 +664,27 @@ function renderHealth(h){
   document.getElementById("idf-health").innerHTML=`
     <div class="stats" style="margin-bottom:14px">${idfHead}</div>
     <div class="hnote">${idf.domains_dark} domain dark (no feed at all) · ${idf.subdomains_no_feed} of ${idf.subdomains_total} subdomains have no data feed. "Subs" = live / total; ◐ marks partial coverage.</div>
-    <div class="dscroll"><table class="dtable"><thead><tr>
-      <th>Domain</th><th>Subs live</th><th>Artifacts</th><th>New · 7d</th><th>Feed</th>
-    </tr></thead><tbody>${rows}</tbody></table></div>
+    ${fold(`<b>${idf.by_domain.length} domains</b> — per-domain feed state`,
+      `<div class="dscroll"><table class="dtable"><thead><tr>
+        <th>Domain</th><th>Subs live</th><th>Artifacts</th><th>New · 7d</th><th>Feed</th>
+      </tr></thead><tbody>${rows}</tbody></table></div>`,
+      {open: idf.domains_dark>0, extra:`${idf.by_domain.filter(d=>d.all_art===0).length} dark · ${idf.by_domain.filter(d=>d.all_art&&d.subs_no_feed>0).length} partial`})}
     ${feedlessList}`;
 
   /* Daily Challenge Health */
   const bank=dc.bank||{};
-  const closed=dc.season_status!=="open";
-  const seasonPill=closed?'<span class="pill p-warn">CLOSED</span>':'<span class="pill p-live">OPEN</span>';
-  const daysTxt=closed?`0 days left · between seasons`:`${dc.days_left} days left`;
+  /* The status vocabulary in `seasons` is active | closed | upcoming — there is
+     no "open". Testing !== "open" was therefore ALWAYS true, so a running season
+     rendered as CLOSED / "between seasons" every single day. Read the real word. */
+  const st=String(dc.season_status||"").toLowerCase();
+  const running=st==="active";
+  const seasonPill=running?'<span class="pill p-live">ACTIVE</span>'
+    :st==="upcoming"?'<span class="pill p-build">UPCOMING</span>'
+    :st?`<span class="pill p-warn">${esc(st.toUpperCase())}</span>`
+    :'<span class="pill p-concept">NO SEASON</span>';
+  const daysTxt=running?`${dc.days_left} day${dc.days_left===1?"":"s"} left`
+    :st==="upcoming"?"not started yet"
+    :"between seasons";
   const dcHead=[
     {v:fmt(bank.total??0),l:"Puzzle bank · total"},
     {v:fmt(bank.remaining_scheduled??0),l:`Scheduled ahead${bank.through?" · to "+bank.through:""}`},
@@ -450,7 +699,7 @@ function renderHealth(h){
     <td class="${p.players_24h?"":"zero"}">${fmt(p.players_24h)}</td>
     <td class="${p.high_score_24h?"":"zero"}">${fmt(p.high_score_24h)}</td></tr>`).join("");
   document.getElementById("dc-health").innerHTML=`
-    <div class="seasonbar"><b>${esc(dc.season_name||"—")}</b>${seasonPill}<span class="hnote" style="margin:0">${daysTxt}${dc.season_ends_on?" · ended "+dc.season_ends_on:""}</span></div>
+    <div class="seasonbar"><b>${esc(dc.season_name||"—")}</b>${seasonPill}<span class="hnote" style="margin:0">${daysTxt}${dc.season_ends_on?(running||st==="upcoming"?" · ends ":" · ended ")+dc.season_ends_on:""}</span></div>
     <div class="stats" style="margin-bottom:14px">${dcHead}</div>
     <div class="hnote">Bank source: ${esc(bank.source||"Airtable")}${bank.synced_on?" · synced "+bank.synced_on:""} · ${bank.retired??0} retired, ${bank.published??0} published. Per-puzzle play stats below are live from Supabase.</div>
     <div class="dscroll"><table class="dtable puzz"><thead><tr>
@@ -479,6 +728,21 @@ function renderHealth(h){
   ];
   document.getElementById("stats").innerHTML=liveStats.map(statCard).join("");
 
+  /* --- conditions: engine + feed health --------------------------------- */
+  const hc=[];
+  if(idf.domains_dark>0) hc.push(cond("red",`${idf.domains_dark} IDF domain${idf.domains_dark>1?"s":""} dark — no feed at all`,"feeds","idf-health"));
+  if(idf.subdomains_no_feed>0) hc.push(cond("amber",`${idf.subdomains_no_feed} of ${idf.subdomains_total} subdomains have no feed`,"feeds","idf-health"));
+  if(sig.status==="stalled") hc.push(cond("red",`Signals stalled — last fired ${sig.last_fired?String(sig.last_fired).slice(0,10):"never"}`,"estate","stats",
+    `${fmt(sig.candidates_24h)} unpromoted candidates in 24h`));
+  if(es.companies_new_signals_7d===0) hc.push(cond("amber","No company produced a new signal in 7 days","estate","stats"));
+  if(es.automations_24h-es.automations_succeeded_24h>0)
+    hc.push(cond("amber",`${es.automations_24h-es.automations_succeeded_24h} automation${es.automations_24h-es.automations_succeeded_24h>1?"s":""} failed in 24h`,"estate","stats"));
+  if(st!=="active") hc.push(cond("amber",`Daily Challenge season is ${st||"absent"}`,"feeds","dc-health",
+    dc.season_ends_on?("ends "+dc.season_ends_on):""));
+  else if(Number(dc.days_left)<=3) hc.push(cond("amber",`Daily Challenge season ends in ${dc.days_left} day(s)`,"feeds","dc-health",
+    "no successor season is active yet"));
+  reportConditions("health",hc);
+
   const gen=new Date(h.generated_at);
   const stamp=gen.toLocaleString("en-US",{month:"2-digit",day:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"});
   document.getElementById("stats-subhead").textContent=`Engine stats — Supabase counts · live · ${stamp}`;
@@ -495,6 +759,7 @@ async function loadHealth(){
     renderHealth(await r.json());
   }catch(e){
     console.warn("workbench_health fetch failed — static board retained.",e);
+    reportConditions("health",[cond("red","Engine + feed health unavailable — live fetch failed","feeds","idf-health",e.message)]);
     document.getElementById("idf-health").innerHTML=`<div class="hnote" style="color:var(--red)">IDF health unavailable — live fetch failed (${esc(e.message)}). Engine stats above are the last static snapshot.</div>`;
     document.getElementById("dc-health").innerHTML=`<div class="hnote" style="color:var(--red)">Daily Challenge health unavailable — live fetch failed (${esc(e.message)}).</div>`;
   }
@@ -574,6 +839,14 @@ function renderForecastModel(p){
        <div class="hnote" style="margin-top:8px">Content-dated rows across all legacy data sources; counts grow as the backfill queue drains.${p.computed_at?" Cache computed "+esc(stampUTC(p.computed_at))+".":""}</div>`
     : '<div class="hnote">No span counts returned.</div>';
 
+  const fc=[];
+  if(!thisWk) fc.push(cond("amber","Forecast model has no metrics snapshot","feeds","forecast-model"));
+  else MODEL_METRICS.filter(m=>m.good==="zero").forEach(m=>{
+    const v=Number(thisWk[m.k]);
+    if(Number.isFinite(v)&&v>0) fc.push(cond("red",`${m.l}: ${fmtMetric(v,m.pct)}`,"feeds","forecast-model","must be zero"));
+  });
+  reportConditions("forecast",fc);
+
   document.getElementById("forecast-model").innerHTML=
     sectionA+
     '<div class="subhead" style="margin-top:20px">Legacy artifact coverage by span</div>'+
@@ -590,6 +863,7 @@ async function loadForecastModel(){
     renderForecastModel(await r.json());
   }catch(e){
     console.warn("workbench_forecast_model fetch failed.",e);
+    reportConditions("forecast",[cond("red","Forecast-model status unavailable — live fetch failed","feeds","forecast-model",e.message)]);
     document.getElementById("forecast-model").innerHTML=
       `<div class="hnote" style="color:var(--red)">Forecast-model status unavailable — live fetch failed (${esc(e.message)}).</div>`;
   }
@@ -783,18 +1057,28 @@ function renderJts(t){
     <td><span class="${a.is_active?"feed-ok":"feed-no"}">${a.is_active?"ACTIVE":"INACTIVE"}</span></td>
     <td class="alert" style="text-align:left;font-size:11px">${esc(a.blocked_by)}</td>
     <td class="codes">${a.blocking_note?esc(a.blocking_note):"—"}</td></tr>`).join("");
-  const attrTable=`<div class="dscroll"><table class="dtable">
-    <thead><tr><th>Attribute</th><th>Construct</th><th>Confidence</th><th>Registry</th><th>Blocked by</th><th>Registry note</th></tr></thead>
-    <tbody>${attrs}</tbody></table></div>`;
+  /* The blocking reason is the finding; the registry notes are paragraphs that
+     dominate the panel. Summarised open, detail folded. */
+  const blockers={};
+  (t.attributes||[]).forEach(a=>{blockers[a.blocked_by]=(blockers[a.blocked_by]||0)+1;});
+  const blockerTxt=Object.entries(blockers).map(([k,n])=>`${n}× ${esc(k)}`).join(" · ")||"—";
+  const attrTable=fold(`<b>${esc(t.attributes_registered)} attributes</b> — ${esc(t.attributes_active)} active, none composed`,
+    `<div class="dscroll"><table class="dtable">
+     <thead><tr><th>Attribute</th><th>Construct</th><th>Confidence</th><th>Registry</th><th>Blocked by</th><th>Registry note</th></tr></thead>
+     <tbody>${attrs}</tbody></table></div>`,
+    {extra: blockerTxt});
 
   const feeds=(t.feeds||[]).map(f=>`<tr>
     <td>${esc(f.feed)}</td>
     <td style="text-align:left;font-size:11px">${esc(f.purpose)}</td>
     <td class="${f.has_data?"":"alert"}">${fmt(f.rows)}</td>
     <td><span class="${f.has_data?"feed-ok":"feed-no"}">${f.has_data?"HAS DATA":"EMPTY"}</span></td></tr>`).join("");
-  const feedTable=`<div class="subhead" style="margin-top:18px">Candidate feeds — ${esc(t.feeds_empty)} empty</div>
-    <div class="dscroll"><table class="dtable">
-    <thead><tr><th>Feed</th><th>Purpose</th><th>Rows</th><th>State</th></tr></thead><tbody>${feeds}</tbody></table></div>`;
+  /* Folded, not dropped: 8 rows of which one is empty. The count that matters is
+     in the summary, so the view fits a screen and the detail is one click away. */
+  const feedTable=fold(`<b>Candidate feeds</b> — ${esc(t.feeds.length)} tracked, ${esc(t.feeds_empty)} empty`,
+    `<div class="dscroll"><table class="dtable">
+     <thead><tr><th>Feed</th><th>Purpose</th><th>Rows</th><th>State</th></tr></thead><tbody>${feeds}</tbody></table></div>`,
+    {open: Number(t.feeds_empty)>0, extra:"JTS-06 / JTS-07 inputs"});
 
   const p=t.adjacent_live_system||{};
   const pfiModels=(p.models_detail||[]).map(m=>esc(m.model_version)).join(" · ")||"—";
@@ -803,6 +1087,53 @@ function renderJts(t){
       "models "+esc(p.models)+" ("+pfiModels+") · forecasts "+fmt(p.forecasts||0)+" · JPS snapshots "+fmt(p.jps_snapshots||0)+" · trend features "+fmt(p.trend_features||0))}`;
 
   document.getElementById("jts-panel").innerHTML=cav+attrTable+feedTable+pfi;
+}
+
+/* Reads the SAME payload the panels render, so the bar and the panel can never
+   disagree. Severity follows sevOf(): only a status beginning "Live" is red, so
+   DEC-31 stays amber while it is Proposed rather than Confirmed. */
+function scoringConditions(p){
+  const c=[], j=p.jpas, d=p.jds, t=p.jts;
+  const a=p.computed_at?agoText(p.computed_at):null;
+  if(!p.computed_at) c.push(cond("red","Scoring cache has never been computed","scoring","scoring-age"));
+  else if(a && a.h>50) c.push(cond("red",`Scoring cache stale — ${a.txt} old`,"scoring","scoring-age","more than two refresh cycles"));
+  else if(a && a.h>=26) c.push(cond("amber",`Scoring cache ${a.txt} old — a refresh may have been missed`,"scoring","scoring-age"));
+
+  if(j){
+    (j.composer_defects||[]).forEach(x=>
+      c.push(cond(sevOf(x.status)==="bad"?"red":"amber",`JPAS: ${x.defect}`,"scoring","jpas-panel",x.effect)));
+    const wi=j.weight_integrity||{};
+    if(wi.budget_is_100===false||Number(wi.tiers_with_split_weight)>0||Number(wi.tiers_attr_weights_off_one)>0)
+      c.push(cond("red",`JPAS weight budget breached (${wi.budget})`,"scoring","jpas-panel","every score is silently deflated or inflated"));
+    const rvr=j.registry_vs_reality||{};
+    if(Number(rvr.live_with_zero_data)>0)
+      c.push(cond("red",`JPAS: ${rvr.live_with_zero_data} attribute(s) quality-active with zero rows`,"scoring","jpas-panel",
+        (rvr.live_with_zero_data_codes||[]).join(", ")));
+    if((rvr.live_but_registry_says_gated||[]).length)
+      c.push(cond("amber",`JPAS: ${(rvr.live_but_registry_says_gated||[]).join(", ")} live but registry says gated`,"scoring","jpas-panel"));
+    if(Number(rvr.dark_data_attributes)>0)
+      c.push(cond("amber",`JPAS: ${rvr.dark_data_attributes} attributes hold data but are not scored`,"scoring","jpas-panel",
+        fmt(rvr.dark_data_jurisdiction_rows||0)+" jurisdiction-rows dark"));
+    if(Number(rvr.active_flag_contradictions)>0)
+      c.push(cond("amber",`JPAS: ${rvr.active_flag_contradictions} is_active/quality_is_active contradictions`,"scoring","jpas-panel",
+        (rvr.active_flag_contradiction_codes||[]).join(", ")));
+    (j.live_tiers||[]).filter(x=>Number(x.imputation&&x.imputation.pct_imputed)>=90).forEach(x=>
+      c.push(cond("red",`JPAS ${x.tier_code} is ${x.imputation.pct_imputed}% imputed at weight ${x.tier_weight}`,"scoring","jpas-panel",
+        "a median guess carries those points for most of the estate")));
+  }
+  if(d){
+    if(d.composer_is_scheduled===false)
+      c.push(cond("red","JDS composer runs on no schedule","scoring","jds-panel","every number is the last manual run"));
+    if(d.layer_coverage&&d.layer_coverage.flat_columns_stale)
+      c.push(cond("red","JDS flat layer columns are stale","scoring","jds-panel","consumers reading them see an empty pipeline"));
+    (d.caveats||[]).filter(x=>sevOf(x.status)==="bad"&&!/schedule|flat /i.test(x.caveat||""))
+      .forEach(x=>c.push(cond("red","JDS: "+x.caveat,"scoring","jds-panel",x.effect)));
+  }
+  if(t){
+    if(!t.formula_exists) c.push(cond("red","JTS: no model registered — nothing computes a trajectory","scoring","jts-panel",t.readiness_note));
+    if(Number(t.feeds_empty)>0) c.push(cond("amber",`JTS: ${t.feeds_empty} candidate feed(s) empty`,"scoring","jts-panel"));
+  }
+  return c;
 }
 
 async function loadScoringPanels(){
@@ -815,8 +1146,10 @@ async function loadScoringPanels(){
     if(!r.ok) throw new Error("HTTP "+r.status);
     const p=await r.json();
     renderScoringAge(p); renderJpas(p.jpas); renderJds(p.jds); renderJts(p.jts);
+    reportConditions("scoring", scoringConditions(p));
   }catch(e){
     console.warn("workbench_scoring_panels fetch failed.",e);
+    reportConditions("scoring",[cond("red","Scoring panels unavailable — live fetch failed","scoring","jpas-panel",e.message)]);
     /* Never leave a stale or blank panel presented as current. */
     const msg=`<div class="hnote" style="color:var(--red)">Scoring panel unavailable — live fetch failed (${esc(e.message)}).</div>`;
     document.getElementById("scoring-age").innerHTML="";
@@ -921,10 +1254,26 @@ async function loadIdf(){
     const d=await r.json();
     if(!d||!d.registry) throw new Error("empty payload");
     renderIdf(d);
+    const ic=[], lk=d.linkage||{}, pil=d.pillars||[];
+    const legacy=(Number(lk.legacy_artifact_subdomain_candidates)||0)+(Number(lk.legacy_tagspine_subdomain_rules)||0);
+    if(legacy>0) ic.push(cond("red","Three IDF linkage engines are live at once","idf","idf-linkage",
+      "subdomain_entity_link plus both legacy rule engines — retirement is required, not optional"));
+    const linked=new Set((lk.by_pillar||[]).map(r=>r.pillar));
+    const unlinked=["jurisdiction","company","person","facility","institution","source"].filter(k=>!linked.has(k));
+    if(unlinked.length) ic.push(cond("amber",`${unlinked.length} pillar(s) not linked: ${unlinked.join(", ")}`,"idf","idf-linkage"));
+    const noFa=pil.filter(p=>!p.fa).length;
+    if(noFa) ic.push(cond("amber",`Geographic attainment empty on ${noFa} of ${pil.length} pillars`,"idf","idf-pillars"));
+    const p4=d.p4_detail||{};
+    if(Number(p4.lifecycle_unknown)>0) ic.push(cond("amber",`Pillar 4: ${fmt(p4.lifecycle_unknown)} rows carry no build stage`,"idf","idf-p4"));
+    if(Number(p4.stored)-Number(p4.geo_bound)>0)
+      ic.push(cond("amber",`Pillar 4: ${fmt(p4.stored-p4.geo_bound)} rows unbound to a jurisdiction`,"idf","idf-p4"));
+    reportConditions("idf",ic);
+
     const st=document.getElementById("idf-stamp");
     if(st&&d.computed_at) st.textContent=" · measured "+new Date(d.computed_at).toISOString().replace("T"," ").slice(0,16)+" UTC";
   }catch(e){
     console.warn("workbench_idf fetch failed.",e);
+    reportConditions("idf",[cond("red","IDF 5.0 panel unavailable — live fetch failed","idf","idf-pillars",e.message)]);
     const msg=`<div class="hnote" style="color:var(--red)">IDF panel unavailable — live fetch failed (${esc(e.message)}).</div>`;
     ["idf-pillars","idf-p4","idf-linkage","idf-drift"].forEach(id=>{const n=document.getElementById(id); if(n) n.innerHTML=msg;});
     document.getElementById("idf-registry").innerHTML="";
