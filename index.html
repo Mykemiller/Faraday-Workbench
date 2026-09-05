@@ -106,6 +106,8 @@ h2{font-family:'IBM Plex Serif',serif;font-size:27px;margin:6px 0 22px}
 .dtable .feed-part{color:var(--amber);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em}
 .dtable td.part{color:var(--amber)}
 .dtable .zero{color:var(--idle)}
+.dtable .fresh-sub{display:block;margin-top:3px;color:var(--idle);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em}
+.dtable .fresh-frozen{color:var(--red);font-weight:600}
 .dtable td.delta{text-align:center}
 /* span table is all-numeric: no label column, so drop the first-child override */
 .dtable.spans th:first-child{text-align:right}
@@ -1176,20 +1178,41 @@ function renderIdf(d){
       ? '<span class="feed-no">0 &middot; greenfield</span>'
       : (faPct<50?`<span class="feed-part">&#9689; ${fmt(p.fa)} &middot; ${faPct}%</span>`
                  :`<span class="feed-ok">&#9679; ${fmt(p.fa)} &middot; ${faPct}%</span>`);
+
+    /* CC-WORKBENCH-PILLAR-FRESHNESS-1.0: on-cadence is the headline; a pillar with
+       nothing bound reports no_feed, never a 0% that would read as a measurement. */
+    const fr=p.fresh||{state:"no_feed"};
+    let freshCell;
+    if(fr.state!=="measured"){
+      freshCell='<span class="feed-no">&mdash; &middot; no_feed</span>';
+    }else{
+      const oc=fr.pct_on_cadence;
+      const cls=oc==null?"feed-no":(oc<50?"feed-part":"feed-ok");
+      const dot=oc==null?"":(oc<50?"&#9689; ":"&#9679; ");
+      const frozen=(fr.binding_state_age_hours!=null&&fr.binding_state_age_hours>36)
+        ? ` <span class="fresh-frozen" title="Binding state is ${fr.binding_state_age_hours}h old — the staleness check has stopped running and these numbers are frozen.">&#9888;</span>`
+        : "";
+      freshCell=`<span class="${cls}">${dot}${oc==null?"&mdash;":oc+"%"} &middot; on cadence</span>${frozen}`
+        +`<span class="fresh-sub">24h ${fr.pct_24h==null?"&mdash;":fr.pct_24h+"%"} &middot; 7d ${fr.pct_7d==null?"&mdash;":fr.pct_7d+"%"}</span>`;
+    }
     return `<tr>
       <td>P${p.n} &middot; <b>${esc(p.name)}</b><div class="note mono">${esc(p.home)}</div></td>
       <td>${fmt(p.rows)}</td>
       <td>${p.satellite?fmt(p.satellite):"&mdash;"}</td>
       <td class="${p.conf===p.rows?"":"part"}">${pct(p.conf,p.rows)}%</td>
       <td class="${p.rev===p.rows?"":"part"}">${pct(p.rev,p.rows)}%</td>
+      <td>${freshCell}</td>
       <td>${faCell}</td></tr>`;}).join("");
   document.getElementById("idf-pillars").innerHTML=
     `<div class="dscroll"><table class="dtable">
-      <thead><tr><th>Pillar &middot; canonical home</th><th>Rows</th><th>Satellite</th><th>Confidence</th><th>Review</th><th>Geographic attainment (FA)</th></tr></thead>
+      <thead><tr><th>Pillar &middot; canonical home</th><th>Rows</th><th>Satellite</th><th>Confidence</th><th>Review</th><th>Feed freshness</th><th>Geographic attainment (FA)</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`
     + caveat("bad","FA is structure, not values",
         "Confidence and Review state are complete estate-wide. Geographic attainment carries values on Pillar 4 only — the axis the Six Pillars page calls the highest-value single move is still half made.",
-        "fa_band populated on 5 of 6 pillars: 0 rows");
+        "fa_band populated on 5 of 6 pillars: 0 rows")
+    + caveat("","Freshness measures bound feeds, not sources",
+        "On cadence = share of automated feed bindings writing within their own declared staleness window. Weekly and monthly publisher feeds are healthy at 0% on a 24h window, which is why cadence is the headline. Three of six pillars carry feed bindings; P2, P4 and P5 carry none and report no_feed rather than zero.",
+        "pillar_feed_bindings &middot; refreshed daily by pillar-feed-staleness-check-daily");
 
   /* pillar 4 */
   const cf=d.p4_confidence||{};

@@ -663,7 +663,8 @@
 "home": "jurisdictions · jpas_attributes",
 "name": "Jurisdictions",
 "rows": 39507,
-"satellite": 799337
+"satellite": 799337,
+"fresh": {"state": "measured", "bindings_total": 33, "measurable": 18, "on_cadence": 12, "pct_on_cadence": 67, "fresh_24h": 0, "pct_24h": 0, "fresh_7d": 7, "pct_7d": 39, "newest_write": "2026-09-02T01:40:18.809761+00:00", "binding_state_age_hours": 0.0}
 },
 {
 "n": 2,
@@ -673,7 +674,8 @@
 "home": "companies · _aliases · _facts",
 "name": "Companies",
 "rows": 7953,
-"satellite": 8366
+"satellite": 8366,
+"fresh": {"state": "no_feed", "bindings_total": 0, "measurable": 0, "on_cadence": 0, "pct_on_cadence": null, "fresh_24h": 0, "pct_24h": null, "fresh_7d": 0, "pct_7d": null, "newest_write": null, "binding_state_age_hours": null}
 },
 {
 "n": 3,
@@ -683,7 +685,8 @@
 "home": "people · person_affiliations",
 "name": "People",
 "rows": 1730,
-"satellite": 1516
+"satellite": 1516,
+"fresh": {"state": "measured", "bindings_total": 1, "measurable": 1, "on_cadence": 1, "pct_on_cadence": 100, "fresh_24h": 1, "pct_24h": 100, "fresh_7d": 1, "pct_7d": 100, "newest_write": "2026-09-05T00:45:13.687+00:00", "binding_state_age_hours": 0.0}
 },
 {
 "n": 4,
@@ -693,7 +696,8 @@
 "home": "dc_facilities (merged corpus)",
 "name": "DC Facilities",
 "rows": 18217,
-"satellite": 18158
+"satellite": 18158,
+"fresh": {"state": "no_feed", "bindings_total": 1, "measurable": 0, "on_cadence": 0, "pct_on_cadence": null, "fresh_24h": 0, "pct_24h": null, "fresh_7d": 0, "pct_7d": null, "newest_write": null, "binding_state_age_hours": null}
 },
 {
 "n": 5,
@@ -703,7 +707,8 @@
 "home": "institutions",
 "name": "Reg. & Research Bodies",
 "rows": 176,
-"satellite": 402
+"satellite": 402,
+"fresh": {"state": "no_feed", "bindings_total": 0, "measurable": 0, "on_cadence": 0, "pct_on_cadence": null, "fresh_24h": 0, "pct_24h": null, "fresh_7d": 0, "pct_7d": null, "newest_write": null, "binding_state_age_hours": null}
 },
 {
 "n": 6,
@@ -713,7 +718,8 @@
 "home": "source_registry",
 "name": "Sources",
 "rows": 11075,
-"satellite": 0
+"satellite": 0,
+"fresh": {"state": "measured", "bindings_total": 2, "measurable": 2, "on_cadence": 2, "pct_on_cadence": 100, "fresh_24h": 2, "pct_24h": 100, "fresh_7d": 2, "pct_7d": 100, "newest_write": "2026-09-05T01:12:27.65+00:00", "binding_state_age_hours": 0.0}
 }
 ],
 "registry": {
