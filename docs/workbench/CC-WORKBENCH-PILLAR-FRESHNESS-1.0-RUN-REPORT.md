@@ -88,7 +88,17 @@ unchanged; only `crawler_id` moved.
 | 6 Sources | measured | 2 | 100% | 100% | 100% |
 
 `workbench_idf_cache.computed_at` refreshed to 2026-09-05 01:16 UTC (age 0.1h).
-Cron `workbench-idf-refresh-daily` = jobid **347**, `35 9 * * *`, active.
+Cron `workbench-idf-refresh-daily` created as jobid **347**, `35 9 * * *`, active.
+
+> **⚠ SUPERSEDED SAME DAY — the live schedule is `45 10 * * *` (jobid 348).**
+> A parallel session (CC-WORKBENCH-FINDINGS-REMEDIATION-1.0) replaced jobid 347 while
+> regrouping the daily workbench refreshes into one sequence: scoring `15 10` → storefront
+> `30 10` → IDF `45 10`. **Left in place deliberately.** This CC's requirement was
+> *ordering* — the refresh must run after `pillar-feed-staleness-check-daily` (`20 9`) so
+> bands and `last_write_at` are current — and 10:45 satisfies it with more margin than
+> 09:35 did. DONE-WHEN #5 names the literal `35 9 * * *`; **production and that string
+> disagree, and production is correct.** Both crons were later observed firing
+> autonomously: staleness check 09:20:00, IDF refresh 10:45:00, both succeeded.
 
 **The honesty pattern holds:** no pillar renders 0% for "nothing bound". P1 is the case
 the column exists for — 67% on cadence against 0% at 24h, because its feeds are weekly
@@ -117,3 +127,36 @@ measured branch. `npm test` green across all three files.
 - P2/P5 feed bindings: `CC-WORKBENCH-PILLAR-FEEDS-P2-P5-1.0` drafted alongside this.
 - The staleness resolver still covers only three `resource_table` values; anything else
   falls through to FR2 silently. Owned by the P2/P5 CC.
+
+
+## 10 · Follow-up: the silent-resolver trap is closed (2026-09-05)
+
+Migration `pillar_feed_resolvable_tables_guard`.
+
+`pillar_feed_staleness_check()` resolves a last-write for exactly three tables. A fourth
+would fall through its `CASE` to NULL and band **FR2 with no error and no log line** —
+sitting in the `measurable` denominator forever, dragging `pct_on_cadence` down while
+measuring nothing. That is the same class of defect as the P4 binding, one layer up.
+
+- **`pillar_feed_resolvable_tables`** (deny-all RLS) is the allowlist, seeded with the
+  three tables and each one's resolver expression.
+- **`trg_pillar_feed_binding_resolvable`** rejects any *measurable* binding
+  (`feed_kind` in cron/edge_function/crawler **with** `max_staleness_days`) on a table not
+  in that list. The error names the fix: add the resolver arm **and** the allowlist row, or
+  declare the binding non-measurable.
+- **`pillar_feed_resolver_drift_check()`** guards the dangerous direction — an allowlisted
+  table whose name no longer appears in the resolver body (arm removed or renamed). The
+  opposite direction fails safe: a new arm without an allowlist row just makes the guard
+  stricter than necessary, and the error says so.
+
+Nothing was in the bad state: all 21 measurable bindings already sat on the three
+resolvable tables, so the guard is preventive, not corrective. Verified by a
+self-rolling-back probe — a measurable binding on `companies` was **rejected**, the same
+table as `derivation` was **allowed**, and a measurable binding on `entities` was
+**allowed**. Zero residue after rollback; 40 bindings before and after; P1 still `measured`.
+
+**Known limitation:** the allowlist duplicates knowledge held in the resolver's `CASE`,
+so the two can drift. `pillar_feed_resolver_drift_check()` detects the direction that
+matters. Folding the resolver itself onto the config table would remove the duplication
+and is the better long-term shape — deliberately not done here, as it means rewriting a
+function this CC had pinned.

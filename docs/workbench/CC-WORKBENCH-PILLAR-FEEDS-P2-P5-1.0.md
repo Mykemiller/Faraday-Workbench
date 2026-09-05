@@ -202,8 +202,14 @@ P1/P3/P6 still `measured` at 67 / 100 / 100; and no P2/P5 binding carries a meas
 **Resolver prerequisite is MOOT.** The draft called extending
 `pillar_feed_staleness_check()`'s three-arm resolver to `companies` / `institutions` a hard
 prerequisite. There is nothing measurable to resolve, so the resolver was **not touched** —
-it remains at three arms, and anything outside them still falls through to FR2 silently.
-That trap is real and still live for any future binding; it simply is not this CC's to fix.
+it remains at three arms.
+
+> **The trap it left is now closed (2026-09-05, migration `pillar_feed_resolvable_tables_guard`).**
+> A table outside those three arms still falls through to FR2 silently — but a *measurable*
+> binding can no longer be declared on one. `pillar_feed_resolvable_tables` is the allowlist
+> and `trg_pillar_feed_binding_resolvable` enforces it, so the failure mode is now a loud
+> error at write time instead of a wrong number forever. Detail:
+> `CC-WORKBENCH-PILLAR-FRESHNESS-1.0-RUN-REPORT.md` §10.
 
 ### 5.4 — Honest-failure path (as designed, and as taken)
 
