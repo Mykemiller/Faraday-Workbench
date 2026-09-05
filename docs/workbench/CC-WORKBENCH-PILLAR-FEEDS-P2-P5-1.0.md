@@ -1,16 +1,19 @@
 # CC-WORKBENCH-PILLAR-FEEDS-P2-P5-1.0
 
-> **DRAFT — not open.** Raised by Myke 2026-09-05 at the close of
-> CC-WORKBENCH-PILLAR-FRESHNESS-1.0: *"Draft separate CC to investigate and then
-> update feeds for P2 and P5."* §1 precheck is deliberately unfilled — this is a
-> draft for Myke to open, not an open CC.
+> **CLOSED 2026-09-05.** Raised by Myke at the close of
+> CC-WORKBENCH-PILLAR-FRESHNESS-1.0 (*"Draft separate CC to investigate and then
+> update feeds for P2 and P5"*), then opened and executed on his
+> *"All open items are reviewed, proceed with recommendations."*
+>
+> **Verdict: neither pillar has a feed.** The investigation reached §5.4, the
+> honest-failure path, and no measurable binding was created. See §5.1a.
 
 | Field | Value |
 | --- | --- |
-| Status | Draft |
+| Status | Closed |
 | Version | 1.0 |
-| Owner | |
-| Opened | |
+| Owner | Claude (executed) |
+| Opened | 2026-09-05 |
 | Product | Faraday Workbench / IDF 5.0 |
 | Jira | |
 | Supersedes CC | — |
@@ -121,59 +124,102 @@ change its likely shape:**
    not more.** Extending the resolver was explicitly out of scope for
    CC-WORKBENCH-PILLAR-FRESHNESS-1.0; this CC owns it.
 
-3. **`institution_domain_tags` has no timestamp column at all** — it cannot be a
-   last-write source without a schema change. Decide whether P5's binding keys on
-   `institutions` alone.
+3. ~~**`institution_domain_tags` has no timestamp column at all**~~ — **WRONG, corrected
+   at execution.** It has `created_at` (but no `updated_at`). Moot regardless: P5 has no
+   writer, so no last-write source of any kind is needed.
 
 4. **`max_staleness_days` is CHECK-constrained to 1–30** (`pfb_max_staleness_range`).
    `institutions` last moved 2026-08-30 — already 6 days at drafting. If the real cadence
    is slower than monthly, it **cannot be expressed** in the current schema, and the
    honest outcome is a `feed_kind` that is not measurable rather than a false 30.
 
-### 5.2 — Investigation to run
+### 5.1a — INVESTIGATION RESULT (2026-09-05): no feed on either pillar
 
-- [ ] Identify what writes `companies` / `company_aliases`. Candidates to check:
-      `cron.job` commands, edge functions, `automation_health_log` crawler ids near the
-      2026-09-03 timestamps, `jw_data_source_registry` / `source_registry` rows.
-- [ ] Same for `institutions` / `institution_domain_tags`.
-- [ ] For each writer found, establish: is it scheduled (→ `cron` / `edge_function` /
-      `crawler`, measurable) or hand-run (→ `manual`, **not** measurable)?
-- [ ] Establish each writer's true cadence, and whether it fits 1–30 days.
-- [ ] Choose the last-write column per table and confirm it is monotonic and set on
-      every write path (the `company_aliases` `created_at`-only shape means an UPDATE
-      would not move it — an update-heavy writer needs `updated_at`).
+The draft's framing — *"mostly attribution: find the writer, name it, bind it"* — was
+**wrong, and the error was in the optimistic direction.** Recent writes are not evidence of
+a feed. Both pillars are written by things that ingest nothing.
 
-### 5.3 — Build, only if the investigation supports it
+**P2 Companies — 7 active cron jobs, every one a derivation.**
 
-- [ ] Extend `pillar_feed_staleness_check()`'s resolver `CASE` with an arm per newly
-      bound `resource_table`. **Version the `crawler_id` to `_v1.2`** (v1.1 is
-      CC-WORKBENCH-PILLAR-FRESHNESS-1.0). Change nothing else — band logic, WHERE clause,
-      `auto_id='AUTO-PILLAR-FEED'`, and the returned jsonb shape all stay fixed.
-- [ ] Insert the P2/P5 bindings. Respect `pfb_feed_ref_presence`: `feed_kind` in
-      (`none`,`static`) requires `feed_ref IS NULL`; anything else requires it NOT NULL.
-- [ ] Run `pillar_feed_staleness_check()` to populate `last_write_at` + band.
-- [ ] Run `workbench_idf_refresh()`; confirm P2/P5 flip `no_feed` → `measured` with a
-      percentage that matches a hand count.
-- [ ] Confirm P1/P3/P4/P6 `fresh` objects are **byte-identical** before/after.
+| job | id | schedule | writes `companies`? | inserts? |
+| --- | --- | --- | --- | --- |
+| companies-entity-binder-nightly | 294 | `15 3 * * *` | no | no |
+| companies-signal-rollup-nightly | 295 | `35 3 * * *` | no | no |
+| companies-sec-summary-nightly | 296 | `45 3 * * *` | no | no |
+| companies-confidence-recompute-nightly | 297 | `55 3 * * *` | **yes** | no |
+| companies-alias-miner-weekly | 299 | `10 5 * * 1` | no | aliases only |
+| companies-registry-recount-daily | 300 | `45 5 * * *` | no | no |
+| companies-about-page-weekly | 343 | `40 4 * * 0` | no | no |
 
-### 5.4 — Honest-failure path
+**Not one of the nine backing functions INSERTs into `companies`.** The single writer,
+`fn_company_confidence_recompute`, recomputes confidence from rows already present — the
+exact P4 pattern. `fn_company_alias_generate` does insert, but it *generates* aliases from
+names already stored; there is no external source.
 
-If a pillar's writer is manual or has no usable timestamp, **bind it with a
-non-measurable `feed_kind` and leave it reporting `no_feed`.** Do not invent a
-`max_staleness_days` to make the column green. That is the defect this whole lane exists
-to prevent, and it is what the P4 binding did before it was corrected.
+**The decisive evidence is a timing contradiction:** jobs 294/295/296/297/300 all
+**succeeded between 03:15 and 05:45 on 2026-09-05**, while `max(companies.updated_at)` still
+reads **2026-09-03**. The recompute is skip-identical, so it writes nothing when nothing
+changes. No new `companies` row has been created since **2026-08-29**. The 6,568-row spike
+on 09-03 was one bulk event, not a cadence.
+
+**Had P2 been bound as the draft assumed** — `companies` / `cron` / `updated_at` /
+`max_staleness_days` 1–7 — it would have shown FR5 for a day or two after each bulk
+recompute and then decayed to FR4, reporting *"this feed is broken"* about a feed that does
+not exist, while seven cron jobs ran green. Strictly worse than `no_feed`.
+
+**P5 Reg. & Research Bodies — no writer at all.** Zero functions insert or update
+`public.institutions`; zero cron jobs reference it. All 176 rows were promoted once from
+`stg_institution_candidates` on 2026-08-28..30 (`source_table` is that staging table on
+every row). Nothing has touched it since 2026-08-30.
+
+### 5.2 — What was built (§5.4 honest-failure path)
+
+Migration `pillar_feed_bindings_declare_p2_p5_non_measurable`. Three bindings, all with
+**non-measurable `feed_kind`**, so they are invisible both to
+`pillar_feed_staleness_check()` (filters `feed_kind in ('cron','edge_function','crawler')
+AND max_staleness_days is not null`) and to `pillar_freshness_map()`'s `measurable` count:
+
+| pillar | resource_table | feed_kind | feed_ref | band | basis | max_staleness_days |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2 | `companies` | `derivation` | companies-confidence-recompute-nightly | FR2 | derivation_not_measured | **null** |
+| 2 | `company_aliases` | `derivation` | companies-alias-miner-weekly | FR2 | derivation_not_measured | **null** |
+| 5 | `institutions` | `none` | *(null)* | FR2 | manual_attestation | **null** |
+
+Each carries its evidence in `notes`. **The pillars gain a recorded reason, not a
+percentage** — both still render `— · no_feed`.
+
+`max_staleness_days` is deliberately **null** on all three. Giving a derivation a staleness
+window is what produced the P4 defect. (Note P4 itself still carries a vestigial `30`; it is
+inert, because the check's `feed_kind` filter excludes it first. Left alone — out of scope.)
+
+### 5.3 — Verification
+
+In-transaction assertions (migration would have rolled back on any failure): P2 and P5 still
+`state='no_feed'`, `measurable=0`, `pct_on_cadence=null`; `bindings_total` 0→2 and 0→1;
+P1/P3/P6 still `measured` at 67 / 100 / 100; and no P2/P5 binding carries a measurable
+`feed_kind`. Post-refresh payload confirms all six pillars unchanged in state.
+
+**Resolver prerequisite is MOOT.** The draft called extending
+`pillar_feed_staleness_check()`'s three-arm resolver to `companies` / `institutions` a hard
+prerequisite. There is nothing measurable to resolve, so the resolver was **not touched** —
+it remains at three arms, and anything outside them still falls through to FR2 silently.
+That trap is real and still live for any future binding; it simply is not this CC's to fix.
+
+### 5.4 — Honest-failure path (as designed, and as taken)
+
+Neither pillar was given a `max_staleness_days` to make the column green. Recorded here
+because it is the outcome the section existed to permit.
 
 ---
-
 ## 6 · Adversarial review
 
-- **Required:** No — provided §5.4 holds and no scoring surface is touched. Flips to
-  **Yes — internal** if the CC ends up changing `pillar_feed_staleness_check()` band
-  logic or the FR ladder.
-- **Reviewer:**
-- **Packet sent:** §1–4 only
-- **Findings:**
-- **Disposition:**
+- **Required:** **No.** §5.4 held, the FR ladder and band logic were untouched, and no
+  scoring surface was involved. The trigger condition (changing
+  `pillar_feed_staleness_check()` band logic) did not occur — the function was not modified.
+- **Reviewer:** n/a
+- **Packet sent:** n/a
+- **Findings:** n/a
+- **Disposition:** n/a
 
 ---
 
@@ -181,9 +227,10 @@ to prevent, and it is what the P4 binding did before it was corrected.
 
 | Proposed decision | Supersedes | Surface | Awaiting approval |
 | --- | --- | --- | --- |
-| P2 binding: resource table, feed_kind, cadence | — | Ingestion pipelines | Myke |
-| P5 binding: resource table, feed_kind, cadence | — | Ingestion pipelines | Myke |
-| Whether `institution_domain_tags` gains a timestamp column | — | Schema & storage | Myke |
+| P2 is a derivation surface, not a feed: `companies` + `company_aliases` bound as `derivation` / not-measured | — | Ingestion pipelines | Applied 2026-09-05 |
+| P5 has no writer: `institutions` bound as `none` / `manual_attestation` | — | Ingestion pipelines | Applied 2026-09-05 |
+| `institution_domain_tags` timestamp column — **withdrawn**, it already has `created_at` and P5 needs no last-write source | — | Schema & storage | n/a |
+| **A pillar reads `no_feed` until an INGEST exists. Building one for P2 or P5 is a separate CC.** | — | Ingestion pipelines | Myke |
 
 **A decision that exists only in the session transcript did not happen.**
 
@@ -191,7 +238,18 @@ to prevent, and it is what the P4 binding did before it was corrected.
 
 ## 8 · Exit state
 
-- What changed:
-- What is still open:
-- Surfaces released:
-- Follow-on CC required:
+- **What changed:** three non-measurable bindings declared (migration
+  `pillar_feed_bindings_declare_p2_p5_non_measurable`); `workbench_idf_cache` refreshed.
+  No function, no resolver, no band logic, no scoring surface touched. Zero
+  `jpas_attributes` / JPS / JDS writes.
+- **What is still open:** P2 and P5 remain `no_feed` and will until someone builds an
+  ingest. Nothing here brings one closer — it records why there isn't one.
+- **Surfaces released:** Ingestion pipelines · Schema & storage.
+- **Follow-on CC required:** yes, if Myke wants either pillar measurable — that is an
+  ingest-building CC, explicitly out of scope here (§3). The three-arm resolver limit
+  is a standing trap for any future binding and should be fixed by whichever CC first
+  needs it.
+- **Rollback:** `delete from public.pillar_feed_bindings where pillar_no in (2,5) and
+  freshness_basis in ('derivation_not_measured','manual_attestation');` then
+  `select public.workbench_idf_refresh();` — restores `bindings_total` 0/0. No other
+  state is involved.
