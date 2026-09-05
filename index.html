@@ -212,6 +212,52 @@ body.js-views .view.is-active{border-top:0}
 .chip b{font-weight:600;color:var(--warm)}
 .chip .where{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;
   text-transform:uppercase;color:var(--sage);flex:none}
+/* --- CC-WORKBENCH-FINDINGS-REMEDIATION-1.0 -----------------------------
+   Refresh controls, CLEARED chips and remediation panels. Reuses the chip
+   treatment already established above - same forest field, same hairline,
+   same gold hover - rather than introducing a second visual language. */
+.wbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:none}
+.wbtn{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  background:var(--forest);border:1px solid var(--hair);color:var(--warm-dim);padding:5px 11px;
+  border-radius:2px;cursor:pointer;line-height:1.4}
+.wbtn:hover:not(:disabled){border-color:var(--gold);color:var(--warm)}
+.wbtn:disabled{opacity:.45;cursor:not-allowed}
+.wbtn.gold{border-color:rgba(196,146,42,.55);color:var(--gold)}
+.wbtn.gold:hover:not(:disabled){border-color:var(--gold-bright);color:var(--gold-bright)}
+.wstamps{display:flex;flex-wrap:wrap;gap:2px 10px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;
+  letter-spacing:.06em;color:var(--idle)}
+.lstamp i{font-style:normal;color:var(--sage);text-transform:uppercase}
+.lstamp.busy{color:var(--gold)}
+.spin{display:inline-block;width:8px;height:8px;border:1px solid var(--gold);border-top-color:transparent;
+  border-radius:50%;animation:wspin .7s linear infinite;vertical-align:-1px}
+@keyframes wspin{to{transform:rotate(360deg)}}
+/* CLEARED: gold outline on the forest-green field, per the CC. */
+.chip.cleared{border:1px solid var(--gold);border-left-width:2px;border-left-color:var(--gold);
+  background:rgba(196,146,42,.07);color:var(--gold);cursor:default}
+.chip.cleared .where{color:var(--gold)}
+.chip.cleared .ctag{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--gold-bright);flex:none}
+.rembtn{flex:none;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.12em;
+  background:transparent;border:1px solid var(--hair);border-left:none;color:var(--sage);
+  padding:5px 7px;border-radius:0 3px 3px 0;cursor:pointer;margin-left:-6px}
+.rembtn:hover,.rembtn.on{border-color:var(--gold);color:var(--gold-bright)}
+.rem{flex:0 0 100%;border:1px solid var(--hair);border-left:2px solid var(--gold);background:var(--forest);
+  padding:11px 13px;margin:2px 0 4px;border-radius:0 3px 3px 0}
+.remhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px}
+.remkey{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--gold)}
+.remlane{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--sage)}
+.remtext{font-size:13px;line-height:1.55;color:var(--warm-dim);margin-bottom:10px}
+.remseedhead{display:flex;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--sage);margin-bottom:5px}
+.copybtn{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+  background:transparent;border:1px solid var(--hair);color:var(--warm-dim);padding:3px 8px;border-radius:2px;
+  cursor:pointer}
+.copybtn:hover{border-color:var(--gold);color:var(--gold-bright)}
+.remseed{font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.5;color:var(--warm-dim);
+  background:var(--forest-deep);border:1px solid var(--hair);border-radius:2px;padding:10px;margin:0;
+  white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto}
+.remnone{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--idle)}
 .triage details{width:100%}
 .triage summary{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;
   color:var(--amber);cursor:pointer;padding:4px 0}
@@ -468,11 +514,11 @@ function renderStorefronts(tiles,computedAt,staleAfterHours){
  <div class="metrics">${metricsHtml(t)}</div>
  <div class="meta"><a href="${esc(t.jira_url)}" target="_blank" rel="noopener">${esc(t.jira_key)} ↗</a><span>${esc(stamp)}${badge}</span></div></div>`).join("");
   const sc=[];
-  tiles.filter(t=>t.status==="warn").forEach(t=>sc.push(cond("red",`${t.name} — ${t.status_tag}`,"estate","storefronts",t.blurb)));
-  if(stale) sc.push(cond("amber",`Storefront cache stale (>${hrs}h)`,"estate","storefronts",
+  tiles.filter(t=>t.status==="warn").forEach(t=>sc.push(cond(`ESTATE.${KSLUG(t.slug||t.name)}.${KSLUG(t.status_tag)}`,"red",`${t.name} — ${t.status_tag}`,"estate","storefronts",t.blurb)));
+  if(stale) sc.push(cond("ESTATE.STOREFRONT.CACHE_STALE","amber",`Storefront cache stale (>${hrs}h)`,"estate","storefronts",
     computedAt?("computed "+computedAt):"no computed_at on the cache"));
-  if(tiles.some(t=>t.metric_basis==="probe_error")) sc.push(cond("amber","A storefront metric probe errored","estate","storefronts"));
-  if(tiles.some(t=>t.metric_basis==="fallback")) sc.push(cond("amber","Storefront board is on fallback copy — RPC returned nothing","estate","storefronts"));
+  if(tiles.some(t=>t.metric_basis==="probe_error")) sc.push(cond("ESTATE.STOREFRONT.PROBE_ERROR","amber","A storefront metric probe errored","estate","storefronts"));
+  if(tiles.some(t=>t.metric_basis==="fallback")) sc.push(cond("ESTATE.STOREFRONT.FALLBACK_COPY","amber","Storefront board is on fallback copy — RPC returned nothing","estate","storefronts"));
   reportConditions("storefront",sc);
 
   const tk=tiles.map(t=>`<span><b>${esc(t.name)}</b> ${esc(t.status_tag)}</span>`).join("");
@@ -489,6 +535,7 @@ async function loadStorefront(){
     if(!r.ok) throw new Error("HTTP "+r.status);
     const d=await r.json();
     if(!d||!Array.isArray(d.tiles)||!d.tiles.length) throw new Error("empty payload");
+    noteStamp("storefront",d.computed_at);
     renderStorefronts(d.tiles,d.computed_at,d.stale_after_hours);
     if(Array.isArray(d.stale_lanes)&&d.stale_lanes.length)
       console.warn("workbench_storefront degraded probes:",d.stale_lanes);
@@ -576,12 +623,86 @@ function initViews(){
 /* --- condition registry -------------------------------------------------
    Sources report independently and asynchronously; the bar re-renders on each
    report so it fills in as payloads land rather than waiting for the slowest. */
-const CONDITIONS = new Map();   // source -> [{sev,text,detail,view,anchor}]
+const CONDITIONS = new Map();   // source -> [{key,sev,text,detail,view,anchor}]
 const REPORTED = new Set();
 function reportConditions(source, list){
   CONDITIONS.set(source, list||[]); REPORTED.add(source); renderTriage();
 }
-const cond=(sev,text,view,anchor,detail)=>({sev,text,view,anchor,detail});
+/* --- finding_key -------------------------------------------------------
+   CC-WORKBENCH-FINDINGS-REMEDIATION-1.0 D1. Every finding carries a stable,
+   unique LANE.SUBJECT.CONDITION key so a refresh can compare "before" to
+   "after". The key is the FIRST argument so that adding one to a call site is
+   an unambiguous insertion rather than an argument-count change.
+
+   Keys are derived from STRUCTURE (a tier code, a metric key, a tile slug),
+   never from a live measurement. A key that embedded a value would change the
+   moment the value moved, which is exactly what D1 forbids. */
+const KSLUG = s => String(s||"").toUpperCase().replace(/[^A-Z0-9]+/g,"_")
+  .replace(/^_+|_+$/g,"").slice(0,64) || "UNKNOWN";
+
+/* Long distinctive phrases, not acronyms - a substring test here is safe in a
+   way that a bare 'tif'-style token never is. Unrecognised defects still get a
+   deterministic key rather than being dropped. */
+function jpasDefectKey(defect){
+  const d=String(defect||"").toLowerCase();
+  if(d.includes("conf_mult")) return "SCORING.JPAS.CONF_MULT_COMPLETENESS_ONLY";
+  if(d.includes("divides by the weight")) return "SCORING.JPAS.TIER_QUALITY_DIVISOR";
+  return "SCORING.JPAS.DEFECT_"+KSLUG(defect);
+}
+function jdsCaveatKey(caveat){
+  const c=String(caveat||"").toLowerCase();
+  if(c.includes("supply term")) return "SCORING.JDS.SUPPLY_IMPUTED_CONTENTION";
+  return "SCORING.JDS.CAVEAT_"+KSLUG(caveat);
+}
+/* RSC's canonical key carries "91PCT" as a FROZEN LABEL, not a live reading:
+   it is generated from tier_code, so the key holds still while the percentage
+   moves. Renaming it is Myke's call - the seeded remediation row matches it. */
+const TIER_IMPUTED_KEYS={RSC:"SCORING.JPAS.RSC_IMPUTED_91PCT"};
+const tierImputedKey = tier => TIER_IMPUTED_KEYS[tier] || ("SCORING.JPAS."+KSLUG(tier)+"_IMPUTED");
+
+const cond=(key,sev,text,view,anchor,detail)=>({key,sev,text,view,anchor,detail});
+
+/* --- CC-WORKBENCH-FINDINGS-REMEDIATION-1.0 state ------------------------ */
+const SOURCES=["storefront","health","forecast","scoring","idf"];
+const LANE_LABEL={storefront:"Storefront",health:"Health",forecast:"Forecast",scoring:"Scoring",idf:"IDF"};
+const CACHE_STAMP=new Map();   // source -> ISO timestamp last computed
+const BUSY=new Set();          // sources currently refreshing/reloading
+const OPEN_REM=new Set();      // finding_keys whose remediation panel is expanded
+let CLEARED=[];                // [{key,lane,severity,headline,cleared_at}] from the sync RPC
+let REMEDIATION={};            // finding_key -> {plain_english, cc_prompt_seed, ...}
+
+const noteStamp=(source,ts)=>{ if(ts) CACHE_STAMP.set(source,ts); };
+function shortStamp(ts){
+  if(!ts) return "—";                                   /* FAR-119: never invent a time */
+  const d=new Date(ts); if(isNaN(d)) return "—";
+  return d.toLocaleString("en-US",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+}
+
+/* D5/D6. A finding with no authored row renders the literal string
+   "No remediation authored" - never a generated or inferred fix. */
+function remPanel(c){
+  const head='<div class="remhead"><span class="remkey">'+esc(c.key)+'</span>'
+    +'<span class="remlane">'+esc(VIEW_LABEL[c.view]||c.view)+'</span></div>';
+  const r=REMEDIATION[c.key];
+  if(!r||!r.plain_english) return '<div class="rem">'+head+'<div class="remnone">No remediation authored</div></div>';
+  return '<div class="rem">'+head
+    +'<div class="remtext">'+esc(r.plain_english)+'</div>'
+    +'<div class="remseedhead">CC prompt seed<button class="copybtn" data-copy="'+esc(c.key)+'">Copy</button></div>'
+    +'<pre class="remseed">'+esc(r.cc_prompt_seed||"")+'</pre></div>';
+}
+
+function actionsHtml(){
+  const busy=BUSY.size>0;
+  const stamps=SOURCES.map(sname=>{
+    const b=BUSY.has(sname);
+    return '<span class="lstamp'+(b?' busy':'')+'"><i>'+esc(LANE_LABEL[sname]||sname)+'</i> '
+      +(b?'<span class="spin"></span>':esc(shortStamp(CACHE_STAMP.get(sname))))+'</span>';
+  }).join("");
+  return '<div class="wbar">'
+    +'<button class="wbtn" id="btn-reread"'+(busy?" disabled":"")+' title="Re-read the caches and recompose findings. No writes.">Re-read</button>'
+    +'<button class="wbtn gold" id="btn-recompute"'+(busy?" disabled":"")+' title="Recompute the caches server-side, then re-read.">Recompute</button>'
+    +'<span class="wstamps">'+stamps+'</span></div>';
+}
 
 function renderTriage(){
   const bar=document.getElementById("triage-in"); if(!bar) return;
@@ -598,7 +719,7 @@ function renderTriage(){
     add(r,"vc-red"); add(a,"vc-amber");
   });
 
-  const pending = REPORTED.size < 5;
+  const pending = REPORTED.size < SOURCES.length;
   let vcls,vtxt;
   if(red.length){ vcls="v-red";  vtxt=red.length+" CRITICAL"+(amber.length?" · "+amber.length+" WARNING":""); }
   else if(amber.length){ vcls="v-amber"; vtxt=amber.length+" WARNING"+(amber.length>1?"S":""); }
@@ -606,14 +727,29 @@ function renderTriage(){
   else { vcls="v-ok"; vtxt="ALL CLEAR"; }
   if(pending && (red.length||amber.length)) vtxt += " · STILL READING";
 
-  const chip=c=>`<button class="chip ${c.sev}" data-view="${esc(c.view)}" data-anchor="${esc(c.anchor||"")}"`
-    + ` title="${esc(c.detail||"")}">${esc(c.text)}<span class="where">${esc(VIEW_LABEL[c.view]||c.view)}</span></button>`;
+  const chip=c=>{
+    const open=OPEN_REM.has(c.key);
+    return `<button class="chip ${c.sev}" data-key="${esc(c.key||"")}" data-view="${esc(c.view)}" data-anchor="${esc(c.anchor||"")}"`
+      + ` title="${esc(c.detail||"")}">${esc(c.text)}<span class="where">${esc(VIEW_LABEL[c.view]||c.view)}</span></button>`
+      /* D5: only CRITICAL chips carry a remediation panel. */
+      + (c.sev==="red"
+          ? `<button class="rembtn${open?" on":""}" data-rem="${esc(c.key)}" aria-expanded="${open?"true":"false"}"`
+            + ` title="Remediation — ${esc(c.key)}">${open?"▾":"▸"} FIX</button>` + (open?remPanel(c):"")
+          : "");
+  };
+  /* D4: a key present before a refresh and absent after renders CLEARED for 24h. */
+  const cutoff=Date.now()-24*3600*1000;
+  const clearedFresh=(CLEARED||[]).filter(x=>x&&x.cleared_at&&new Date(x.cleared_at).getTime()>cutoff);
+  const clearedChip=x=>`<span class="chip cleared" title="${esc(x.key||"")}">`
+    + `<span class="ctag">Cleared</span>${esc(x.headline||x.key||"")}`
+    + `<span class="where">${esc(shortStamp(x.cleared_at))}</span></span>`;
 
   /* Every critical condition is shown inline — never behind a disclosure.
      Warnings fold, because a dozen documented characteristics would drown them. */
-  let html=`<span class="verdict ${vcls}" id="verdict">${esc(vtxt)}</span>`;
+  let html=`<span class="verdict ${vcls}" id="verdict">${esc(vtxt)}</span>`+actionsHtml();
   if(red.length) html+=`<div class="chips">${red.map(chip).join("")}</div>`;
   else if(!amber.length && !pending) html+=`<div class="chips"><span class="chip" style="border-left-color:var(--live);cursor:default">Nothing red or amber across all five views.</span></div>`;
+  if(clearedFresh.length) html+=`<div class="chips">${clearedFresh.map(clearedChip).join("")}</div>`;
   if(amber.length) html+=`<details${red.length?"":" open"}><summary>▸ ${amber.length} warning${amber.length>1?"s":""} — documented characteristics and Proposed decisions</summary>`
     + `<div class="chips" style="padding-top:6px">${amber.map(chip).join("")}</div></details>`;
   bar.innerHTML=html;
@@ -624,6 +760,20 @@ function renderTriage(){
     const a=b.dataset.anchor && document.getElementById(b.dataset.anchor);
     if(a) a.scrollIntoView({block:"start",behavior:"smooth"});
   }));
+  bar.querySelectorAll(".rembtn[data-rem]").forEach(b=>b.addEventListener("click",()=>{
+    const k=b.dataset.rem;
+    if(OPEN_REM.has(k)) OPEN_REM.delete(k); else OPEN_REM.add(k);
+    renderTriage();
+  }));
+  bar.querySelectorAll(".copybtn[data-copy]").forEach(b=>b.addEventListener("click",async()=>{
+    const r=REMEDIATION[b.dataset.copy];
+    if(!r||!r.cc_prompt_seed) return;
+    try{ await navigator.clipboard.writeText(r.cc_prompt_seed); b.textContent="Copied"; }
+    catch(e){ b.textContent="Copy failed"; }
+    setTimeout(()=>{ b.textContent="Copy"; },1600);
+  }));
+  const rr=document.getElementById("btn-reread");   if(rr) rr.addEventListener("click",()=>reRead());
+  const rc=document.getElementById("btn-recompute");if(rc) rc.addEventListener("click",()=>recompute());
 }
 
 /* --- fold helper --------------------------------------------------------
@@ -730,16 +880,16 @@ function renderHealth(h){
 
   /* --- conditions: engine + feed health --------------------------------- */
   const hc=[];
-  if(idf.domains_dark>0) hc.push(cond("red",`${idf.domains_dark} IDF domain${idf.domains_dark>1?"s":""} dark — no feed at all`,"feeds","idf-health"));
-  if(idf.subdomains_no_feed>0) hc.push(cond("amber",`${idf.subdomains_no_feed} of ${idf.subdomains_total} subdomains have no feed`,"feeds","idf-health"));
-  if(sig.status==="stalled") hc.push(cond("red",`Signals stalled — last fired ${sig.last_fired?String(sig.last_fired).slice(0,10):"never"}`,"estate","stats",
+  if(idf.domains_dark>0) hc.push(cond("FEEDS.IDF_DOMAINS.DARK","red",`${idf.domains_dark} IDF domain${idf.domains_dark>1?"s":""} dark — no feed at all`,"feeds","idf-health"));
+  if(idf.subdomains_no_feed>0) hc.push(cond("FEEDS.IDF_SUBDOMAINS.NO_FEED","amber",`${idf.subdomains_no_feed} of ${idf.subdomains_total} subdomains have no feed`,"feeds","idf-health"));
+  if(sig.status==="stalled") hc.push(cond("ESTATE.SIGNALS.STALLED","red",`Signals stalled — last fired ${sig.last_fired?String(sig.last_fired).slice(0,10):"never"}`,"estate","stats",
     `${fmt(sig.candidates_24h)} unpromoted candidates in 24h`));
-  if(es.companies_new_signals_7d===0) hc.push(cond("amber","No company produced a new signal in 7 days","estate","stats"));
+  if(es.companies_new_signals_7d===0) hc.push(cond("ESTATE.COMPANIES.NO_NEW_SIGNALS_7D","amber","No company produced a new signal in 7 days","estate","stats"));
   if(es.automations_24h-es.automations_succeeded_24h>0)
-    hc.push(cond("amber",`${es.automations_24h-es.automations_succeeded_24h} automation${es.automations_24h-es.automations_succeeded_24h>1?"s":""} failed in 24h`,"estate","stats"));
-  if(st!=="active") hc.push(cond("amber",`Daily Challenge season is ${st||"absent"}`,"feeds","dc-health",
+    hc.push(cond("ESTATE.AUTOMATIONS.FAILED_24H","amber",`${es.automations_24h-es.automations_succeeded_24h} automation${es.automations_24h-es.automations_succeeded_24h>1?"s":""} failed in 24h`,"estate","stats"));
+  if(st!=="active") hc.push(cond("FEEDS.DAILY_CHALLENGE.SEASON_NOT_ACTIVE","amber",`Daily Challenge season is ${st||"absent"}`,"feeds","dc-health",
     dc.season_ends_on?("ends "+dc.season_ends_on):""));
-  else if(Number(dc.days_left)<=3) hc.push(cond("amber",`Daily Challenge season ends in ${dc.days_left} day(s)`,"feeds","dc-health",
+  else if(Number(dc.days_left)<=3) hc.push(cond("FEEDS.DAILY_CHALLENGE.SEASON_ENDING","amber",`Daily Challenge season ends in ${dc.days_left} day(s)`,"feeds","dc-health",
     "no successor season is active yet"));
   reportConditions("health",hc);
 
@@ -756,16 +906,16 @@ async function loadHealth(){
       body:"{}"
     });
     if(!r.ok) throw new Error("HTTP "+r.status);
-    renderHealth(await r.json());
+    const hp=await r.json();
+    noteStamp("health",hp&&(hp.generated_at||hp.computed_at));
+    renderHealth(hp);
   }catch(e){
     console.warn("workbench_health fetch failed — static board retained.",e);
-    reportConditions("health",[cond("red","Engine + feed health unavailable — live fetch failed","feeds","idf-health",e.message)]);
+    reportConditions("health",[cond("FEEDS.HEALTH.FETCH_FAILED","red","Engine + feed health unavailable — live fetch failed","feeds","idf-health",e.message)]);
     document.getElementById("idf-health").innerHTML=`<div class="hnote" style="color:var(--red)">IDF health unavailable — live fetch failed (${esc(e.message)}). Engine stats above are the last static snapshot.</div>`;
     document.getElementById("dc-health").innerHTML=`<div class="hnote" style="color:var(--red)">Daily Challenge health unavailable — live fetch failed (${esc(e.message)}).</div>`;
   }
 }
-loadHealth();
-loadStorefront();
 
 /* ---- Faraday Forecast Model: workbench_forecast_model() RPC ----
    Ported from v0-faraday-daily-challenge#146, which landed this panel as a
@@ -777,7 +927,8 @@ const MODEL_METRICS=[
   {k:"total_backlog_years",  l:"Backlog (source-years)",          good:"down"},
   {k:"vintages_total",       l:"Forecast vintages held",          good:"up"},
   {k:"observations_total",   l:"Forecast observations extracted", good:"up"},
-  {k:"active_but_empty",     l:"Active-but-empty sources",        good:"zero"},
+  {k:"active_but_empty",     l:"Active-but-empty sources",        good:"zero",
+   key:"FEEDS.SOURCES.ACTIVE_BUT_EMPTY"},
   {k:"health_fail_rate_7d",  l:"Ingest failure rate, 7d (%)",     good:"down", pct:true},
   {k:"briefs_generated_7d",  l:"JW briefs generated, 7d",         good:"up"},
   {k:"edgar_artifacts_total",l:"SEC EDGAR artifacts",             good:"up"},
@@ -840,10 +991,10 @@ function renderForecastModel(p){
     : '<div class="hnote">No span counts returned.</div>';
 
   const fc=[];
-  if(!thisWk) fc.push(cond("amber","Forecast model has no metrics snapshot","feeds","forecast-model"));
+  if(!thisWk) fc.push(cond("FEEDS.FORECAST_MODEL.NO_SNAPSHOT","amber","Forecast model has no metrics snapshot","feeds","forecast-model"));
   else MODEL_METRICS.filter(m=>m.good==="zero").forEach(m=>{
     const v=Number(thisWk[m.k]);
-    if(Number.isFinite(v)&&v>0) fc.push(cond("red",`${m.l}: ${fmtMetric(v,m.pct)}`,"feeds","forecast-model","must be zero"));
+    if(Number.isFinite(v)&&v>0) fc.push(cond((m.key||("FEEDS.FORECAST_METRIC."+KSLUG(m.k))),"red",`${m.l}: ${fmtMetric(v,m.pct)}`,"feeds","forecast-model","must be zero"));
   });
   reportConditions("forecast",fc);
 
@@ -860,15 +1011,16 @@ async function loadForecastModel(){
       body:"{}"
     });
     if(!r.ok) throw new Error("HTTP "+r.status);
-    renderForecastModel(await r.json());
+    const fp=await r.json();
+    noteStamp("forecast",fp&&fp.computed_at);
+    renderForecastModel(fp);
   }catch(e){
     console.warn("workbench_forecast_model fetch failed.",e);
-    reportConditions("forecast",[cond("red","Forecast-model status unavailable — live fetch failed","feeds","forecast-model",e.message)]);
+    reportConditions("forecast",[cond("FEEDS.FORECAST_MODEL.FETCH_FAILED","red","Forecast-model status unavailable — live fetch failed","feeds","forecast-model",e.message)]);
     document.getElementById("forecast-model").innerHTML=
       `<div class="hnote" style="color:var(--red)">Forecast-model status unavailable — live fetch failed (${esc(e.message)}).</div>`;
   }
 }
-loadForecastModel();
 
 /* ---- Scoring panels: workbench_scoring_panels() RPC ----
    CC-WORKBENCH-SCORING-PANELS-UI-1.0. One fetch serves all three panels — the
@@ -1095,43 +1247,43 @@ function renderJts(t){
 function scoringConditions(p){
   const c=[], j=p.jpas, d=p.jds, t=p.jts;
   const a=p.computed_at?agoText(p.computed_at):null;
-  if(!p.computed_at) c.push(cond("red","Scoring cache has never been computed","scoring","scoring-age"));
-  else if(a && a.h>50) c.push(cond("red",`Scoring cache stale — ${a.txt} old`,"scoring","scoring-age","more than two refresh cycles"));
-  else if(a && a.h>=26) c.push(cond("amber",`Scoring cache ${a.txt} old — a refresh may have been missed`,"scoring","scoring-age"));
+  if(!p.computed_at) c.push(cond("SCORING.CACHE.NEVER_COMPUTED","red","Scoring cache has never been computed","scoring","scoring-age"));
+  else if(a && a.h>50) c.push(cond("SCORING.CACHE.STALE","red",`Scoring cache stale — ${a.txt} old`,"scoring","scoring-age","more than two refresh cycles"));
+  else if(a && a.h>=26) c.push(cond("SCORING.CACHE.AGING","amber",`Scoring cache ${a.txt} old — a refresh may have been missed`,"scoring","scoring-age"));
 
   if(j){
     (j.composer_defects||[]).forEach(x=>
-      c.push(cond(sevOf(x.status)==="bad"?"red":"amber",`JPAS: ${x.defect}`,"scoring","jpas-panel",x.effect)));
+      c.push(cond(jpasDefectKey(x.defect),sevOf(x.status)==="bad"?"red":"amber",`JPAS: ${x.defect}`,"scoring","jpas-panel",x.effect)));
     const wi=j.weight_integrity||{};
     if(wi.budget_is_100===false||Number(wi.tiers_with_split_weight)>0||Number(wi.tiers_attr_weights_off_one)>0)
-      c.push(cond("red",`JPAS weight budget breached (${wi.budget})`,"scoring","jpas-panel","every score is silently deflated or inflated"));
+      c.push(cond("SCORING.JPAS.WEIGHT_BUDGET_BREACHED","red",`JPAS weight budget breached (${wi.budget})`,"scoring","jpas-panel","every score is silently deflated or inflated"));
     const rvr=j.registry_vs_reality||{};
     if(Number(rvr.live_with_zero_data)>0)
-      c.push(cond("red",`JPAS: ${rvr.live_with_zero_data} attribute(s) quality-active with zero rows`,"scoring","jpas-panel",
+      c.push(cond("SCORING.JPAS.LIVE_WITH_ZERO_DATA","red",`JPAS: ${rvr.live_with_zero_data} attribute(s) quality-active with zero rows`,"scoring","jpas-panel",
         (rvr.live_with_zero_data_codes||[]).join(", ")));
     if((rvr.live_but_registry_says_gated||[]).length)
-      c.push(cond("amber",`JPAS: ${(rvr.live_but_registry_says_gated||[]).join(", ")} live but registry says gated`,"scoring","jpas-panel"));
+      c.push(cond("SCORING.JPAS.LIVE_BUT_REGISTRY_GATED","amber",`JPAS: ${(rvr.live_but_registry_says_gated||[]).join(", ")} live but registry says gated`,"scoring","jpas-panel"));
     if(Number(rvr.dark_data_attributes)>0)
-      c.push(cond("amber",`JPAS: ${rvr.dark_data_attributes} attributes hold data but are not scored`,"scoring","jpas-panel",
+      c.push(cond("SCORING.JPAS.DARK_DATA_ATTRIBUTES","amber",`JPAS: ${rvr.dark_data_attributes} attributes hold data but are not scored`,"scoring","jpas-panel",
         fmt(rvr.dark_data_jurisdiction_rows||0)+" jurisdiction-rows dark"));
     if(Number(rvr.active_flag_contradictions)>0)
-      c.push(cond("amber",`JPAS: ${rvr.active_flag_contradictions} is_active/quality_is_active contradictions`,"scoring","jpas-panel",
+      c.push(cond("SCORING.JPAS.ACTIVE_FLAG_CONTRADICTIONS","amber",`JPAS: ${rvr.active_flag_contradictions} is_active/quality_is_active contradictions`,"scoring","jpas-panel",
         (rvr.active_flag_contradiction_codes||[]).join(", ")));
     (j.live_tiers||[]).filter(x=>Number(x.imputation&&x.imputation.pct_imputed)>=90).forEach(x=>
-      c.push(cond("red",`JPAS ${x.tier_code} is ${x.imputation.pct_imputed}% imputed at weight ${x.tier_weight}`,"scoring","jpas-panel",
+      c.push(cond(tierImputedKey(x.tier_code),"red",`JPAS ${x.tier_code} is ${x.imputation.pct_imputed}% imputed at weight ${x.tier_weight}`,"scoring","jpas-panel",
         "a median guess carries those points for most of the estate")));
   }
   if(d){
     if(d.composer_is_scheduled===false)
-      c.push(cond("red","JDS composer runs on no schedule","scoring","jds-panel","every number is the last manual run"));
+      c.push(cond("SCORING.JDS.COMPOSER_NO_SCHEDULE","red","JDS composer runs on no schedule","scoring","jds-panel","every number is the last manual run"));
     if(d.layer_coverage&&d.layer_coverage.flat_columns_stale)
-      c.push(cond("red","JDS flat layer columns are stale","scoring","jds-panel","consumers reading them see an empty pipeline"));
+      c.push(cond("SCORING.JDS.FLAT_LAYER_COLUMNS_STALE","red","JDS flat layer columns are stale","scoring","jds-panel","consumers reading them see an empty pipeline"));
     (d.caveats||[]).filter(x=>sevOf(x.status)==="bad"&&!/schedule|flat /i.test(x.caveat||""))
-      .forEach(x=>c.push(cond("red","JDS: "+x.caveat,"scoring","jds-panel",x.effect)));
+      .forEach(x=>c.push(cond(jdsCaveatKey(x.caveat),"red","JDS: "+x.caveat,"scoring","jds-panel",x.effect)));
   }
   if(t){
-    if(!t.formula_exists) c.push(cond("red","JTS: no model registered — nothing computes a trajectory","scoring","jts-panel",t.readiness_note));
-    if(Number(t.feeds_empty)>0) c.push(cond("amber",`JTS: ${t.feeds_empty} candidate feed(s) empty`,"scoring","jts-panel"));
+    if(!t.formula_exists) c.push(cond("SCORING.JTS.NO_MODEL_REGISTERED","red","JTS: no model registered — nothing computes a trajectory","scoring","jts-panel",t.readiness_note));
+    if(Number(t.feeds_empty)>0) c.push(cond("SCORING.JTS.FEEDS_EMPTY","amber",`JTS: ${t.feeds_empty} candidate feed(s) empty`,"scoring","jts-panel"));
   }
   return c;
 }
@@ -1145,18 +1297,18 @@ async function loadScoringPanels(){
     });
     if(!r.ok) throw new Error("HTTP "+r.status);
     const p=await r.json();
+    noteStamp("scoring",p.computed_at);
     renderScoringAge(p); renderJpas(p.jpas); renderJds(p.jds); renderJts(p.jts);
     reportConditions("scoring", scoringConditions(p));
   }catch(e){
     console.warn("workbench_scoring_panels fetch failed.",e);
-    reportConditions("scoring",[cond("red","Scoring panels unavailable — live fetch failed","scoring","jpas-panel",e.message)]);
+    reportConditions("scoring",[cond("SCORING.PANELS.FETCH_FAILED","red","Scoring panels unavailable — live fetch failed","scoring","jpas-panel",e.message)]);
     /* Never leave a stale or blank panel presented as current. */
     const msg=`<div class="hnote" style="color:var(--red)">Scoring panel unavailable — live fetch failed (${esc(e.message)}).</div>`;
     document.getElementById("scoring-age").innerHTML="";
     ["jpas-panel","jds-panel","jts-panel"].forEach(id=>{document.getElementById(id).innerHTML=msg;});
   }
 }
-loadScoringPanels();
 /* ---- IDF 5.0 spine + six pillars: workbench_idf() RPC ---- */
 function renderIdf(d){
   const reg=d.registry||{}, pil=d.pillars||[], p4=d.p4_detail||{}, lk=d.linkage||{}, jds=d.jds||{};
@@ -1253,33 +1405,126 @@ async function loadIdf(){
     if(!r.ok) throw new Error("HTTP "+r.status);
     const d=await r.json();
     if(!d||!d.registry) throw new Error("empty payload");
+    noteStamp("idf",d.computed_at||d.generated_at);
     renderIdf(d);
     const ic=[], lk=d.linkage||{}, pil=d.pillars||[];
     const legacy=(Number(lk.legacy_artifact_subdomain_candidates)||0)+(Number(lk.legacy_tagspine_subdomain_rules)||0);
-    if(legacy>0) ic.push(cond("red","Three IDF linkage engines are live at once","idf","idf-linkage",
+    if(legacy>0) ic.push(cond("IDF5.LINKAGE.THREE_ENGINES_LIVE","red","Three IDF linkage engines are live at once","idf","idf-linkage",
       "subdomain_entity_link plus both legacy rule engines — retirement is required, not optional"));
     const linked=new Set((lk.by_pillar||[]).map(r=>r.pillar));
     const unlinked=["jurisdiction","company","person","facility","institution","source"].filter(k=>!linked.has(k));
-    if(unlinked.length) ic.push(cond("amber",`${unlinked.length} pillar(s) not linked: ${unlinked.join(", ")}`,"idf","idf-linkage"));
+    if(unlinked.length) ic.push(cond("IDF5.LINKAGE.PILLARS_UNLINKED","amber",`${unlinked.length} pillar(s) not linked: ${unlinked.join(", ")}`,"idf","idf-linkage"));
     const noFa=pil.filter(p=>!p.fa).length;
-    if(noFa) ic.push(cond("amber",`Geographic attainment empty on ${noFa} of ${pil.length} pillars`,"idf","idf-pillars"));
+    if(noFa) ic.push(cond("IDF5.PILLARS.NO_GEOGRAPHIC_ATTAINMENT","amber",`Geographic attainment empty on ${noFa} of ${pil.length} pillars`,"idf","idf-pillars"));
     const p4=d.p4_detail||{};
-    if(Number(p4.lifecycle_unknown)>0) ic.push(cond("amber",`Pillar 4: ${fmt(p4.lifecycle_unknown)} rows carry no build stage`,"idf","idf-p4"));
+    if(Number(p4.lifecycle_unknown)>0) ic.push(cond("IDF5.PILLAR4.NO_BUILD_STAGE","amber",`Pillar 4: ${fmt(p4.lifecycle_unknown)} rows carry no build stage`,"idf","idf-p4"));
     if(Number(p4.stored)-Number(p4.geo_bound)>0)
-      ic.push(cond("amber",`Pillar 4: ${fmt(p4.stored-p4.geo_bound)} rows unbound to a jurisdiction`,"idf","idf-p4"));
+      ic.push(cond("IDF5.PILLAR4.UNBOUND_JURISDICTION","amber",`Pillar 4: ${fmt(p4.stored-p4.geo_bound)} rows unbound to a jurisdiction`,"idf","idf-p4"));
     reportConditions("idf",ic);
 
     const st=document.getElementById("idf-stamp");
     if(st&&d.computed_at) st.textContent=" · measured "+new Date(d.computed_at).toISOString().replace("T"," ").slice(0,16)+" UTC";
   }catch(e){
     console.warn("workbench_idf fetch failed.",e);
-    reportConditions("idf",[cond("red","IDF 5.0 panel unavailable — live fetch failed","idf","idf-pillars",e.message)]);
+    reportConditions("idf",[cond("IDF5.PANEL.FETCH_FAILED","red","IDF 5.0 panel unavailable — live fetch failed","idf","idf-pillars",e.message)]);
     const msg=`<div class="hnote" style="color:var(--red)">IDF panel unavailable — live fetch failed (${esc(e.message)}).</div>`;
     ["idf-pillars","idf-p4","idf-linkage","idf-drift"].forEach(id=>{const n=document.getElementById(id); if(n) n.innerHTML=msg;});
     document.getElementById("idf-registry").innerHTML="";
   }
 }
-loadIdf();
+
+/* --- CC-WORKBENCH-FINDINGS-REMEDIATION-1.0 refresh controls --------------
+   Re-read  : re-runs the five read RPCs (which serve the cron-refreshed cache
+              rows) and recomposes findings. Sub-second. Writes NOTHING.
+   Recompute: server-side only. The four refresh RPCs are service_role-only, so
+              the browser cannot call them; /api/workbench-recompute holds the
+              service key and is gated by a shared secret. Health is excluded -
+              cron 33 refreshes it every 5 minutes and it is the slowest lane
+              (114s worst case measured over 14 days). */
+const WB_KEY_STORE="wb.refresh.key";
+const RECOMPUTE_LANES=["scoring","idf","storefront","forecast"];
+
+async function syncFindings(){
+  /* Sync only a COMPLETE report. A partial report looks like an absence and
+     would falsely clear live findings - the RPC's caller contract. */
+  if(REPORTED.size < SOURCES.length){ renderTriage(); return; }
+  const all=[...CONDITIONS.values()].flat().filter(c=>c&&c.key);
+  if(!all.length){ renderTriage(); return; }
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/workbench_findings_sync`,{
+      method:"POST",
+      headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":"application/json"},
+      body:JSON.stringify({p_findings:all.map(c=>({
+        key:c.key, lane:VIEW_LABEL[c.view]||c.view, severity:c.sev, headline:c.text}))})
+    });
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const d=await r.json();
+    CLEARED=Array.isArray(d&&d.cleared)?d.cleared:[];
+    REMEDIATION=(d&&d.remediation)||{};
+  }catch(e){
+    /* FAR-119: on failure say nothing rather than assert a false all-clear. */
+    console.warn("workbench_findings_sync failed — CLEARED / remediation unavailable this pass.",e);
+  }
+  renderTriage();
+}
+
+async function loadAll(){
+  SOURCES.forEach(x=>BUSY.add(x)); renderTriage();
+  const done=n=>{ BUSY.delete(n); renderTriage(); };
+  await Promise.all([
+    loadStorefront().finally(()=>done("storefront")),
+    loadHealth().finally(()=>done("health")),
+    loadForecastModel().finally(()=>done("forecast")),
+    loadScoringPanels().finally(()=>done("scoring")),
+    loadIdf().finally(()=>done("idf"))
+  ]);
+  await syncFindings();
+}
+
+function reRead(){ return loadAll(); }
+
+async function recompute(){
+  if(!confirm("Recompute rebuilds the scoring, IDF, storefront and forecast caches server-side.\n\n"
+    +"This writes to the cache tables and typically takes ~30 seconds.\n\n"
+    +"Health is excluded — cron 33 already refreshes it every 5 minutes.\n\nProceed?")) return;
+
+  let key=null;
+  try{ key=localStorage.getItem(WB_KEY_STORE); }catch(e){}
+  if(!key){
+    key=prompt("Workbench refresh key (stored in this browser only):");
+    if(!key) return;
+    try{ localStorage.setItem(WB_KEY_STORE,key); }catch(e){}
+  }
+
+  RECOMPUTE_LANES.forEach(x=>BUSY.add(x)); renderTriage();
+  let ok=false;
+  try{
+    const r=await fetch("/api/workbench-recompute",{
+      method:"POST", headers:{"Content-Type":"application/json","x-workbench-key":key}
+    });
+    const d=await r.json().catch(()=>({}));
+    if(r.status===401){
+      try{ localStorage.removeItem(WB_KEY_STORE); }catch(e){}
+      alert("Refresh key rejected. It has been cleared — press Recompute again to re-enter it.");
+    } else if(r.status===503){
+      alert("Recompute is not configured on this deployment.\n\n"+((d&&d.error)||"Missing server env var."));
+    } else if(!r.ok){
+      alert("Recompute failed: "+((d&&d.error)||("HTTP "+r.status)));
+    } else {
+      (d.lanes||[]).forEach(l=>{ if(l&&l.ok&&l.computed_at) noteStamp(l.lane,l.computed_at); });
+      const failed=(d.lanes||[]).filter(l=>l&&!l.ok);
+      if(failed.length) alert("Some lanes failed:\n"+failed.map(l=>l.lane+": "+(l.error||"unknown")).join("\n"));
+      ok=true;
+    }
+  }catch(e){
+    alert("Recompute failed: "+e.message);
+  }finally{
+    RECOMPUTE_LANES.forEach(x=>BUSY.delete(x)); renderTriage();
+  }
+  if(ok) await loadAll();
+}
+
+loadAll();
 
 </script>
 </body>
