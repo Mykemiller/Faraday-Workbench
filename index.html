@@ -400,7 +400,7 @@ body.js-views .view.is-active{border-top:0}
 
 <script>
 const storefronts=[
- {n:"Daily Challenge",s:"warn",tag:"LIVE / STALE",note:"Static page live; fresh-content rotation broken — serving, D2 reachability & rotator unwired. Bank healthy: 252 puzzles through 2026-09-04.",jira:"FAR-21",url:"https://mykesfoundry.atlassian.net/browse/FAR-21"},
+ {n:"Daily Challenge",s:"warn",tag:"LIVE / STALE",note:"Static page live, bank exhausted — nothing scheduled ahead, the nightly rotator writes empty page rows, and the active season has no generated content. Fix is a generation run (human gate).",jira:"FAR-21",url:"https://mykesfoundry.atlassian.net/browse/FAR-21"},
  {n:"Intelligent Alert",s:"build",tag:"IN BUILD",note:"3 test issues sent manually via Beehiiv.",jira:"FAR-26",url:"https://mykesfoundry.atlassian.net/browse/FAR-26"},
  {n:"Jurisdiction Watch",s:"live",tag:"LIVE",note:"Phases 1–5 deployed at jurisdiction-watch.com; first-dollar chain pending Stripe secrets.",jira:"FAR-27",url:"https://mykesfoundry.atlassian.net/browse/FAR-27"},
  {n:"Briefing Library",s:"live",tag:"LIVE / BUILD",note:"25 briefings available; 363 Coming Soon placeholders seeded.",jira:"FAR-28",url:"https://mykesfoundry.atlassian.net/browse/FAR-28"},
@@ -474,7 +474,7 @@ document.getElementById("tool-links").innerHTML=lk(toolLinks);
 const SF_FALLBACK=storefronts.map(s=>({
   name:s.n,status:s.s,status_tag:s.tag,blurb:s.note,jira_key:s.jira,jira_url:s.url,
   metrics:{},metric_basis:"fallback"}));
-const METRIC_LABEL={bank_rows:"bank",max_go_live_date:"thru",catalog_rows:"catalog",
+const METRIC_LABEL={bank_rows:"bank",max_go_live_date:"last go-live",scheduled_ahead:"ahead",days_cached:"cached",catalog_rows:"catalog",
   promoted_jurisdictions:"promoted",briefings:"briefings",courses_total:"courses",
   enrich_batches:"batches",signals:"signals",audit_log_rows:"audit entries"};
 const mlabel=k=>METRIC_LABEL[k]||k.replace(/_/g," ");
@@ -837,11 +837,20 @@ function renderHealth(h){
   const daysTxt=running?`${dc.days_left} day${dc.days_left===1?"":"s"} left`
     :st==="upcoming"?"not started yet"
     :"between seasons";
+  /* Bank figures are measured live from dc_puzzle_bank_staging and
+     dc_daily_page_content (CC-WORKBENCH-DC-BANK-LIVE-1.0), Chicago-dated. They
+     used to come from a hand-pasted Airtable snapshot in workbench_config that
+     nothing refreshed, so the panel said "196 scheduled" against an exhausted
+     bank. A cached day counts only when its games array is non-empty. */
+  const ahead=Number(bank.scheduled_ahead??0);
+  const cached=Number(bank.days_cached??0);
+  const liveToday=Number(bank.live_today??0);
+  const bankExhausted=ahead===0&&cached===0;
   const dcHead=[
-    {v:fmt(bank.total??0),l:"Puzzle bank · total"},
-    {v:fmt(bank.remaining_scheduled??0),l:`Scheduled ahead${bank.through?" · to "+bank.through:""}`},
-    {v:fmt(bank.unpublished??0),l:"Unpublished · unscheduled"},
-    {v:fmt(bank.live_today??0),l:"Live today"},
+    {v:fmt(bank.total??0),l:"Puzzle bank · total",sub:`${fmt(bank.retired??0)} retired · ${fmt(bank.unpublished??0)} unpublished`},
+    {v:fmt(ahead),l:`Scheduled ahead${bank.through?" · to "+bank.through:bank.last_go_live?" · last go-live "+bank.last_go_live:""}`,warn:ahead===0},
+    {v:fmt(cached),l:"Days cached · with games",sub:bank.last_content_date?"last content "+bank.last_content_date:"",warn:cached===0},
+    {v:fmt(liveToday),l:"Live today",sub:bank.today_row_exists&&liveToday===0?"row exists, no games":"",warn:liveToday===0},
     {v:fmt(dc.players_24h_total??0),l:"Players · 24h",warn:false}
   ].map(statCard).join("");
   const prows=(dc.puzzles_today||[]).map(p=>`<tr>
@@ -853,7 +862,7 @@ function renderHealth(h){
   document.getElementById("dc-health").innerHTML=`
     <div class="seasonbar"><b>${esc(dc.season_name||"—")}</b>${seasonPill}<span class="hnote" style="margin:0">${daysTxt}${dc.season_ends_on?(running||st==="upcoming"?" · ends ":" · ended ")+dc.season_ends_on:""}</span></div>
     <div class="stats" style="margin-bottom:14px">${dcHead}</div>
-    <div class="hnote">Bank source: ${esc(bank.source||"Airtable")}${bank.synced_on?" · synced "+bank.synced_on:""} · ${bank.retired??0} retired, ${bank.published??0} published. Per-puzzle play stats below are live from Supabase.</div>
+    <div class="hnote">Bank source: ${esc(bank.source||"Supabase")}${bank.last_written?" · last written "+bank.last_written:""}${dc.as_of_date?" · as of "+dc.as_of_date+" CT":""} · ${fmt(bank.published??0)} published. Per-puzzle play stats below are live from Supabase.</div>
     <div class="dscroll"><table class="dtable puzz"><thead><tr>
       <th>Today's puzzle</th><th style="text-align:left">Format</th><th style="text-align:left">Topic</th><th>Players · 24h</th><th>High · 24h</th>
     </tr></thead><tbody>${prows}</tbody></table></div>`;
@@ -889,6 +898,12 @@ function renderHealth(h){
   if(es.companies_new_signals_7d===0) hc.push(cond("ESTATE.COMPANIES.NO_NEW_SIGNALS_7D","amber","No company produced a new signal in 7 days","estate","stats"));
   if(es.automations_24h-es.automations_succeeded_24h>0)
     hc.push(cond("ESTATE.AUTOMATIONS.FAILED_24H","amber",`${es.automations_24h-es.automations_succeeded_24h} automation${es.automations_24h-es.automations_succeeded_24h>1?"s":""} failed in 24h`,"estate","stats"));
+  if(bankExhausted) hc.push(cond("FEEDS.DAILY_CHALLENGE.BANK_EXHAUSTED","red","Daily Challenge bank exhausted — nothing scheduled ahead, no cached day with games","feeds","dc-health",
+    bank.last_content_date?`last day with games ${bank.last_content_date}`:"no page row has ever carried games"));
+  else if(liveToday===0) hc.push(cond("FEEDS.DAILY_CHALLENGE.NO_GAMES_TODAY","red",`Daily Challenge has no games today${bank.today_row_exists?" — page row exists but is empty":""}`,"feeds","dc-health",
+    `${fmt(ahead)} scheduled ahead · ${fmt(cached)} cached day${cached===1?"":"s"}`));
+  else if(cached<=1) hc.push(cond("FEEDS.DAILY_CHALLENGE.CACHE_THIN","amber",`Daily Challenge cache thin — ${fmt(cached)} day cached`,"feeds","dc-health",
+    `${fmt(ahead)} scheduled ahead`));
   if(st!=="active") hc.push(cond("FEEDS.DAILY_CHALLENGE.SEASON_NOT_ACTIVE","amber",`Daily Challenge season is ${st||"absent"}`,"feeds","dc-health",
     dc.season_ends_on?("ends "+dc.season_ends_on):""));
   else if(Number(dc.days_left)<=3) hc.push(cond("FEEDS.DAILY_CHALLENGE.SEASON_ENDING","amber",`Daily Challenge season ends in ${dc.days_left} day(s)`,"feeds","dc-health",
