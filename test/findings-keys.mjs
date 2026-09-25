@@ -99,6 +99,45 @@ for (const k of ['SCORING.JTS.NO_MODEL_REGISTERED','SCORING.JDS.FLAT_LAYER_COLUM
   await p2.close();
 }
 
+
+/* CC-IDF-ONE-ENGINE-1.0: with a liveness-measured linkage payload (one live
+   engine), THREE_ENGINES_LIVE must clear, the panel must stop claiming three
+   live engines, and the residual entity-link drift must surface as an AMBER. */
+{
+  const idf1 = JSON.parse(JSON.stringify(other.idf));
+  Object.assign(idf1.linkage, {
+    legacy_artifact_subdomain_candidates: 0, legacy_tagspine_subdomain_rules: 0,
+    archived_artifact_subdomain_candidates: 6919, archived_tagspine_subdomain_rules: 31,
+    canonical_engine: 'ledger', live_engine_count: 1,
+    engines: [
+      {key:'ledger', live:true, role:'canonical', rows:314448, writers:1, store:'artifact_subdomain_provenance', last_write_at:'2026-09-25T06:45:00Z'},
+      {key:'entity_link', live:false, role:'entity read-model', rows:4284, writers:0, store:'subdomain_entity_link', last_write_at:'2026-08-30T00:36:20Z'},
+      {key:'tagspine', live:false, role:'retired', rows:0, archived_rows:6950, writers:0, store:'artifact_subdomain_candidates'}],
+    sel_drift: {only_in_entity_link:16, only_in_domain_tags:29} });
+  const p3 = await browser.newPage();
+  p3.on('pageerror', e=>errs.push('JS EXCEPTION (one-engine): '+e));
+  const serve3 = (name,body)=>p3.route(`**/rpc/${name}`, r =>
+    r.fulfill({status:200, contentType:'application/json', body:JSON.stringify(body)}));
+  await serve3('workbench_scoring_panels', scoring);
+  await serve3('workbench_health', other.health);
+  await serve3('workbench_idf', idf1);
+  await serve3('workbench_forecast_model', other.forecast);
+  await serve3('workbench_storefront', other.storefront);
+  await serve3('workbench_findings_sync', syncBody);
+  await p3.goto(PAGE_URL);
+  await p3.waitForFunction(()=>document.querySelectorAll('#triage-in .chip[data-key]').length>0, null, {timeout:15000});
+  await p3.waitForTimeout(500);
+  const k3 = await p3.evaluate(()=>[...document.querySelectorAll('#triage-in .chip[data-view]')].map(b=>({key:b.dataset.key,cls:b.className})));
+  ok(!k3.some(x=>x.key==='IDF5.LINKAGE.THREE_ENGINES_LIVE'), 'one live engine: THREE_ENGINES_LIVE is not raised');
+  const d3 = k3.find(x=>x.key==='IDF5.LINKAGE.ENTITY_LINK_DRIFT');
+  ok(!!d3 && /amber/.test(d3.cls), 'entity-link drift surfaces as an AMBER finding');
+  const panelTxt = await p3.evaluate(()=>document.getElementById('idf-linkage').innerText);
+  ok(/One IDF engine/i.test(panelTxt) && !/Three linkage engines are live/i.test(panelTxt),
+    'linkage panel reports one engine, not three');
+  ok(/NOT WRITING/.test(panelTxt) && /LIVE/.test(panelTxt), 'panel shows per-engine liveness');
+  await p3.close();
+}
+
 // ---- D4: CLEARED chip ----
 const cleared = await page.evaluate(()=>{
   const el=document.querySelector('#triage-in .chip.cleared');

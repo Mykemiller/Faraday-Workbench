@@ -1055,6 +1055,47 @@ async function loadForecastModel(){
    settled fact. */
 const sevOf = st => /^live/i.test(String(st||"")) ? "bad" : "";
 
+/* CC-IDF-ONE-ENGINE-1.0: engine liveness, measured. A payload without
+   linkage.engines (pre-2026-09-25) falls back to the old archive-count rule. */
+function idfEngineState(lk){
+  lk=lk||{};
+  if(Array.isArray(lk.engines)){
+    const live=lk.engines.filter(e=>e&&e.live);
+    return {measured:true, live:live.length, engines:lk.engines};
+  }
+  const legacy=(Number(lk.legacy_artifact_subdomain_candidates)||0)+(Number(lk.legacy_tagspine_subdomain_rules)||0);
+  return {measured:false, live:legacy>0?3:1, engines:[]};
+}
+function idfEnginesBlock(lk){
+  const st=idfEngineState(lk);
+  if(!st.measured)
+    return caveat("bad","Three linkage engines are live at once",
+      "subdomain_entity_link holds "+fmt(lk.total||0)+" rows across three of six pillars, while both legacy rule engines are still running.",
+      "artifact_subdomain_candidates "+fmt(lk.legacy_artifact_subdomain_candidates||0)+" &middot; tagspine_subdomain_rules "+fmt(lk.legacy_tagspine_subdomain_rules||0));
+  const rows=st.engines.map(e=>`<tr class="${e.live?"":"dark"}"><td><b>${esc(e.key)}</b><br><span class="zero">${esc(e.store||"")}</span></td>
+      <td>${esc(e.role||"")}</td><td>${fmt(e.rows||0)}${e.archived_rows?" <span class=\"zero\">(archive "+fmt(e.archived_rows)+")</span>":""}</td>
+      <td>${fmt(e.writers||0)}</td><td>${e.last_write_at?esc(String(e.last_write_at).slice(0,16).replace("T"," ")):"&mdash;"}</td>
+      <td>${e.live?'<span class="feed-ok">&#9679; LIVE</span>':'<span class="feed-no">NOT WRITING</span>'}</td></tr>`).join("");
+  const table=`<div class="dscroll" style="margin-top:10px"><table class="dtable">
+      <thead><tr><th>Engine</th><th>Role</th><th>Rows</th><th>Live writers</th><th>Last write (UTC)</th><th>State</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  const dr=lk.sel_drift||{}, drift=(Number(dr.only_in_entity_link)||0)+(Number(dr.only_in_domain_tags)||0);
+  const head = st.live>1
+    ? caveat("bad",st.live+" IDF linkage engines are live at once",
+        "More than one engine currently has an active writer. Any artifact can be classified differently depending on which path reached it first.",
+        "canonical: "+esc(lk.canonical_engine||"unset"))
+    : caveat("ok",`One IDF engine: ${esc(lk.canonical_engine||"ledger")}`,
+        "Only the artifact ledger writes artifacts.ifs_subdomains (enforced by trigger, D3). Legacy tagspine is retired and archived; subdomain_entity_link has no writer.",
+        "legacy live rows "+fmt((lk.legacy_artifact_subdomain_candidates||0)+(lk.legacy_tagspine_subdomain_rules||0))
+        +" &middot; archived "+fmt((lk.archived_artifact_subdomain_candidates||0)+(lk.archived_tagspine_subdomain_rules||0)));
+  const driftNote = drift>0
+    ? caveat("","subdomain_entity_link has drifted from the tag tables",
+        "It is a 29–30 Aug copy of company/person/institution_domain_tags. The ledger reads the tag tables, so artifacts are unaffected; the coverage figures above read the copy.",
+        fmt(dr.only_in_entity_link||0)+" rows only in the link table &middot; "+fmt(dr.only_in_domain_tags||0)+" only in the tag tables")
+    : "";
+  return head+table+driftNote;
+}
+
 function caveat(sev, title, body, sub){
   return `<div class="caveat${sev?" "+sev:""}">
     <div class="ct">${esc(title)}</div>
@@ -1411,9 +1452,7 @@ function renderIdf(d){
     `<div class="dscroll"><table class="dtable">
       <thead><tr><th>Pillar</th><th>Links</th><th>Sub-Domains covered</th><th>State</th></tr></thead>
       <tbody>${lrows}</tbody></table></div>`
-    + caveat("bad","Three linkage engines are live at once",
-        "subdomain_entity_link holds "+fmt(lk.total||0)+" rows across three of six pillars, while both legacy rule engines are still running. The Six Pillars page calls this “the §00 defect reproduced one layer down”, and retirement is required, not optional.",
-        "artifact_subdomain_candidates "+fmt(lk.legacy_artifact_subdomain_candidates||0)+" &middot; tagspine_subdomain_rules "+fmt(lk.legacy_tagspine_subdomain_rules||0));
+    + idfEnginesBlock(lk);
 
   /* drift vs Notion */
   const drift=[
@@ -1446,9 +1485,11 @@ async function loadIdf(){
     noteStamp("idf",d.computed_at||d.generated_at);
     renderIdf(d);
     const ic=[], lk=d.linkage||{}, pil=d.pillars||[];
-    const legacy=(Number(lk.legacy_artifact_subdomain_candidates)||0)+(Number(lk.legacy_tagspine_subdomain_rules)||0);
-    if(legacy>0) ic.push(cond("IDF5.LINKAGE.THREE_ENGINES_LIVE","red","Three IDF linkage engines are live at once","idf","idf-linkage",
-      "subdomain_entity_link plus both legacy rule engines — retirement is required, not optional"));
+    const eng=idfEngineState(lk);
+    if(eng.live>1) ic.push(cond("IDF5.LINKAGE.THREE_ENGINES_LIVE","red",`${eng.live===3?"Three":eng.live} IDF linkage engines are live at once`,"idf","idf-linkage",
+      "more than one engine has an active writer — name one canonical"));
+    const sd=lk.sel_drift||{}, sdn=(Number(sd.only_in_entity_link)||0)+(Number(sd.only_in_domain_tags)||0);
+    if(eng.measured && sdn>0) ic.push(cond("IDF5.LINKAGE.ENTITY_LINK_DRIFT","amber",`subdomain_entity_link drifted from tag tables (${fmt(sdn)} rows)`,"idf","idf-linkage"));
     const linked=new Set((lk.by_pillar||[]).map(r=>r.pillar));
     const unlinked=["jurisdiction","company","person","facility","institution","source"].filter(k=>!linked.has(k));
     if(unlinked.length) ic.push(cond("IDF5.LINKAGE.PILLARS_UNLINKED","amber",`${unlinked.length} pillar(s) not linked: ${unlinked.join(", ")}`,"idf","idf-linkage"));
