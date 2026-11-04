@@ -319,8 +319,28 @@ body.js-views .view.is-active{border-top:0}
 
     <div class="subhead">Engine dashboard — Fundamental Intelligence Engine</div>
     <div class="engines" id="engines"></div>
-    <div class="subhead" id="stats-subhead">Engine stats — Supabase counts · as of 07-04-26</div>
+    <div class="subhead" id="stats-subhead">Engine stats — Supabase counts · as of 11-03-26</div>
     <div class="stats" id="stats"></div>
+
+    <div class="subhead" id="scorecard-subhead">Product health scorecard — 2026-11-03 18:12 CT · five dimensions, 0–2 each</div>
+    <div class="legend"><b class="lg">GREEN</b> ≥6 &nbsp;·&nbsp; <b class="la">AMBER</b> 3–5 &nbsp;·&nbsp; <b class="lr">RED</b> ≤2 &nbsp;·&nbsp; DORMANT = no project, no usage rows, no decision. Delivery · Substrate · Momentum (14-day Linear) · Governance &amp; security · Commercial. Full card with evidence and the Tell Me Everything map: <a href="https://claude.ai/artifact/E1pwbjVq1ZhJuPzJZngTFs" target="_blank" rel="noopener">scorecard ↗</a></div>
+    <div class="dscroll"><table class="dtable" id="scorecard">
+      <thead><tr><th>Product</th><th>Health</th><th>Score</th><th>Deliv.</th><th>Substr.</th><th>Mom.</th><th>Gov.</th><th>Comm.</th><th style="text-align:left">Tell Me Everything hook</th></tr></thead>
+      <tbody>
+        <tr><td>ThoughtForge Panel</td><td class="d-good">GREEN</td><td>6</td><td>2</td><td>1</td><td>2</td><td>1</td><td>0</td><td class="codes">Replace gdelt-research in the Fact-Checker with TME (six sources); raise factcheckMaxTokens (TH-45)</td></tr>
+        <tr><td>Faraday Predicts</td><td class="d-good">GREEN</td><td>6</td><td>2</td><td>1</td><td>2</td><td>1</td><td>0</td><td class="codes">Resolution evidence at each horizon checkpoint; misses back into generation (FDY-129)</td></tr>
+        <tr><td>Jurisdiction Watch 3.0</td><td class="part">AMBER</td><td>5</td><td>1</td><td>1</td><td>2</td><td>1</td><td>0</td><td class="codes">Nightly county-actor sweep for 171 Class 1 counties → jurisdiction_signals, routed via idf_sectors[]</td></tr>
+        <tr><td>Daily Challenge</td><td class="part">AMBER</td><td>5</td><td>2</td><td>1</td><td>1</td><td>1</td><td>0</td><td class="codes">Sourced figure for the Daily Industry Signal data point</td></tr>
+        <tr><td>Faraday Academy</td><td class="part">AMBER</td><td>5</td><td>1</td><td>2</td><td>1</td><td>1</td><td>0</td><td class="codes">Seed academy_reference_candidates per lesson under the Shelf repair rulings</td></tr>
+        <tr><td>Briefing Library</td><td class="part">AMBER</td><td>4</td><td>1</td><td>1</td><td>1</td><td>1</td><td>0</td><td class="codes">Entity research pass before template fill → briefings.contents, behind the FDY-161 sign-off gate</td></tr>
+        <tr><td>Intelligent Alert · Daily Signal</td><td class="part">AMBER</td><td>4</td><td>2</td><td>1</td><td>1</td><td>0</td><td>0</td><td class="codes">Light-depth enrichment of the top-N events before the LLM pass</td></tr>
+        <tr class="dark"><td>Boundstone</td><td class="d-bad">RED</td><td>1</td><td>0</td><td>1</td><td>0</td><td>0</td><td>0</td><td class="codes">Weekly geo-scoped sweep → record_candidates, only after FDY-97 and FDY-63</td></tr>
+        <tr class="dark"><td>ISpyaDC</td><td class="d-bad">RED</td><td>1</td><td>0</td><td>0</td><td>0</td><td>1</td><td>0</td><td class="codes">n/a (imagery product)</td></tr>
+        <tr><td>Live Agent</td><td class="d-flat">DORMANT</td><td>2</td><td>0</td><td>1</td><td>0</td><td>1</td><td>0</td><td class="codes">n/a until built</td></tr>
+        <tr><td>Signal Room</td><td class="d-flat">DORMANT</td><td>1</td><td>0</td><td>0</td><td>0</td><td>1</td><td>0</td><td class="codes">Per-Follow refresh once the S7 Follow graph exists</td></tr>
+      </tbody>
+    </table></div>
+    <div class="hnote" style="margin-top:10px">Portfolio read: Commercial is 0 on every row; Governance is capped at 1 by one Urgent security cluster (FDY-205/206/207/208, 166, 149) shared across the estate. Clearing that cluster as one pack moves six scores at once.</div>
   </div>
 </section>
 
@@ -362,7 +382,7 @@ body.js-views .view.is-active{border-top:0}
   <div class="wrap">
     <div class="eyebrow">Framework</div>
     <h2>IDF 5.0 &mdash; spine &amp; the six pillars</h2>
-    <div class="legend">Canonical since 2026-08-26 &middot; four axes &middot; seven satellites &middot; DEC-IDF-01&hellip;24.
+    <div class="legend">Canonical since 2026-08-26 &middot; four axes &middot; seven satellites &middot; DEC-IDF-01&hellip;29.
       Volumes below are <b>live</b> from Supabase <span class="mono">ycadmmngkdhvpcsrcuaq</span> &mdash; not the figures printed in Notion.<span id="idf-stamp" class="mono"></span></div>
 
     <div class="subhead">Registry &mdash; Domains &middot; Sub-Domains &middot; Themes</div>
@@ -394,48 +414,61 @@ body.js-views .view.is-active{border-top:0}
 </section>
 
 <footer class="wrap">
-  <span>FARADAY INTELLIGENCE · WORKBENCH v1.0</span>
+  <span>FARADAY INTELLIGENCE · WORKBENCH v1.1 · scorecard 2026-11-03</span>
   <span>Follow the Thread, catch the Signals.</span>
 </footer>
 
 <script>
 const storefronts=[
- {n:"Daily Challenge",s:"warn",tag:"LIVE / STALE",note:"Static page live, bank exhausted — nothing scheduled ahead, the nightly rotator writes empty page rows, and the active season has no generated content. Fix is a generation run (human gate).",jira:"FAR-21",url:"https://mykesfoundry.atlassian.net/browse/FAR-21"},
- {n:"Intelligent Alert",s:"build",tag:"IN BUILD",note:"3 test issues sent manually via Beehiiv.",jira:"FAR-26",url:"https://mykesfoundry.atlassian.net/browse/FAR-26"},
- {n:"Jurisdiction Watch",s:"live",tag:"LIVE",note:"Phases 1–5 deployed at jurisdiction-watch.com; first-dollar chain pending Stripe secrets.",jira:"FAR-27",url:"https://mykesfoundry.atlassian.net/browse/FAR-27"},
- {n:"Briefing Library",s:"live",tag:"LIVE / BUILD",note:"25 briefings available; 363 Coming Soon placeholders seeded.",jira:"FAR-28",url:"https://mykesfoundry.atlassian.net/browse/FAR-28"},
- {n:"Live Agent",s:"build",tag:"IN BUILD",note:"Enrichment cleared 180,052/180,165 artifacts across 818 batches; RAG Q&A acceptance underway.",jira:"FAR-29",url:"https://mykesfoundry.atlassian.net/browse/FAR-29"},
- {n:"Faraday Academy",s:"live",tag:"LIVE / BUILD",note:"126 courses — 90 approved, 36 in backlog; Academy Course Template in progress.",jira:"FAR-30",url:"https://mykesfoundry.atlassian.net/browse/FAR-30"},
- {n:"Signal Room",s:"live",tag:"LIVE",note:"Configurator surface live; 1,104 signals, 933 in the last 30 days.",jira:"FAR-31",url:"https://mykesfoundry.atlassian.net/browse/FAR-31"},
- {n:"Thought Forge",s:"concept",tag:"CONCEPT",note:"Commission surface — engine and storefront both pre-build.",jira:"FAR-32",url:"https://mykesfoundry.atlassian.net/browse/FAR-32"},
- {n:"League Office",s:"live",tag:"LIVE",note:"Daily Challenge Commissioner console — Tier 1 read screens + Tier 2 audited write-actions shipped (FAR-221 PRs #82/#83). Staff-gated, mykemiller@gmail.com allowlist.",jira:"FAR-221",url:"https://mykesfoundry.atlassian.net/browse/FAR-221"},
- {n:"Civic-Host",s:"live",tag:"LIVE",note:"Free, verified township websites — a Jurisdiction Watch company. Live within 24 hours, no IT department required, free for first 3 years.",jira:"FAR-305",url:"https://mykesfoundry.atlassian.net/browse/FAR-305"}
+ /* Fallback copy mirrors workbench_storefront_tiles as of the 2026-11-03 Product Health Scorecard.
+    The live board reads the table; edit the table, not this array, for day-to-day changes. */
+ {n:"Jurisdiction Watch 3.0",s:"build",tag:"AMBER · 5/10",note:"Dec 1 launch program live: G1 closed 10-29, G2 one API deploy away, 8 of 10 gates open. 5,508 briefs last generated 2026-08-21 and the sweep cron is inactive; 16,708 staged county tags unpromoted; price card (G5) held.",jira:"P-FDY-7",url:"https://linear.app/my-faraday/project/jurisdiction-watch-30-december-1-launch-5d84c03f64e0"},
+ {n:"Faraday Predicts",s:"live",tag:"GREEN · 6/10",note:"204 predictions, grader v2, digest v3, horizon ladder and /predicts page shipped. Flash trigger engine, subscriber configurator and storefront tile still Todo; Stripe entitlements scheduled 27-03.",jira:"P-FDY-4",url:"https://linear.app/my-faraday/project/faraday-predicts-6d393ff8ae14"},
+ {n:"ThoughtForge Panel",s:"live",tag:"GREEN · 6/10",note:"v1 live at faraday-thoughtforge.com; 10-member cast through QA gate. Open: Fact-Checker returns zero items on prod (TH-45), /api/ask fails silently (TH-46).",jira:"P-TH-8",url:"https://linear.app/my-faraday/project/thoughtforge-panel-app-effd3983713b"},
+ {n:"Daily Challenge",s:"build",tag:"AMBER · 5/10",note:"Live and free on faradaydailychallenge.com. Football Season launch still Backlog; ~25 Season Configurator settings saved but enforced by nothing (FDY-52).",jira:"P-FDY-2",url:"https://linear.app/my-faraday/project/daily-challenge-football-season-launch-e87292e851bc"},
+ {n:"Faraday Academy",s:"build",tag:"AMBER · 5/10",note:"126 courses, 792 lessons, 990 quiz-bank items; flip-card checks shipped. academy_progress 0 rows (no learners); Reference Shelf 0 rows, repair pack drafted not executed.",jira:"P-FDY-6",url:"https://linear.app/my-faraday/project/academy-flip-card-quizzes-61d3166c0509"},
+ {n:"Briefing Library",s:"build",tag:"AMBER · 4/10",note:"Company classification and Brand Bible refresh Done in Oct. Canonical briefings table 0 rows; BL-05 cutover and BL-12 storefront gated; refresh cadence undecided.",jira:"P-FDY-5",url:"https://linear.app/my-faraday/project/briefing-library-ad316f779c0b"},
+ {n:"Intelligent Alert · Daily Signal",s:"build",tag:"AMBER · 4/10",note:"Digest runs daily; 139,009 jw_signal_events, 1,371 pending. Send path unauthenticated (FDY-205, Urgent); cron dispatch verdicts unobservable (FDY-201). Free by design.",jira:"FDY-205",url:"https://linear.app/my-faraday/issue/FDY-205"},
+ {n:"Boundstone",s:"warn",tag:"RED · 1/10",note:"Deployed source-poller is five versions ahead of the repo (FDY-97); record_candidates empty so Latest Records cannot advance past 28 Jul (FDY-77); 12 issues parked In Review.",jira:"P-FDY-3",url:"https://linear.app/my-faraday/project/boundstone-self-sustaining-daily-updates-e8ffbe3aea9e"},
+ {n:"ISpyaDC",s:"warn",tag:"RED · 1/10",note:"Usable v1 target 2026-10-09 missed; no movement since. Admin test console only. Needs a continue-or-park decision.",jira:"P-FDY-1",url:"https://linear.app/my-faraday/project/ispyadc-usable-v1-885129fd8ea1"},
+ {n:"Live Agent",s:"concept",tag:"DORMANT · 2/10",note:"live_agent_plan 3 rows, live_agent_usage 0, no Linear project. Build date or retire from the registry.",jira:"—",url:"https://linear.app/my-faraday/team/FDY/active"},
+ {n:"Signal Room",s:"concept",tag:"DORMANT · 1/10",note:"Concept only; Brand Bible is a scaffold; no Linear project. IDF 5.0 S7 Follow graph is the design, no build exists.",jira:"—",url:"https://linear.app/my-faraday/team/FDY/active"},
+ {n:"Panel Podcast",s:"concept",tag:"PLANNED",note:"New ThoughtForge project (11-02): panel episodes from the Daily Signal via a Walt pipeline. 9 backlog issues; not yet scored.",jira:"P-TH-10",url:"https://linear.app/my-faraday/project/panel-podcast-bd7691689809"},
+ {n:"League Office",s:"live",tag:"LIVE",note:"Daily Challenge Commissioner console, staff-gated. Not every setting it saves is enforced downstream — see FDY-52.",jira:"FDY-52",url:"https://linear.app/my-faraday/issue/FDY-52"},
+ {n:"Civic-Host",s:"live",tag:"LIVE",note:"Free, verified township websites — a Jurisdiction Watch company. Not reviewed in the 2026-11-03 scorecard.",jira:"FAR-305",url:"https://mykesfoundry.atlassian.net/browse/FAR-305"}
 ];
 const engines=[
- {n:"IDF 4.0",s:"live",m:"OPERATIONAL"},{n:"JPS",s:"live",m:"20 JURISDICTIONS"},
- {n:"Two-Analyst System",s:"live",m:"CANONICAL"},{n:"Intelligence Baseline",s:"live",m:"Q1 2026"},
- {n:"Velocity Play",s:"live",m:"OPERATIONAL"},{n:"Prognostications",s:"amber",m:"DRAFT"},
- {n:"Thought Forge (engine)",s:"idle",m:"CONCEPT"}
+ {n:"IDF 5.0",s:"live",m:"CANONICAL 2026-08-26"},{n:"JPAS · JDS",s:"live",m:"3,222 COUNTIES"},
+ {n:"JTS",s:"amber",m:"SUBSTRATE ONLY"},{n:"Two-Analyst System",s:"live",m:"CANONICAL"},
+ {n:"Velocity Play",s:"live",m:"OPERATIONAL"},{n:"Predicts engine",s:"live",m:"204 PREDICTIONS"},
+ {n:"ThoughtForge (engine)",s:"live",m:"V1 · 10 PANELISTS"},{n:"Tell Me Everything",s:"live",m:"SKILL v1.1"}
 ];
 const sfLinks=[
- {b:"Jurisdiction Watch",u:"https://jurisdiction-watch.com",s:"jurisdiction-watch.com"},
- {b:"Civic-Host",u:"https://civic-host.vercel.app",s:"townships · free verified gov websites"},
+ {b:"Jurisdiction Watch",u:"https://jurisdiction-watch.com",s:"jurisdiction-watch.com · also jw-2.com"},
+ {b:"ThoughtForge",u:"https://faraday-thoughtforge.com",s:"10-member expert panel · v1"},
+ {b:"Faraday Predicts",u:"https://faraday-intelligence.ai/predicts",s:"dated, falsifiable predictions"},
+ {b:"Daily Challenge",u:"https://www.faradaydailychallenge.com",s:"7 puzzle games · free"},
  {b:"Faraday Intelligence — homepage",u:"https://faraday-intelligence.ai",s:"faraday-intelligence.ai"},
- {b:"Daily Challenge",u:"https://faraday-intelligence.ai/daily-challenge",s:"7 puzzle games · free / email capture"},
- {b:"Briefing Library",u:"https://faraday-intelligence.ai/briefing-library",s:"19 canonical · Gamma shelf"},
- {b:"Intelligent Alert",u:"https://faraday-intelligence.ai",s:"Beehiiv publication"},
- {b:"Faraday Academy",u:"https://faraday-intelligence.ai",s:"LearnWorlds · 36 draft courses"},
- {b:"Signal Room",u:"https://faraday-signal-room.com/signal-room",s:"faraday-signal-room.com/signal-room"},
- {b:"Live Agent",u:"https://faraday-intelligence.ai",s:"Claude + Pinecone RAG"}
+ {b:"Briefing Library",u:"https://faraday-intelligence.ai/briefing-library",s:"388 catalog rows · storefront gated"},
+ {b:"Intelligent Alert · Daily Signal",u:"https://faraday-intelligence.ai",s:"daily digest"},
+ {b:"Faraday Academy",u:"https://faraday-intelligence.ai",s:"LearnWorlds · 126 courses"},
+ {b:"Boundstone",u:"https://boundstone.org",s:"restriction records · stalled"},
+ {b:"ISpyaDC",u:"https://ispyadc.com",s:"admin console only"},
+ {b:"Civic-Host",u:"https://civic-host.vercel.app",s:"townships · free verified gov websites"},
+ {b:"Signal Room",u:"https://faraday-signal-room.com/signal-room",s:"dormant"},
+ {b:"League Office",u:"https://faraday-intelligence.ai/league-office",s:"Commissioner console · staff only"}
 ];
 const toolLinks=[
- {b:"Jira — FAR board",u:"https://mykesfoundry.atlassian.net/jira/software/projects/FAR/boards/1/backlog",s:"backlog & sprints"},
+ {b:"Linear — Faraday (FDY) & ThoughtForge (TH)",u:"https://linear.app/my-faraday",s:"issues · projects · releases"},
+ {b:"Product Health Scorecard — 2026-11-03",u:"https://claude.ai/artifact/E1pwbjVq1ZhJuPzJZngTFs",s:"RAG scorecard · TME map · five moves"},
+ {b:"Notion — JW 3.0 Release Log",u:"https://app.notion.com/p/40989a0c168081a78e8bcb6e5944dbee",s:"gates G1–G10 · releases WW-YY-vXX"},
  {b:"Notion — Project Hub",u:"https://app.notion.com/p/37189a0c1680808a9107c87d093f032a",s:"canonical operating reference"},
  {b:"Google Drive — Faraday Specs",u:"https://drive.google.com/drive/folders/1wwISpRcxTXniyK2FeaWYh5w4Ch0ssKJ0",s:"specs folder"},
  {b:"GitHub — Faraday-intelligence",u:"https://github.com/Mykemiller/Faraday-intelligence",s:"homepage repo"},
  {b:"GitHub — faraday-jurisdiction-watch",u:"https://github.com/Mykemiller/faraday-jurisdiction-watch",s:"JW frontend (supersedes jw)"},
  {b:"GitHub — v0-faraday-daily-challenge",u:"https://github.com/Mykemiller/v0-faraday-daily-challenge",s:"Daily Challenge lobby"},
- {b:"GitHub — Faraday-Briefing-Library-",u:"https://github.com/Mykemiller/Faraday-Briefing-Library-",s:"briefing shelf"},
+ {b:"GitHub — Faraday-Briefing-Library",u:"https://github.com/Mykemiller/Faraday-Briefing-Library",s:"briefing shelf"},
+ {b:"GitHub — Faraday-Workbench",u:"https://github.com/Mykemiller/Faraday-Workbench",s:"this page"},
  {b:"Supabase — ycadmmngkdhvpcsrcuaq",u:"https://supabase.com/dashboard/project/ycadmmngkdhvpcsrcuaq",s:"backend project"},
  {b:"Airtable — primary base",u:"https://airtable.com/appxfti7VuoHYUeu6",s:"companies · briefings · puzzle bank"},
  {b:"Vercel — Project Foundry",u:"https://vercel.com/project-foundry",s:"deployments"},
@@ -444,17 +477,18 @@ const toolLinks=[
  {b:"League Office",u:"https://faraday-intelligence.ai/league-office",s:"Commissioner console · staff only"}
 ];
 const engineStats=[
- {v:"93",l:"Automations ran · 24h",sub:"92 succeeded"},
- {v:"39,324",l:"Jurisdictions",sub:"39,307 active"},
- {v:"19,806",l:"JPS-scored jurisdictions"},
- {v:"390",l:"JPAS-scored jurisdictions"},
- {v:"5,191",l:"Artifacts"},
- {v:"320",l:"New artifacts · 24h"},
- {v:"0",l:"Signals · 24h",sub:"3 all-time"},
- {v:"21",l:"Predictions"},
- {v:"0",l:"New predictions · 24h"},
- {v:"473",l:"Companies tracked"},
- {v:"0",l:"Companies w/ new signals · 7d"}
+ /* Read live 2026-11-03 18:00–18:10 CT from ycadmmngkdhvpcsrcuaq (exact COUNT(*)). */
+ {v:"674,010",l:"Artifacts",sub:"+24,572 in 7d · +106,816 in 30d"},
+ {v:"11,801",l:"Source registry rows",sub:"9,663 active · 216 error"},
+ {v:"39,507",l:"Jurisdictions",sub:"3,222 counties scored (JDS · JPAS)"},
+ {v:"5,508",l:"JW briefings",sub:"newest 2026-08-21 · sweep cron inactive"},
+ {v:"139,009",l:"Signal events",sub:"1,371 digest-pending"},
+ {v:"204",l:"Predictions",sub:"7,017 probability-log rows"},
+ {v:"18,217",l:"DC facilities",sub:"post 09-02 consolidation"},
+ {v:"6,750",l:"Companies",sub:"after Oct classification"},
+ {v:"1,734",l:"People spine rows",sub:"IDF G2 ≥311 holds"},
+ {v:"126",l:"Academy courses",sub:"792 lessons · 0 learner rows"},
+ {v:"16,708",l:"Staged county tags",sub:"unpromoted (DEC-IDF-10)"}
 ];
 const pillClass={live:"p-live",build:"p-build",concept:"p-concept",warn:"p-warn"};
 document.getElementById("engines").innerHTML=engines.map(e=>`
