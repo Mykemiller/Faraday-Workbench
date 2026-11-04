@@ -279,6 +279,47 @@ body.js-views .view.is-active{border-top:0}
 .fold>summary .fx{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--sage)}
 .fold .dscroll{border:0;border-top:1px solid var(--hair);border-radius:0}
 @media (prefers-reduced-motion: reduce){.fold>summary::before{transition:none}}
+
+/* ===== CC-WORKBENCH-NOTES-LINEAR-1.0 — per-product drawer, notes, issues, stamps ===== */
+.card .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.abtn{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--hair);color:var(--warm-dim);padding:4px 9px;border-radius:2px;cursor:pointer;line-height:1.3}
+.abtn:hover,.abtn.on{border-color:var(--gold);color:var(--gold-bright)}
+.abtn .n{color:var(--gold);font-weight:600}
+.abtn .n.open{color:var(--amber)}
+.upd{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--sage)}
+.boardstamp{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--sage);margin:0 0 10px;display:flex;gap:18px;flex-wrap:wrap}
+.boardstamp b{color:var(--warm-dim);font-weight:500}
+.drawer{display:none;border:1px solid var(--gold);border-radius:4px;background:var(--forest);margin-top:12px;padding:14px 16px}
+.drawer.open{display:block}
+.drawer .dh{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.drawer .dh h3{font-family:'IBM Plex Serif',serif;font-size:17px}
+.drawer .dh .close{margin-left:auto}
+.dtabs{display:flex;gap:2px;border-bottom:1px solid var(--hair);margin-bottom:12px}
+.dtabs button{appearance:none;background:none;border:0;border-bottom:2px solid transparent;color:var(--warm-dim);font-family:'Bricolage Grotesque',sans-serif;font-size:13.5px;padding:7px 12px;cursor:pointer}
+.dtabs button[aria-selected="true"]{color:var(--gold-bright);border-bottom-color:var(--gold)}
+.notes{display:flex;flex-direction:column;gap:6px}
+.note{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;border:1px solid var(--hair);border-left-width:2px;border-radius:0 3px 3px 0;padding:8px 10px;font-size:13px}
+.note.action{border-left-color:var(--amber)} .note.note{border-left-color:var(--sage)} .note.done{opacity:.55}
+.note .k{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);padding-top:3px;white-space:nowrap}
+.note.note .k{color:var(--sage)}
+.note .b{color:var(--warm);white-space:pre-wrap;word-break:break-word}
+.note .t{display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--sage);margin-top:3px}
+.note .b.done{text-decoration:line-through;color:var(--warm-dim)}
+.addnote{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;margin-top:12px;padding-top:12px;border-top:1px dashed var(--hair)}
+.addnote select,.addnote textarea{background:var(--forest-deep);border:1px solid var(--hair);color:var(--warm);font-family:'Bricolage Grotesque',sans-serif;font-size:13px;border-radius:2px;padding:6px 8px}
+.addnote textarea{min-height:58px;resize:vertical;width:100%}
+.issues{display:flex;flex-direction:column;gap:4px}
+.issue{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;padding:6px 8px;border-bottom:1px solid var(--hair);font-size:13px;text-decoration:none}
+.issue:last-child{border-bottom:0}
+.issue:hover{background:rgba(196,146,42,.06)}
+.issue .id{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--gold);white-space:nowrap}
+.issue .st{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;color:var(--sage);white-space:nowrap}
+.issue .st.p1{color:var(--red)} .issue .st.p2{color:var(--amber)}
+.issue .ti{color:var(--warm)}
+.issue .ti small{display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--sage)}
+.dmsg{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--sage);padding:6px 0}
+.dmsg.err{color:var(--red)}
+@media (max-width:560px){.note,.addnote,.issue{grid-template-columns:1fr}}
 @media (max-width:720px){
   .hbar{flex-wrap:wrap;gap:10px}
   .viewnav{order:3;width:100%;margin-left:0}
@@ -315,7 +356,9 @@ body.js-views .view.is-active{border-top:0}
       <p>Live posture across the storefronts and engines, plus one-tap paths to every tool. Your unfair advantage — pointed inward.</p>
       <div class="ticker" aria-label="Status ticker"><div class="ticker-inner" id="ticker"></div></div>
     </div>
+    <div class="boardstamp" id="boardstamp"><span>Board last updated <b id="board-upd">—</b></span><span>Scorecard <b>2026-11-03 18:12 CT</b></span><span>Cache <b id="board-sync">—</b></span></div>
     <div class="board" id="storefronts"></div>
+    <div class="drawer" id="drawer" aria-live="polite"></div>
 
     <div class="subhead">Engine dashboard — Fundamental Intelligence Engine</div>
     <div class="engines" id="engines"></div>
@@ -414,7 +457,7 @@ body.js-views .view.is-active{border-top:0}
 </section>
 
 <footer class="wrap">
-  <span>FARADAY INTELLIGENCE · WORKBENCH v1.1 · scorecard 2026-11-03</span>
+  <span>FARADAY INTELLIGENCE · WORKBENCH v1.2 · scorecard 2026-11-03</span>
   <span>Follow the Thread, catch the Signals.</span>
 </footer>
 
@@ -548,7 +591,13 @@ function renderStorefronts(tiles,computedAt,staleAfterHours){
  <div class="card"><div class="row"><h3>${esc(t.name)}</h3><span class="pill ${pillClass[t.status]||"p-concept"}">${esc(t.status_tag)}</span></div>
  <div class="note">${esc(t.blurb)}</div>
  <div class="metrics">${metricsHtml(t)}</div>
- <div class="meta"><a href="${esc(t.jira_url)}" target="_blank" rel="noopener">${esc(t.jira_key)} ↗</a><span>${esc(stamp)}${badge}</span></div></div>`).join("");
+ <div class="acts">${actBtns(t)}</div>
+ <div class="meta"><a href="${esc(t.jira_url)}" target="_blank" rel="noopener">${esc(t.jira_key)} ↗</a><span><span class="upd">upd ${esc(shortDate(t.updated_at))}</span> · ${esc(stamp)}${badge}</span></div></div>`).join("");
+  TILES=tiles;
+  const lastUpd=tiles.map(t=>t.updated_at).filter(Boolean).sort().pop();
+  document.getElementById("board-upd").textContent=lastUpd?fmtCT(lastUpd):"—";
+  document.getElementById("board-sync").textContent=computedAt?fmtCT(computedAt):"unavailable";
+  wireActs();
   const sc=[];
   tiles.filter(t=>t.status==="warn").forEach(t=>sc.push(cond(`ESTATE.${KSLUG(t.slug||t.name)}.${KSLUG(t.status_tag)}`,"red",`${t.name} — ${t.status_tag}`,"estate","storefronts",t.blurb)));
   if(stale) sc.push(cond("ESTATE.STOREFRONT.CACHE_STALE","amber",`Storefront cache stale (>${hrs}h)`,"estate","storefronts",
@@ -559,6 +608,105 @@ function renderStorefronts(tiles,computedAt,staleAfterHours){
 
   const tk=tiles.map(t=>`<span><b>${esc(t.name)}</b> ${esc(t.status_tag)}</span>`).join("");
   document.getElementById("ticker").innerHTML=tk+tk;
+}
+
+
+/* ===== CC-WORKBENCH-NOTES-LINEAR-1.0 — notes, actions, Linear drill-down =======
+   Reads: notes via the anon RPC workbench_product_notes(); tiles carry updated_at,
+   linear_project_id and linear_query since the same CC. Writes and Linear reads go
+   through /api/workbench-notes and /api/workbench-linear, gated by the same
+   x-workbench-key the Recompute button already stores in this browser. */
+let TILES=[], NOTES={}, DRAWER={slug:null,tab:"notes"};
+const fmtCT=ts=>{const d=new Date(ts); return isNaN(d)?"—":d.toLocaleString("en-US",{timeZone:"America/Chicago",month:"2-digit",day:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"})+" CT";};
+const shortDate=ts=>{const d=new Date(ts); return isNaN(d)?"—":d.toLocaleDateString("en-US",{timeZone:"America/Chicago",month:"2-digit",day:"2-digit",year:"2-digit"});};
+function wbKey(){
+  let key=null; try{ key=localStorage.getItem(WB_KEY_STORE); }catch(e){}
+  if(!key){ key=prompt("Workbench key (stored in this browser only):"); if(!key) return null;
+    try{ localStorage.setItem(WB_KEY_STORE,key); }catch(e){} }
+  return key;
+}
+function forgetKey(){ try{ localStorage.removeItem(WB_KEY_STORE); }catch(e){} }
+function actBtns(t){
+  const list=NOTES[t.slug]||[]; const open=list.filter(n=>n.status==="open"&&n.kind==="action").length;
+  const cnt=list.length?` <span class="n${open?" open":""}">${open?open+" open":list.length}</span>`:"";
+  const lin=(t.linear_project_id||t.linear_query)?`<button class="abtn" data-slug="${esc(t.slug)}" data-tab="issues">Open issues</button>`:"";
+  return `<button class="abtn" data-slug="${esc(t.slug)}" data-tab="notes">Notes${cnt}</button>${lin}`;
+}
+function wireActs(){
+  document.querySelectorAll("#storefronts .abtn").forEach(b=>b.addEventListener("click",()=>{
+    const same=DRAWER.slug===b.dataset.slug&&DRAWER.tab===b.dataset.tab&&document.getElementById("drawer").classList.contains("open");
+    if(same) closeDrawer(); else openDrawer(b.dataset.slug,b.dataset.tab);
+  }));
+}
+async function loadNotes(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/rpc/workbench_product_notes`,{method:"POST",
+      headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":"application/json"},body:"{}"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    NOTES=(await r.json())||{};
+  }catch(e){ console.warn("workbench_product_notes fetch failed.",e); }
+  if(TILES.length) document.querySelectorAll("#storefronts .card").forEach((c,i)=>{const t=TILES[i]; if(!t) return; const a=c.querySelector(".acts"); if(a){a.innerHTML=actBtns(t);} });
+  wireActs();
+}
+function closeDrawer(){ const d=document.getElementById("drawer"); d.classList.remove("open"); d.innerHTML="";
+  document.querySelectorAll("#storefronts .abtn.on").forEach(b=>b.classList.remove("on")); }
+function openDrawer(slug,tab){
+  const t=TILES.find(x=>x.slug===slug); if(!t) return;
+  DRAWER={slug,tab:tab||"notes"};
+  document.querySelectorAll("#storefronts .abtn").forEach(b=>b.classList.toggle("on",b.dataset.slug===slug&&b.dataset.tab===DRAWER.tab));
+  const d=document.getElementById("drawer"); d.classList.add("open");
+  const hasLin=!!(t.linear_project_id||t.linear_query);
+  d.innerHTML=`<div class="dh"><h3>${esc(t.name)}</h3><span class="pill ${pillClass[t.status]||"p-concept"}">${esc(t.status_tag)}</span>
+    <span class="upd">tile updated ${esc(fmtCT(t.updated_at))}</span>
+    <button class="abtn close" id="drawer-close">Close</button></div>
+    <div class="dtabs" role="tablist"><button role="tab" data-tab="notes" aria-selected="${DRAWER.tab==="notes"}">Notes &amp; actions</button>${hasLin?`<button role="tab" data-tab="issues" aria-selected="${DRAWER.tab==="issues"}">Open Linear issues</button>`:""}</div>
+    <div id="drawer-body"></div>`;
+  d.querySelector("#drawer-close").addEventListener("click",closeDrawer);
+  d.querySelectorAll(".dtabs button").forEach(b=>b.addEventListener("click",()=>openDrawer(slug,b.dataset.tab)));
+  if(DRAWER.tab==="issues") renderIssues(t); else renderNotes(t);
+  d.scrollIntoView({block:"nearest"});
+}
+function renderNotes(t){
+  const body=document.getElementById("drawer-body"); const list=NOTES[t.slug]||[];
+  const rows=list.length?list.map(n=>`<div class="note ${n.kind} ${n.status}"><span class="k">${esc(n.kind)}</span>
+    <div><div class="b ${n.status}">${esc(n.body)}</div><span class="t">${esc(fmtCT(n.created_at))}${n.done_at?" · done "+esc(fmtCT(n.done_at)):""}</span></div>
+    ${n.kind==="action"?`<button class="abtn" data-id="${n.id}" data-status="${n.status==="open"?"done":"open"}">${n.status==="open"?"Mark done":"Reopen"}</button>`:"<span></span>"}</div>`).join("")
+    :'<div class="dmsg">No notes yet for this product.</div>';
+  body.innerHTML=`<div class="notes">${rows}</div>
+    <form class="addnote" id="addnote"><select id="note-kind" aria-label="Kind"><option value="note">Note</option><option value="action">Action</option></select>
+    <textarea id="note-body" placeholder="What do you want to remember or do about ${esc(t.name)}?" maxlength="2000" required></textarea>
+    <button class="abtn gold" type="submit">Save</button></form><div class="dmsg" id="note-msg"></div>`;
+  body.querySelectorAll(".note .abtn[data-id]").forEach(b=>b.addEventListener("click",()=>noteWrite("PATCH",{id:Number(b.dataset.id),status:b.dataset.status},t)));
+  body.querySelector("#addnote").addEventListener("submit",e=>{e.preventDefault();
+    const v=body.querySelector("#note-body").value.trim(); if(!v) return;
+    noteWrite("POST",{slug:t.slug,kind:body.querySelector("#note-kind").value,body:v},t);});
+}
+async function noteWrite(method,payload,t){
+  const msg=document.getElementById("note-msg"); const key=wbKey(); if(!key) return;
+  msg.className="dmsg"; msg.textContent="Saving…";
+  try{
+    const r=await fetch("/api/workbench-notes",{method,headers:{"Content-Type":"application/json","x-workbench-key":key},body:JSON.stringify(payload)});
+    const d=await r.json().catch(()=>({}));
+    if(r.status===401){ forgetKey(); throw new Error("Key rejected — it has been cleared; try again."); }
+    if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+    await loadNotes(); openDrawer(t.slug,"notes");
+  }catch(e){ msg.className="dmsg err"; msg.textContent=e.message; }
+}
+async function renderIssues(t){
+  const body=document.getElementById("drawer-body"); body.innerHTML='<div class="dmsg">Loading open issues from Linear…</div>';
+  const key=wbKey(); if(!key){ body.innerHTML='<div class="dmsg err">A workbench key is needed to read Linear.</div>'; return; }
+  const qs=t.linear_project_id?`project=${encodeURIComponent(t.linear_project_id)}`:`q=${encodeURIComponent(t.linear_query)}`;
+  try{
+    const r=await fetch(`/api/workbench-linear?${qs}`,{headers:{"x-workbench-key":key}});
+    const d=await r.json().catch(()=>({}));
+    if(r.status===401){ forgetKey(); throw new Error("Key rejected — it has been cleared; try again."); }
+    if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+    const scope=t.linear_project_id?`project ${esc(t.jira_key)}`:`title search “${esc(t.linear_query)}”`;
+    body.innerHTML=`<div class="dmsg">${d.count} open · ${scope} · read ${esc(fmtCT(d.fetched_at))} · <a href="${esc(t.jira_url)}" target="_blank" rel="noopener">open in Linear ↗</a></div>
+      <div class="issues">${d.issues.length?d.issues.map(i=>`<a class="issue" href="${esc(i.url)}" target="_blank" rel="noopener"><span class="id">${esc(i.identifier)}</span>
+        <span class="ti">${esc(i.title)}<small>${esc(i.state)}${i.assignee?" · "+esc(i.assignee):""}${i.labels.length?" · "+esc(i.labels.join(", ")):""} · upd ${esc(shortDate(i.updated_at))}</small></span>
+        <span class="st p${i.priority}">${esc(i.priority_label||"")}</span></a>`).join(""):'<div class="dmsg">Nothing open.</div>'}</div>`;
+  }catch(e){ body.innerHTML=`<div class="dmsg err">${esc(e.message)}</div>`; }
 }
 
 async function loadStorefront(){
@@ -1585,7 +1733,7 @@ async function loadAll(){
   SOURCES.forEach(x=>BUSY.add(x)); renderTriage();
   const done=n=>{ BUSY.delete(n); renderTriage(); };
   await Promise.all([
-    loadStorefront().finally(()=>done("storefront")),
+    loadStorefront().then(loadNotes).finally(()=>done("storefront")),
     loadHealth().finally(()=>done("health")),
     loadForecastModel().finally(()=>done("forecast")),
     loadScoringPanels().finally(()=>done("scoring")),
@@ -1601,13 +1749,7 @@ async function recompute(){
     +"This writes to the cache tables and typically takes ~30 seconds.\n\n"
     +"Health is excluded — cron 33 already refreshes it every 5 minutes.\n\nProceed?")) return;
 
-  let key=null;
-  try{ key=localStorage.getItem(WB_KEY_STORE); }catch(e){}
-  if(!key){
-    key=prompt("Workbench refresh key (stored in this browser only):");
-    if(!key) return;
-    try{ localStorage.setItem(WB_KEY_STORE,key); }catch(e){}
-  }
+  const key=wbKey(); if(!key) return;
 
   RECOMPUTE_LANES.forEach(x=>BUSY.add(x)); renderTriage();
   let ok=false;
