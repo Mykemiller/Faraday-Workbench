@@ -1,0 +1,6 @@
+-- Applied to prod 2026-11-05 as migration workbench_health_idf_updated_24h_counts.
+-- Adds to workbench_health_compute()->idf: companies_updated_24h / _7d / companies_last_updated
+-- (from public.companies.updated_at — tracking_companies.last_seen_at has been frozen since
+-- 2026-09-03 and is NOT a freshness signal), entities_updated_24h / _7d / entities_last_updated
+-- (public.entities.updated_at). artifacts_24h already existed.
+-- Live body: select pg_get_functiondef('public.workbench_health_compute'::regproc);

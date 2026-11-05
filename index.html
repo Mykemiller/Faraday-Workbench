@@ -626,10 +626,23 @@ function wbKey(){
   return key;
 }
 function forgetKey(){ try{ localStorage.removeItem(WB_KEY_STORE); }catch(e){} }
+/* CC-WORKBENCH-TILE-ISSUE-BINDING-1.0 (FDY-245): a tile is Linear-bound by a
+   project, a title query, or explicit pinned issue keys — any one of the three.
+   The storefront payload also carries linear_feed = bound | no_feed. */
+function hasLinear(t){
+  return !!(t.linear_project_id||t.linear_query||(Array.isArray(t.linear_issue_keys)&&t.linear_issue_keys.length));
+}
+function linearQs(t){
+  const parts=[];
+  if(t.linear_project_id) parts.push(`project=${encodeURIComponent(t.linear_project_id)}`);
+  if(t.linear_query) parts.push(`q=${encodeURIComponent(t.linear_query)}`);
+  if(Array.isArray(t.linear_issue_keys)&&t.linear_issue_keys.length) parts.push(`keys=${encodeURIComponent(t.linear_issue_keys.join(","))}`);
+  return parts.join("&");
+}
 function actBtns(t){
   const list=NOTES[t.slug]||[]; const open=list.filter(n=>n.status==="open"&&n.kind==="action").length;
   const cnt=list.length?` <span class="n${open?" open":""}">${open?open+" open":list.length}</span>`:"";
-  const lin=(t.linear_project_id||t.linear_query)?`<button class="abtn" data-slug="${esc(t.slug)}" data-tab="issues">Open issues</button>`:"";
+  const lin=hasLinear(t)?`<button class="abtn" data-slug="${esc(t.slug)}" data-tab="issues">Open issues</button>`:"";
   return `<button class="abtn" data-slug="${esc(t.slug)}" data-tab="notes">Notes${cnt}</button>${lin}`;
 }
 function wireActs(){
@@ -655,7 +668,7 @@ function openDrawer(slug,tab){
   DRAWER={slug,tab:tab||"notes"};
   document.querySelectorAll("#storefronts .abtn").forEach(b=>b.classList.toggle("on",b.dataset.slug===slug&&b.dataset.tab===DRAWER.tab));
   const d=document.getElementById("drawer"); d.classList.add("open");
-  const hasLin=!!(t.linear_project_id||t.linear_query);
+  const hasLin=hasLinear(t);
   d.innerHTML=`<div class="dh"><h3>${esc(t.name)}</h3><span class="pill ${pillClass[t.status]||"p-concept"}">${esc(t.status_tag)}</span>
     <span class="upd">tile updated ${esc(fmtCT(t.updated_at))}</span>
     <button class="abtn close" id="drawer-close">Close</button></div>
@@ -695,13 +708,14 @@ async function noteWrite(method,payload,t){
 async function renderIssues(t){
   const body=document.getElementById("drawer-body"); body.innerHTML='<div class="dmsg">Loading open issues from Linear…</div>';
   const key=wbKey(); if(!key){ body.innerHTML='<div class="dmsg err">A workbench key is needed to read Linear.</div>'; return; }
-  const qs=t.linear_project_id?`project=${encodeURIComponent(t.linear_project_id)}`:`q=${encodeURIComponent(t.linear_query)}`;
+  const qs=linearQs(t);
   try{
     const r=await fetch(`/api/workbench-linear?${qs}`,{headers:{"x-workbench-key":key}});
     const d=await r.json().catch(()=>({}));
     if(r.status===401){ forgetKey(); throw new Error("Key rejected — it has been cleared; try again."); }
     if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
-    const scope=t.linear_project_id?`project ${esc(t.jira_key)}`:`title search “${esc(t.linear_query)}”`;
+    const keys=Array.isArray(t.linear_issue_keys)?t.linear_issue_keys:[];
+    const scope=[t.linear_project_id?`project ${esc(t.jira_key)}`:"", t.linear_query?`title search “${esc(t.linear_query)}”`:"", keys.length?`${keys.length} pinned`:""].filter(Boolean).join(" + ");
     body.innerHTML=`<div class="dmsg">${d.count} open · ${scope} · read ${esc(fmtCT(d.fetched_at))} · <a href="${esc(t.jira_url)}" target="_blank" rel="noopener">open in Linear ↗</a></div>
       <div class="issues">${d.issues.length?d.issues.map(i=>`<a class="issue" href="${esc(i.url)}" target="_blank" rel="noopener"><span class="id">${esc(i.identifier)}</span>
         <span class="ti">${esc(i.title)}<small>${esc(i.state)}${i.assignee?" · "+esc(i.assignee):""}${i.labels.length?" · "+esc(i.labels.join(", ")):""} · upd ${esc(shortDate(i.updated_at))}</small></span>
@@ -977,9 +991,15 @@ function renderHealth(h){
   const idfHead=[
     {v:fmt(idf.domains_active),l:"Domains monitored",sub:`${idf.domains_dark} dark`,warn:idf.domains_dark>0},
     {v:fmt(idf.subdomains_total),l:"Subdomains",sub:`${idf.subdomains_no_feed} with no feed`,warn:idf.subdomains_no_feed>0},
-    {v:fmt(idf.companies),l:"Companies tracked"},
-    {v:fmt(idf.entities),l:"Entities tracked"},
-    {v:fmt(idf.artifacts_7d),l:"New artifacts · 7d"},
+    {v:fmt(idf.companies),l:"Companies tracked",
+      sub:idf.companies_updated_24h==null?"24h: no feed":`${fmt(idf.companies_updated_24h)} updated · 24h · ${fmt(idf.companies_updated_7d)} · 7d`,
+      warn:idf.companies_updated_24h==null?false:(idf.companies_updated_7d===0)},
+    {v:fmt(idf.entities),l:"Entities tracked",
+      sub:idf.entities_updated_24h==null?"24h: no feed":`${fmt(idf.entities_updated_24h)} updated · 24h`,
+      warn:idf.entities_updated_24h==null?false:(idf.entities_updated_24h===0)},
+    {v:fmt(idf.artifacts_7d),l:"New artifacts · 7d",
+      sub:idf.artifacts_24h==null?"24h: no feed":`${fmt(idf.artifacts_24h)} new · 24h`,
+      warn:idf.artifacts_24h==null?false:(idf.artifacts_24h===0)},
     {v:fmt(idf.artifacts_total),l:"Artifacts · all-time"}
   ].map(statCard).join("");
   const feedCell=d=>{

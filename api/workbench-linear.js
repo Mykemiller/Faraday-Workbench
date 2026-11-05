@@ -2,6 +2,8 @@
  *
  * GET /api/workbench-linear?project=<linear project uuid>
  * GET /api/workbench-linear?q=<title search>          (products with no project)
+ * GET /api/workbench-linear?keys=FDY-33,FDY-41         (explicit pinned issues)
+ * Any combination is unioned (CC-WORKBENCH-TILE-ISSUE-BINDING-1.0 / FDY-245).
  *
  * Needs LINEAR_API_KEY (a personal API key from linear.app/settings/api) on the
  * Vercel project. Gated by the shared workbench secret like the other routes,
@@ -39,11 +41,22 @@ module.exports = async function handler(req, res) {
   const url = new URL(req.url, 'http://x');
   const project = (url.searchParams.get('project') || '').trim();
   const q = (url.searchParams.get('q') || '').trim();
-  if (!/^[0-9a-f-]{36}$/i.test(project) && !q) return res.status(400).json({ error: 'project (uuid) or q is required' });
+  // Pinned issue identifiers: TEAM-NUMBER, max 40, anything else dropped.
+  const keys = (url.searchParams.get('keys') || '')
+    .split(',').map((k) => k.trim().toUpperCase())
+    .filter((k) => /^[A-Z][A-Z0-9]{0,9}-[0-9]{1,6}$/.test(k)).slice(0, 40);
+  const hasProject = /^[0-9a-f-]{36}$/i.test(project);
+  if (!hasProject && !q && !keys.length) return res.status(400).json({ error: 'project (uuid), q, or keys is required' });
 
-  const filter = { state: { type: { nin: ['completed', 'canceled'] } } };
-  if (project) filter.project = { id: { eq: project } };
-  else filter.title = { containsIgnoreCase: q.slice(0, 80) };
+  // Union of the three bindings; the state predicate applies to all of them.
+  const or = [];
+  if (hasProject) or.push({ project: { id: { eq: project } } });
+  if (q) or.push({ title: { containsIgnoreCase: q.slice(0, 80) } });
+  for (const k of keys) {
+    const [team, num] = k.split('-');
+    or.push({ team: { key: { eq: team } }, number: { eq: Number(num) } });
+  }
+  const filter = { state: { type: { nin: ['completed', 'canceled'] } }, or };
 
   try {
     const r = await fetch('https://api.linear.app/graphql', {
@@ -56,7 +69,8 @@ module.exports = async function handler(req, res) {
       const msg = (d && d.errors && d.errors[0] && d.errors[0].message) || `HTTP ${r.status}`;
       return res.status(502).json({ error: `Linear: ${msg}` });
     }
-    const issues = (d.data.issues.nodes || []).map((n) => ({
+    const seen = new Set();
+    const issues = (d.data.issues.nodes || []).filter((n) => !seen.has(n.identifier) && seen.add(n.identifier)).map((n) => ({
       identifier: n.identifier, title: n.title, url: n.url,
       priority: n.priority, priority_label: n.priorityLabel,
       state: n.state && n.state.name, state_type: n.state && n.state.type,

@@ -1,0 +1,5 @@
+-- Applied to prod 2026-11-05 as migration workbench_tiles_linear_issue_keys_and_estate_security_tile
+-- (FDY-244 + FDY-245). Adds workbench_storefront_tiles.linear_issue_keys text[], emits
+-- linear_issue_keys + linear_feed (bound|no_feed) in workbench_storefront_compute(),
+-- pins {FDY-33,FDY-41} on faraday-academy, clears civic-host's Jira-only query, inserts
+-- the estate-security tile (display_order 15). Live body: select pg_get_functiondef('public.workbench_storefront_compute'::regproc);
