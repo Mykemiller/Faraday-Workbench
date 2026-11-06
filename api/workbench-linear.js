@@ -17,18 +17,22 @@
 'use strict';
 
 const { refuseUnlessKeyed } = require('./_wb.js');
+const { issueHasPrompt } = require('../fix-prompt.js');
 
 const QUERY = `
-query WorkbenchOpenIssues($filter: IssueFilter!, $first: Int!) {
-  issues(filter: $filter, first: $first, orderBy: updatedAt) {
+query WorkbenchOpenIssues($filter: IssueFilter!, $first: Int!, $after: String) {
+  issues(filter: $filter, first: $first, after: $after, orderBy: updatedAt) {
+    pageInfo { hasNextPage endCursor }
     nodes {
-      identifier title url priority priorityLabel updatedAt
+      identifier title url priority priorityLabel updatedAt description
       state { name type }
       assignee { displayName }
-      labels { nodes { name } }
+      labels(first: 10) { nodes { name } }
+      comments(first: 25) { nodes { body } }
     }
   }
 }`;
+const PAGE = 50, MAX_PAGES = 6; // 300 issues max per tile; keeps each query inside Linear's complexity limit
 
 /* Linear priority: 0 = none, 1 = urgent … 4 = low. None sorts last. */
 const rank = (p) => (p >= 1 && p <= 4 ? p : 5);
@@ -76,27 +80,38 @@ async function handler(req, res) {
   const filter = { state: { type: { nin: ['completed', 'canceled'] } }, or };
 
   try {
-    const r = await fetch('https://api.linear.app/graphql', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: apiKey },
-      body: JSON.stringify({ query: QUERY, variables: { filter, first: 250 } })
-    });
-    const d = await r.json().catch(() => null);
-    if (!r.ok || !d || d.errors) {
-      const msg = (d && d.errors && d.errors[0] && d.errors[0].message) || `HTTP ${r.status}`;
-      return res.status(502).json({ error: `Linear: ${msg}` });
+    // CC-WORKBENCH-FIX-THESE-1.0: page through results; description + comments are read only to
+    // flag has_prompt (a Claude Code prompt is present) and are not returned to the browser.
+    const nodes = [];
+    let after = null;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const r = await fetch('https://api.linear.app/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: apiKey },
+        body: JSON.stringify({ query: QUERY, variables: { filter, first: PAGE, after } })
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok || !d || d.errors) {
+        const msg = (d && d.errors && d.errors[0] && d.errors[0].message) || `HTTP ${r.status}`;
+        return res.status(502).json({ error: `Linear: ${msg}` });
+      }
+      nodes.push(...(d.data.issues.nodes || []));
+      const pi = d.data.issues.pageInfo || {};
+      if (!pi.hasNextPage || !pi.endCursor) break;
+      after = pi.endCursor;
     }
     const seen = new Set();
-    const issues = sortByPriority((d.data.issues.nodes || []).filter((n) => !seen.has(n.identifier) && seen.add(n.identifier)).map((n) => ({
+    const issues = sortByPriority(nodes.filter((n) => !seen.has(n.identifier) && seen.add(n.identifier)).map((n) => ({
       identifier: n.identifier, title: n.title, url: n.url,
       priority: n.priority, priority_label: n.priorityLabel,
       state: n.state && n.state.name, state_type: n.state && n.state.type,
       assignee: n.assignee && n.assignee.displayName,
       labels: ((n.labels && n.labels.nodes) || []).map((l) => l.name),
+      has_prompt: issueHasPrompt(n.description, ((n.comments && n.comments.nodes) || []).map((c) => c.body)),
       updated_at: n.updatedAt
     })));
     res.setHeader('Cache-Control', 'private, max-age=120');
-    return res.status(200).json({ ok: true, count: issues.length, fetched_at: new Date().toISOString(), issues });
+    return res.status(200).json({ ok: true, count: issues.length, prompt_count: issues.filter((i) => i.has_prompt).length, fetched_at: new Date().toISOString(), issues });
   } catch (e) {
     return res.status(502).json({ error: String((e && e.message) || e) });
   }
