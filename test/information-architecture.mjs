@@ -44,14 +44,14 @@ ok(errs.length===0, 'no JS exceptions' + (errs.length?': '+errs.slice(0,3).join(
 // ---- views ----
 const v = await page.evaluate(()=>({
   js: document.body.classList.contains('js-views'),
-  visible: ['estate','feeds','scoring','idf','links'].filter(id=>{
+  visible: ['estate','feeds','scoring','idf','admin','links'].filter(id=>{
     const el=document.getElementById(id); return el && getComputedStyle(el).display!=='none'; }),
   tabs: [...document.querySelectorAll('#viewnav button')].map(b=>b.dataset.view),
   selected: document.querySelector('#viewnav button[aria-selected="true"]')?.dataset.view,
   roving: [...document.querySelectorAll('#viewnav button')].filter(b=>b.tabIndex===0).length
 }));
 ok(v.js, 'progressive enhancement: js-views applied by script');
-ok(v.tabs.join()==='estate,feeds,scoring,idf,links', 'five views registered: '+v.tabs.join(', '));
+ok(v.tabs.join()==='estate,feeds,scoring,idf,admin,links', 'six views registered: '+v.tabs.join(', '));
 ok(v.visible.length===1, `exactly one view visible (${v.visible.join(', ')||'none'})`);
 ok(v.selected==='estate', 'estate is the default view ('+v.selected+')');
 ok(v.roving===1, `roving tabindex: exactly one tab is focusable (${v.roving})`);
@@ -95,7 +95,7 @@ ok(/linkage engines/i.test(txt), 'IDF three-live-linkage-engines reaches the tri
 // ---- navigation ----
 await page.click('#tab-scoring');
 let cur = await page.evaluate(()=>({sel:document.querySelector('#viewnav button[aria-selected="true"]')?.dataset.view,
-  vis:['estate','feeds','scoring','idf','links'].filter(id=>getComputedStyle(document.getElementById(id)).display!=='none'),
+  vis:['estate','feeds','scoring','idf','admin','links'].filter(id=>getComputedStyle(document.getElementById(id)).display!=='none'),
   hash:location.hash}));
 ok(cur.sel==='scoring' && cur.vis.join()==='scoring', 'clicking a tab switches the view');
 ok(cur.hash==='#scoring', 'hash tracks the active view ('+cur.hash+')');
@@ -139,7 +139,7 @@ ok(cavInFold===0, `no caveat is nested inside a fold (${cavInFold})`);
 
 // ---- the scrolling budget this redesign exists to fix ----
 const heights={};
-for (const v of ['estate','feeds','scoring','idf','links']) {
+for (const v of ['estate','feeds','scoring','idf','admin','links']) {
   await page.click('#tab-'+v); await page.waitForTimeout(150);
   heights[v] = await page.evaluate(()=>document.documentElement.scrollHeight);
 }
@@ -153,9 +153,9 @@ await page.screenshot({ path: process.env.WB_SHOT || '/tmp/ia.png', fullPage:tru
 const noJs = await browser.newContext({ javaScriptEnabled:false });
 const np = await noJs.newPage();
 await np.goto(PAGE_URL);
-const shown = await np.evaluate(()=>['estate','feeds','scoring','idf','links']
+const shown = await np.evaluate(()=>['estate','feeds','scoring','idf','admin','links']
   .filter(id=>getComputedStyle(document.getElementById(id)).display!=='none'));
-ok(shown.length===5, `JS disabled: all five sections stay visible, nothing is trapped behind a tab (${shown.length}/5)`);
+ok(shown.length===6, `JS disabled: all six sections stay visible, nothing is trapped behind a tab (${shown.length}/6)`);
 await noJs.close();
 
 await browser.close();
