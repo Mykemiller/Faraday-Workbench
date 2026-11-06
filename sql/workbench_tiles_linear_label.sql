@@ -1,0 +1,6 @@
+-- Applied to prod 2026-11-05 as migration workbench_tiles_linear_label (CC-WORKBENCH-TILE-LABEL-1.0).
+-- Adds workbench_storefront_tiles.linear_label (the Linear "Product Tile" child label for the tile),
+-- sets it on all 15 existing tiles, inserts the idf-health tile (display_order 16), and emits
+-- linear_label in workbench_storefront_compute(); linear_feed is 'bound' when a label is set.
+-- Existing project/query/key bindings are left in place; /api/workbench-linear ignores them when label is present.
+-- Live body: select pg_get_functiondef('public.workbench_storefront_compute'::regproc);

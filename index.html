@@ -630,9 +630,13 @@ function forgetKey(){ try{ localStorage.removeItem(WB_KEY_STORE); }catch(e){} }
    project, a title query, or explicit pinned issue keys — any one of the three.
    The storefront payload also carries linear_feed = bound | no_feed. */
 function hasLinear(t){
-  return !!(t.linear_project_id||t.linear_query||(Array.isArray(t.linear_issue_keys)&&t.linear_issue_keys.length));
+  return !!(t.linear_label||t.linear_project_id||t.linear_query||(Array.isArray(t.linear_issue_keys)&&t.linear_issue_keys.length));
 }
+/* CC-WORKBENCH-TILE-LABEL-1.0: when a tile has a linear_label it is the only binding —
+   the tile shows open issues tagged with that Product Tile label, highest priority first. */
+const prRank=p=>(p>=1&&p<=4?p:5);
 function linearQs(t){
+  if(t.linear_label) return `label=${encodeURIComponent(t.linear_label)}`;
   const parts=[];
   if(t.linear_project_id) parts.push(`project=${encodeURIComponent(t.linear_project_id)}`);
   if(t.linear_query) parts.push(`q=${encodeURIComponent(t.linear_query)}`);
@@ -715,9 +719,9 @@ async function renderIssues(t){
     if(r.status===401){ forgetKey(); throw new Error("Key rejected — it has been cleared; try again."); }
     if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
     const keys=Array.isArray(t.linear_issue_keys)?t.linear_issue_keys:[];
-    const scope=[t.linear_project_id?`project ${esc(t.jira_key)}`:"", t.linear_query?`title search “${esc(t.linear_query)}”`:"", keys.length?`${keys.length} pinned`:""].filter(Boolean).join(" + ");
+    const scope=t.linear_label?`label ${esc(t.linear_label)} · highest priority first`:[t.linear_project_id?`project ${esc(t.jira_key)}`:"", t.linear_query?`title search “${esc(t.linear_query)}”`:"", keys.length?`${keys.length} pinned`:""].filter(Boolean).join(" + ");
     body.innerHTML=`<div class="dmsg">${d.count} open · ${scope} · read ${esc(fmtCT(d.fetched_at))} · <a href="${esc(t.jira_url)}" target="_blank" rel="noopener">open in Linear ↗</a></div>
-      <div class="issues">${d.issues.length?d.issues.map(i=>`<a class="issue" href="${esc(i.url)}" target="_blank" rel="noopener"><span class="id">${esc(i.identifier)}</span>
+      <div class="issues">${d.issues.length?d.issues.slice().sort((a,b)=>prRank(a.priority)-prRank(b.priority)||String(b.updated_at).localeCompare(String(a.updated_at))).map(i=>`<a class="issue" href="${esc(i.url)}" target="_blank" rel="noopener"><span class="id">${esc(i.identifier)}</span>
         <span class="ti">${esc(i.title)}<small>${esc(i.state)}${i.assignee?" · "+esc(i.assignee):""}${i.labels.length?" · "+esc(i.labels.join(", ")):""} · upd ${esc(shortDate(i.updated_at))}</small></span>
         <span class="st p${i.priority}">${esc(i.priority_label||"")}</span></a>`).join(""):'<div class="dmsg">Nothing open.</div>'}</div>`;
   }catch(e){ body.innerHTML=`<div class="dmsg err">${esc(e.message)}</div>`; }
