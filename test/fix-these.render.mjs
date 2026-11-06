@@ -1,0 +1,47 @@
+// CC-WORKBENCH-FIX-THESE-1.0 · the "Fix these" button in the Open Linear issues drawer.
+const { chromium } = await import(process.env.WB_PLAYWRIGHT || 'playwright');
+import fs from 'fs'; import path from 'path'; import { fileURLToPath } from 'url';
+const HERE = path.dirname(fileURLToPath(import.meta.url)), REPO = path.resolve(HERE, '..');
+const PAGE_URL = process.env.WB_PAGE || ('file://' + path.join(REPO, 'index.html'));
+const CHROME = process.env.WB_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const scoring = JSON.parse(fs.readFileSync(path.join(HERE, 'fixtures', 'scoring-panels.payload.json'), 'utf8'));
+const other = JSON.parse(fs.readFileSync(path.join(HERE, 'fixtures', 'workbench-payloads.json'), 'utf8'));
+scoring.computed_at = new Date(Date.now() - 3 * 3600e3).toISOString();
+const fails = []; const ok = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c) fails.push(m); };
+
+const browser = await chromium.launch({ executablePath: CHROME });
+const ctx = await browser.newContext(); await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'null' }).catch(() => {});
+const page = await ctx.newPage(); const errs = [];
+page.on('pageerror', (e) => errs.push(String(e)));
+const serve = (n, b) => page.route(`**/rpc/${n}`, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) }));
+await serve('workbench_scoring_panels', scoring); await serve('workbench_health', other.health); await serve('workbench_idf', other.idf);
+await serve('workbench_forecast_model', other.forecast); await serve('workbench_product_notes', {});
+const sf = JSON.parse(JSON.stringify(other.storefront));
+const t0 = sf.tiles[0]; t0.linear_label = 'Estate Security'; t0.linear_feed = 'bound';
+await serve('workbench_storefront', sf);
+const mk = (identifier, priority, has_prompt) => ({ identifier, title: 'T ' + identifier, url: 'https://linear.app/x/' + identifier, priority, priority_label: ['None', 'Urgent', 'High', 'Medium', 'Low'][priority], state: 'Backlog', state_type: 'backlog', assignee: null, labels: ['Estate Security'], has_prompt, updated_at: '2026-11-05T00:00:00Z' });
+let seenUrl = '';
+await page.route('**/api/workbench-linear*', (r) => { seenUrl = r.request().url(); r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, count: 3, prompt_count: 2, fetched_at: new Date().toISOString(), issues: [mk('FDY-211', 4, true), mk('FDY-205', 1, true), mk('FDY-68', 3, false)] }) }); });
+await page.addInitScript(() => { try { localStorage.setItem('wb.refresh.key', 'k'); } catch (e) {} window.prompt = () => 'k'; });
+
+await page.goto(PAGE_URL);
+await page.waitForSelector('#storefronts .card .abtn[data-tab="issues"]', { timeout: 15000 });
+await page.click('#storefronts .card:first-child .abtn[data-tab="issues"]');
+await page.waitForSelector('#fix-these', { timeout: 8000 });
+ok(/label=Estate%20Security/.test(seenUrl), 'drawer requests the tile label: ' + seenUrl.split('?')[1]);
+const btn = await page.textContent('#fix-these');
+ok(/Fix these \(2\)/.test(btn), 'button counts only issues with a prompt: ' + btn);
+ok((await page.$$('.issue .cc')).length === 2, 'two CC badges shown');
+await page.click('#fix-these');
+const text = await page.inputValue('#fix-text');
+const order = [...text.matchAll(/^\d+\. (FDY-\d+)/gm)].map((m) => m[1]).join(',');
+ok(order === 'FDY-205,FDY-211', 'prompt lists issues highest priority first: ' + order);
+ok(!text.includes('FDY-68 ·'), 'issue without a prompt is left out');
+ok(/NEVER merge/.test(text) && /xgbpmlkanxewtfizloay/.test(text), 'prompt carries the hard rules');
+await page.click('#fix-copy'); await page.waitForTimeout(200);
+ok(/Copied|Copy failed/.test(await page.textContent('#fix-msg')), 'copy gives feedback: ' + await page.textContent('#fix-msg'));
+await page.click('#fix-close');
+ok((await page.innerHTML('#fix-panel')) === '', 'panel closes');
+ok(errs.length === 0, 'no JS exceptions' + (errs.length ? ': ' + errs[0] : ''));
+await browser.close();
+if (fails.length) { console.log('\n' + fails.length + ' failed'); process.exit(1); } console.log('\nfix-these.render: all passed');
