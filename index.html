@@ -330,6 +330,34 @@ body.js-views .view.is-active{border-top:0}
   .hbar{flex-wrap:wrap;gap:10px}
   .viewnav{order:3;width:100%;margin-left:0}
 }
+
+/* ===== Admin tab — subscribers and product access ===== */
+.adm-note{color:var(--warm-dim);max-width:720px;margin:6px 0 16px;font-size:14px}
+.adm-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.adm-bar input{flex:1 1 220px;min-width:0;background:var(--forest);border:1px solid var(--hair);color:var(--warm);font:inherit;font-size:14px;padding:8px 10px;border-radius:3px}
+.adm-bar input:focus-visible{outline:1px solid var(--gold)}
+.adm-filters{display:flex;gap:6px}
+.adm-count{font-size:11px;color:var(--sage)}
+.adm-msg{min-height:20px;font-size:13px;margin-bottom:8px}
+.adm-msg.err{color:var(--red)} .adm-msg.ok{color:var(--live)}
+.adm-list{border:1px solid var(--hair);border-radius:4px;overflow:hidden}
+.adm-row{display:grid;grid-template-columns:minmax(0,1.6fr) 84px 60px 90px 110px 110px;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--hair);width:100%;text-align:left;background:transparent;color:inherit;font:inherit;cursor:pointer;border-left:0;border-right:0;border-bottom:0}
+.adm-row:first-child{border-top:0}
+.adm-row:hover,.adm-row[aria-pressed="true"]{background:var(--forest)}
+.adm-row.adm-head{cursor:default;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--sage);background:var(--forest-deep)}
+.adm-row .h{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-row .e{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--sage);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-pill{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:2px;border:1px solid var(--hair);justify-self:start}
+.adm-pill.on{color:var(--live);border-color:rgba(127,191,122,.4)} .adm-pill.off{color:var(--idle)}
+.adm-empty{padding:18px 14px;color:var(--warm-dim);font-size:14px}
+.adm-sec{margin:12px 0}
+.adm-sec h4{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;font-weight:500}
+.adm-kv{font-size:13.5px;color:var(--warm-dim)} .adm-kv b{color:var(--warm);font-weight:600}
+.adm-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.adm-form select,.adm-form input{background:var(--forest-deep);border:1px solid var(--hair);color:var(--warm);font:inherit;font-size:13.5px;padding:6px 8px;border-radius:3px}
+.adm-form input{flex:1 1 220px;min-width:0}
+.adm-audit{font-size:12.5px;color:var(--warm-dim);display:flex;flex-direction:column;gap:3px}
+@media (max-width:760px){.adm-row{grid-template-columns:minmax(0,1fr) 78px 80px}.adm-row>:nth-child(n+4){display:none}}
 </style>
 </head>
 <body>
@@ -342,6 +370,7 @@ body.js-views .view.is-active{border-top:0}
       <button role="tab" id="tab-feeds"   aria-controls="feeds"   data-view="feeds">Feeds</button>
       <button role="tab" id="tab-scoring" aria-controls="scoring" data-view="scoring">Scoring</button>
       <button role="tab" id="tab-idf"     aria-controls="idf"     data-view="idf">IDF 5.0</button>
+      <button role="tab" id="tab-admin"   aria-controls="admin"   data-view="admin">Admin</button>
       <button role="tab" id="tab-links"   aria-controls="links"   data-view="links">Links</button>
     </nav>
     <span class="priv">MYKE ONLY</span>
@@ -448,6 +477,27 @@ body.js-views .view.is-active{border-top:0}
 
     <div class="subhead" style="margin-top:22px">Drift &mdash; live estate vs. the Notion spine</div>
     <div id="idf-drift"></div>
+  </div>
+</section>
+
+<section id="admin" class="view" role="tabpanel" aria-labelledby="tab-admin" tabindex="-1">
+  <div class="wrap">
+    <div class="eyebrow">Subscribers &amp; products</div>
+    <h2>Admin</h2>
+    <p class="adm-note">Moved here from the League Office. Pause or reinstate accounts and set each subscriber&rsquo;s Live Agent access. Every change needs a reason and lands in the audit log.</p>
+    <div class="adm-bar">
+      <input id="adm-q" type="search" placeholder="Search handle or email…" aria-label="Search subscribers" autocomplete="off">
+      <div class="adm-filters" id="adm-filters" role="group" aria-label="Status filter">
+        <button class="abtn on" data-f="all">All</button>
+        <button class="abtn" data-f="active">Active</button>
+        <button class="abtn" data-f="paused">Paused</button>
+      </div>
+      <span class="adm-count mono" id="adm-count"></span>
+      <button class="abtn" id="adm-reload">Reload</button>
+    </div>
+    <div id="adm-msg" class="adm-msg" role="status" aria-live="polite"></div>
+    <div id="adm-list" class="adm-list"></div>
+    <div id="adm-detail" class="drawer" aria-live="polite"></div>
   </div>
 </section>
 
@@ -795,8 +845,8 @@ function statCard(s){return `<div class="stat${s.warn?" warn":""}"><div class="n
    Severity grammar is unchanged and deliberate: RED = a live defect or something
    not running; AMBER = a documented characteristic, or a decision still Proposed
    rather than Confirmed. A Proposed decision is never rounded up to a fact. */
-const VIEWS = ["estate","feeds","scoring","idf","links"];
-const VIEW_LABEL = {estate:"Estate",feeds:"Feeds",scoring:"Scoring",idf:"IDF 5.0",links:"Links"};
+const VIEWS = ["estate","feeds","scoring","idf","admin","links"];
+const VIEW_LABEL = {estate:"Estate",feeds:"Feeds",scoring:"Scoring",idf:"IDF 5.0",admin:"Admin",links:"Links"};
 /* legacy in-page anchors kept working after the split */
 const ANCHOR_VIEW = {observability:"estate", storefronts:"estate", engines:"estate",
   "idf-health":"feeds","dc-health":"feeds","forecast-model":"feeds",
@@ -812,6 +862,7 @@ function activateView(id, opts){
     tab.setAttribute("aria-selected", on?"true":"false");
     tab.tabIndex = on?0:-1;              // roving tabindex
   });
+  if(id==="admin" && window.__admEnsure) window.__admEnsure();   // lazy-load on first visit, however the tab was reached
   const t=document.getElementById("tab-"+id);
   if(t){
     if(opts&&opts.focus) t.focus();
@@ -1832,6 +1883,104 @@ async function recompute(){
   }
   if(ok) await loadAll();
 }
+
+/* ===== Admin tab — subscribers and product access =============================
+   Reads and writes go through /api/workbench-subscribers with the same
+   x-workbench-key as Recompute. Loaded on first visit to the tab, not at page load,
+   so the key prompt never appears for someone who just opened the Workbench. */
+const ADM={rows:[],plans:[],filter:"all",q:"",loaded:false,sel:null};
+const admFmt=ts=>ts?shortDate(ts):"—";
+function admSay(text,kind){ const m=document.getElementById("adm-msg"); if(!m) return; m.textContent=text||""; m.className="adm-msg"+(kind?" "+kind:""); }
+async function admApi(path,init){
+  const key=wbKey(); if(!key) throw new Error("A Workbench key is needed.");
+  const r=await fetch("/api/workbench-subscribers"+path,{...init,headers:{"Content-Type":"application/json","x-workbench-key":key,...(init&&init.headers)}});
+  const d=await r.json().catch(()=>({}));
+  if(r.status===401){ forgetKey(); throw new Error("Workbench key rejected. It has been cleared — try again to re-enter it."); }
+  if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+  return d;
+}
+const admHandle=s=>s.handle||String(s.email||"").split("@")[0];
+function admVisible(){
+  const n=ADM.q.trim().toLowerCase();
+  return ADM.rows.filter(s=>
+    (ADM.filter==="all"||(ADM.filter==="active"?s.active!==false:s.active===false)) &&
+    (!n||admHandle(s).toLowerCase().includes(n)||String(s.email||"").toLowerCase().includes(n)));
+}
+function admRenderList(){
+  const rows=admVisible(), box=document.getElementById("adm-list");
+  document.getElementById("adm-count").textContent=rows.length+" subscriber"+(rows.length===1?"":"s");
+  const head='<div class="adm-row adm-head"><span>Subscriber</span><span>Status</span><span>Teams</span><span>Live Agent</span><span>Last seen</span><span>Joined</span></div>';
+  box.innerHTML=head+(rows.length?rows.map(s=>
+    `<button class="adm-row" data-id="${esc(s.id)}" aria-pressed="${ADM.sel===s.id}">`
+    +`<span style="min-width:0"><div class="h">@${esc(admHandle(s))}</div><div class="e">${esc(s.email)}</div></span>`
+    +`<span class="adm-pill ${s.active===false?"off":"on"}">${s.active===false?"Paused":"Active"}</span>`
+    +`<span>${s.teams}</span><span class="mono" style="font-size:12px">${esc(s.tier)}</span>`
+    +`<span>${admFmt(s.last_seen_at)}</span><span>${admFmt(s.created_at)}</span></button>`).join("")
+    :'<div class="adm-empty">'+(ADM.q?"No subscribers match “"+esc(ADM.q)+"”.":"No subscribers yet.")+'</div>');
+}
+async function admLoad(){
+  admSay("Loading subscribers…");
+  try{
+    const d=await admApi("");
+    ADM.rows=d.subscribers||[]; ADM.plans=d.plans||[]; ADM.loaded=true;
+    admSay(""); admRenderList();
+  }catch(e){ admSay(e.message,"err"); }
+}
+async function admOpen(id){
+  ADM.sel=id; admRenderList();
+  const box=document.getElementById("adm-detail"); box.classList.add("open"); box.innerHTML='<div class="adm-empty">Loading…</div>';
+  try{
+    const d=await admApi("?id="+encodeURIComponent(id));
+    const s=d.subscriber, la=d.access.liveAgent, paused=s.active===false;
+    box.innerHTML=
+      `<div class="dh"><h3>@${esc(admHandle(s))}</h3><span class="adm-pill ${paused?"off":"on"}">${paused?"Paused":"Active"}</span>`
+      +`<span class="mono" style="font-size:11.5px;color:var(--sage)">${esc(s.email)}</span><button class="abtn close" data-adm="close">Close</button></div>`
+      +`<div class="adm-sec"><h4>Account</h4><div class="adm-kv">Streak <b>${s.play_streak||0}</b> · Last seen <b>${admFmt(s.last_seen_at)}</b> · Joined <b>${admFmt(s.created_at)}</b></div>`
+      +`<div class="adm-form"><input id="adm-reason-acct" maxlength="500" placeholder="Reason (required)" aria-label="Reason">`
+      +`<button class="abtn" data-adm="${paused?"rejoin":"pause"}" data-id="${esc(s.id)}">${paused?"Reinstate account":"Pause account"}</button></div></div>`
+      +`<div class="adm-sec"><h4>Products</h4><div class="adm-kv">Live Agent: <b>${esc(la.tier)}</b> · ${la.cycle?`<b>${la.balance}</b> tokens this cycle`:"no ledger yet"}</div>`
+      +`<div class="adm-form"><select id="adm-tier" aria-label="Live Agent tier">${(d.plans||[]).map(p=>`<option value="${esc(p.tier)}"${p.tier===la.tier?" selected":""}>${esc(p.tier)}${p.entitled?"":" (no access)"} — ${p.monthly_tokens}/mo</option>`).join("")}</select>`
+      +`<input id="adm-reason-tier" maxlength="500" placeholder="Reason (required)" aria-label="Reason">`
+      +`<button class="abtn" data-adm="set_tier" data-id="${esc(s.id)}">Set tier</button></div>`
+      +`<div class="adm-kv" style="margin-top:6px;font-size:12px">A tier change keeps the current balance; the monthly grant applies at the next cycle. Mailing lists are not set up yet.</div></div>`
+      +`<div class="adm-sec"><h4>Teams (${d.teams.length})</h4><div class="adm-kv">${d.teams.length?d.teams.map(t=>esc(t.name)+(t.captain?" (captain)":"")+(t.pending?" (pending)":"")).join(" · "):"None"}</div></div>`
+      +`<div class="adm-sec"><h4>Recent changes</h4><div class="adm-audit">${d.audit.length?d.audit.map(a=>`<div>${esc(shortDate(a.at))} · ${esc(a.action)} — ${esc(a.reason||"")}</div>`).join(""):"<div>No changes logged.</div>"}</div></div>`;
+  }catch(e){ box.innerHTML='<div class="adm-empty">'+esc(e.message)+'</div>'; }
+}
+async function admAct(action,id){
+  const reason=(document.getElementById(action==="set_tier"?"adm-reason-tier":"adm-reason-acct")||{}).value||"";
+  if(!reason.trim()){ admSay("A reason is required.","err"); return; }
+  const payload={action,subscriberId:id,reason};
+  if(action==="set_tier") payload.tier=document.getElementById("adm-tier").value;
+  try{
+    const d=await admApi("",{method:"POST",body:JSON.stringify(payload)});
+    await admLoad(); await admOpen(id);
+    admSay(d.message||"Done.","ok");
+  }catch(e){ admSay(e.message,"err"); }
+}
+function initAdmin(){
+  const sec=document.getElementById("admin"); if(!sec) return;
+  document.getElementById("adm-q").addEventListener("input",e=>{ ADM.q=e.target.value; admRenderList(); });
+  document.getElementById("adm-reload").addEventListener("click",admLoad);
+  document.getElementById("adm-filters").addEventListener("click",e=>{
+    const b=e.target.closest("button[data-f]"); if(!b) return;
+    ADM.filter=b.dataset.f;
+    document.querySelectorAll("#adm-filters button").forEach(x=>x.classList.toggle("on",x===b));
+    admRenderList();
+  });
+  document.getElementById("adm-list").addEventListener("click",e=>{
+    const b=e.target.closest("button.adm-row[data-id]"); if(b) admOpen(b.dataset.id);
+  });
+  document.getElementById("adm-detail").addEventListener("click",e=>{
+    const b=e.target.closest("button[data-adm]"); if(!b) return;
+    if(b.dataset.adm==="close"){ ADM.sel=null; document.getElementById("adm-detail").classList.remove("open"); admRenderList(); return; }
+    admAct(b.dataset.adm,b.dataset.id);
+  });
+  /* first visit loads the data (lazy: no key prompt until Admin is opened) */
+  window.__admEnsure=()=>{ if(!ADM.loaded && !ADM.loading){ ADM.loading=true; admLoad().finally(()=>{ ADM.loading=false; }); } };
+  if(document.getElementById("tab-admin").getAttribute("aria-selected")==="true") window.__admEnsure();
+}
+initAdmin();
 
 loadAll();
 
