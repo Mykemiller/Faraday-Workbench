@@ -19,7 +19,7 @@
  */
 'use strict';
 
-const { refuseUnlessKeyed, sb, readJson } = require('./_wb.js');
+const { refuseUnlessKeyed, sb, readJson, faradayServiceKey } = require('./_wb.js');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACTIONS = new Set(['pause', 'rejoin', 'set_tier']);
@@ -171,8 +171,8 @@ async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   if (refuseUnlessKeyed(req, res)) return;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) return res.status(503).json({ error: 'SUPABASE_SERVICE_ROLE_KEY is not set on this deployment.' });
+  const key = faradayServiceKey();
+  if (!key) return res.status(503).json({ error: 'FARADAY_SERVICE_ROLE_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY) is not set on this deployment.' });
   try {
     return req.method === 'GET' ? await handleGet(req, res, key) : await handlePost(req, res, key);
   } catch (e) {

@@ -5,7 +5,15 @@
 
 const crypto = require('crypto');
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ycadmmngkdhvpcsrcuaq.supabase.co';
+/* Secrets are product-prefixed (FDY-252 Phase 0, decision D-09): FARADAY_* names the Supabase
+ * project the Workbench writes people/scoring data to. The unprefixed names stay as aliases
+ * until the Vercel project is renamed — read the prefixed name first, never both. */
+const SUPABASE_URL = process.env.FARADAY_SUPABASE_URL || process.env.SUPABASE_URL || 'https://ycadmmngkdhvpcsrcuaq.supabase.co';
+
+/** The Faraday-project service key: FARADAY_SERVICE_ROLE_KEY, else the legacy SUPABASE_SERVICE_ROLE_KEY alias. */
+function faradayServiceKey() {
+  return process.env.FARADAY_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+}
 
 function secretMatches(supplied, expected) {
   const a = Buffer.from(String(supplied || ''), 'utf8');
@@ -48,4 +56,4 @@ async function readJson(req) {
   return raw ? JSON.parse(raw) : {};
 }
 
-module.exports = { SUPABASE_URL, secretMatches, refuseUnlessKeyed, sb, readJson };
+module.exports = { SUPABASE_URL, secretMatches, refuseUnlessKeyed, sb, readJson, faradayServiceKey };

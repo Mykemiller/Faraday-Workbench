@@ -19,7 +19,7 @@
 
 const crypto = require('crypto');
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ycadmmngkdhvpcsrcuaq.supabase.co';
+const { SUPABASE_URL, faradayServiceKey } = require('./_wb.js'); // FDY-252 D-09: FARADAY_* names, legacy aliases kept
 
 const LANES = [
   { lane: 'scoring',    rpc: 'workbench_scoring_panels_refresh', table: 'workbench_scoring_cache' },
@@ -54,7 +54,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceKey = faradayServiceKey();
   const secret = process.env.WORKBENCH_REFRESH_SECRET;
 
   // Fail closed. An unconfigured deployment refuses rather than running open.
@@ -65,7 +65,7 @@ module.exports = async function handler(req, res) {
   }
   if (!serviceKey) {
     return res.status(503).json({
-      error: 'SUPABASE_SERVICE_ROLE_KEY is not set on this deployment. Recompute is disabled.'
+      error: 'FARADAY_SERVICE_ROLE_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY) is not set on this deployment. Recompute is disabled.'
     });
   }
   if (!secretMatches(req.headers['x-workbench-key'], secret)) {

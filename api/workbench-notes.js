@@ -10,7 +10,7 @@
  */
 'use strict';
 
-const { refuseUnlessKeyed, sb, readJson } = require('./_wb.js');
+const { refuseUnlessKeyed, sb, readJson, faradayServiceKey } = require('./_wb.js');
 
 const KINDS = new Set(['note', 'action']);
 const STATUSES = new Set(['open', 'done']);
@@ -23,8 +23,8 @@ module.exports = async function handler(req, res) {
   }
   if (refuseUnlessKeyed(req, res)) return;
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey) return res.status(503).json({ error: 'SUPABASE_SERVICE_ROLE_KEY is not set on this deployment.' });
+  const serviceKey = faradayServiceKey();
+  if (!serviceKey) return res.status(503).json({ error: 'FARADAY_SERVICE_ROLE_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY) is not set on this deployment.' });
 
   let body;
   try { body = await readJson(req); } catch (e) { return res.status(400).json({ error: 'Body is not JSON' }); }
