@@ -15,5 +15,11 @@
     "api/*.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/thoughtforge-sync",
+      "schedule": "*/15 * * * *"
+    }
+  ]
 }
