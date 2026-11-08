@@ -308,6 +308,17 @@ body.js-views .view.is-active{border-top:0}
 .addnote{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;margin-top:12px;padding-top:12px;border-top:1px dashed var(--hair)}
 .addnote select,.addnote textarea{background:var(--forest-deep);border:1px solid var(--hair);color:var(--warm);font-family:'Bricolage Grotesque',sans-serif;font-size:13px;border-radius:2px;padding:6px 8px}
 .addnote textarea{min-height:58px;resize:vertical;width:100%}
+/* CC-TF-NOTES-OUTBOX-1.0 */
+.addnote .opts{display:flex;flex-direction:column;gap:6px}
+.addnote .acts2{display:flex;flex-direction:column;gap:6px}
+.addnote .mic{min-width:44px;min-height:32px}
+.addnote .mic.on{border-color:var(--red);color:var(--red)}
+.rekey{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.rekey input{background:var(--forest-deep);border:1px solid var(--hair);color:var(--warm);font-family:'IBM Plex Mono',monospace;font-size:12px;border-radius:2px;padding:6px 8px;min-width:220px;flex:1}
+.sync{display:inline-block;margin-left:6px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.06em;padding:1px 5px;border:1px solid var(--hair);border-radius:2px}
+.sync.ok{color:var(--sage)} .sync.wait{color:var(--amber)} .sync.bad{color:var(--red);border-color:var(--red)}
+.sync a{color:inherit}
+.note .t.err{color:var(--red)}
 .issues{display:flex;flex-direction:column;gap:4px}
 .issue{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;padding:6px 8px;border-bottom:1px solid var(--hair);font-size:13px;text-decoration:none}
 .issue:last-child{border-bottom:0}
@@ -559,6 +570,7 @@ body.js-views .view.is-active{border-top:0}
 </footer>
 
 <script src="fix-prompt.js"></script>
+<script src="tf-outbox.js"></script>
 <script>
 const storefronts=[
  /* Fallback copy mirrors workbench_storefront_tiles as of the 2026-11-03 Product Health Scorecard.
@@ -719,7 +731,7 @@ const fmtCT=ts=>{const d=new Date(ts); return isNaN(d)?"—":d.toLocaleString("e
 const shortDate=ts=>{const d=new Date(ts); return isNaN(d)?"—":d.toLocaleDateString("en-US",{timeZone:"America/Chicago",month:"2-digit",day:"2-digit",year:"2-digit"});};
 function wbKey(){
   let key=null; try{ key=localStorage.getItem(WB_KEY_STORE); }catch(e){}
-  if(!key){ key=prompt("Workbench key (stored in this browser only):"); if(!key) return null;
+  if(!key){ key=(prompt("Workbench key (stored in this browser only):")||"").trim(); if(!key) return null;
     try{ localStorage.setItem(WB_KEY_STORE,key); }catch(e){} }
   return key;
 }
@@ -781,32 +793,101 @@ function openDrawer(slug,tab){
   if(DRAWER.tab==="issues") renderIssues(t); else renderNotes(t);
   d.scrollIntoView({block:"nearest"});
 }
+/* CC-TF-NOTES-OUTBOX-1.0: the draft is kept in localStorage (tf_note_draft) from the first
+   keystroke until the server returns 200, so a redraw, a rejected key or a reload never loses it.
+   A rejected key keeps the draft and asks for the key inline. Notes on the ThoughtForge tile also
+   show their Linear sync status; pending ones are retried when the drawer opens. */
+const TFO=window.TfOutbox;
+const LS=(()=>{ try{ localStorage.setItem("_t","1"); localStorage.removeItem("_t"); return localStorage; }catch(e){ const m={}; return {getItem:k=>m[k]??null,setItem:(k,v)=>{m[k]=String(v);},removeItem:k=>{delete m[k];}}; } })();
+let NOTE_BUSY=false, TF_RETRIED={};
+function storedKey(){ try{ return (localStorage.getItem(WB_KEY_STORE)||"").trim()||null; }catch(e){ return null; } }
+function syncChipHtml(n){
+  const c=TFO.syncChip(n); if(!c) return "";
+  const inner=c.url?`<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.text)} ↗</a>`:esc(c.text);
+  return `<span class="sync ${c.cls}"${c.title?` title="${esc(c.title)}"`:""}>${inner}</span>`;
+}
 function renderNotes(t){
   const body=document.getElementById("drawer-body"); const list=NOTES[t.slug]||[];
   const rows=list.length?list.map(n=>`<div class="note ${n.kind} ${n.status}"><span class="k">${esc(n.kind)}</span>
-    <div><div class="b ${n.status}">${esc(n.body)}</div><span class="t">${esc(fmtCT(n.created_at))}${n.done_at?" · done "+esc(fmtCT(n.done_at)):""}</span></div>
+    <div><div class="b ${n.status}">${esc(n.body)}</div><span class="t">${esc(fmtCT(n.created_at))}${n.done_at?" · done "+esc(fmtCT(n.done_at)):""}${syncChipHtml(n)}</span>${n.sync_status==="failed"&&n.last_error?`<span class="t err">${esc(n.last_error)}</span>`:""}</div>
     ${n.kind==="action"?`<button class="abtn" data-id="${n.id}" data-status="${n.status==="open"?"done":"open"}">${n.status==="open"?"Mark done":"Reopen"}</button>`:"<span></span>"}</div>`).join("")
     :'<div class="dmsg">No notes yet for this product.</div>';
+  const d=TFO.loadDraft(LS,t.slug)||{body:"",kind:"note",source:"typed"};
+  const canSpeak=!!TFO.speechCtor(window);
   body.innerHTML=`<div class="notes">${rows}</div>
-    <form class="addnote" id="addnote"><select id="note-kind" aria-label="Kind"><option value="note">Note</option><option value="action">Action</option></select>
-    <textarea id="note-body" placeholder="What do you want to remember or do about ${esc(t.name)}?" maxlength="2000" required></textarea>
-    <button class="abtn gold" type="submit">Save</button></form><div class="dmsg" id="note-msg"></div>`;
+    <form class="addnote" id="addnote"><div class="opts"><select id="note-kind" aria-label="Kind"><option value="note">Note</option><option value="action">Action</option></select>
+      <select id="note-source" aria-label="Entered by"><option value="typed">Typed</option><option value="voice">Voice</option></select></div>
+    <textarea id="note-body" placeholder="What do you want to remember or do about ${esc(t.name)}?" maxlength="2000" required autocomplete="off"></textarea>
+    <div class="acts2"><button class="abtn gold" type="submit" id="note-save">Save</button>${canSpeak?'<button class="abtn mic" type="button" id="note-mic" aria-label="Dictate" title="Dictate">Mic</button>':""}</div></form>
+    <div class="dmsg" id="note-msg"></div><div id="note-rekey"></div>`;
+  const ta=body.querySelector("#note-body"), kindSel=body.querySelector("#note-kind"), srcSel=body.querySelector("#note-source");
+  ta.value=d.body; kindSel.value=d.kind; srcSel.value=d.source;
+  const keep=()=>TFO.saveDraft(LS,t.slug,{body:ta.value,kind:kindSel.value,source:srcSel.value});
+  ta.addEventListener("input",()=>{ if(ta.value||TFO.loadDraft(LS,t.slug)) keep(); });
+  kindSel.addEventListener("change",keep); srcSel.addEventListener("change",keep);
+  if(canSpeak) wireMic(body.querySelector("#note-mic"),ta,srcSel,keep);
   body.querySelectorAll(".note .abtn[data-id]").forEach(b=>b.addEventListener("click",()=>noteWrite("PATCH",{id:Number(b.dataset.id),status:b.dataset.status},t)));
   body.querySelector("#addnote").addEventListener("submit",e=>{e.preventDefault();
-    const v=body.querySelector("#note-body").value.trim(); if(!v) return;
-    noteWrite("POST",{slug:t.slug,kind:body.querySelector("#note-kind").value,body:v},t);});
+    const v=ta.value.trim(); if(!v||NOTE_BUSY) return;
+    const dr=keep();
+    noteWrite("POST",{slug:t.slug,kind:dr.kind,body:v,source:dr.source,client_id:dr.client_id},t);});
+  if(t.slug==="thought-forge"&&TFO.needsRetry(list)&&!TF_RETRIED[t.slug]) retryPending(t);
+}
+function wireMic(btn,ta,srcSel,keep){
+  const Ctor=TFO.speechCtor(window); let rec=null;
+  btn.addEventListener("click",()=>{
+    if(rec){ rec.stop(); return; }
+    try{ rec=new Ctor(); }catch(e){ btn.hidden=true; return; }
+    rec.lang="en-US"; rec.interimResults=false; rec.continuous=true;
+    rec.onresult=ev=>{ for(let i=ev.resultIndex;i<ev.results.length;i++){ if(ev.results[i].isFinal) ta.value=TFO.appendDictation(ta.value,ev.results[i][0].transcript); }
+      srcSel.value="voice"; keep(); };
+    rec.onend=()=>{ rec=null; btn.classList.remove("on"); btn.textContent="Mic"; };
+    rec.onerror=()=>{ const m=document.getElementById("note-msg"); if(m){ m.className="dmsg err"; m.textContent="Dictation stopped. You can also use the mic key on the keyboard."; } };
+    btn.classList.add("on"); btn.textContent="Stop"; srcSel.value="voice"; keep(); rec.start();
+  });
+}
+function showRekey(method,payload,t){
+  const box=document.getElementById("note-rekey"); if(!box) return;
+  box.innerHTML=`<form class="rekey" id="rekey-form"><input id="rekey-input" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Workbench key" aria-label="Workbench key">
+    <button class="abtn gold" type="submit">Save key &amp; retry</button></form>`;
+  const inp=box.querySelector("#rekey-input"); inp.focus();
+  box.querySelector("#rekey-form").addEventListener("submit",e=>{e.preventDefault();
+    const k=inp.value.trim(); if(!k) return;
+    try{ localStorage.setItem(WB_KEY_STORE,k); }catch(err){}
+    box.innerHTML=""; noteWrite(method,payload,t);});
 }
 async function noteWrite(method,payload,t){
-  const msg=document.getElementById("note-msg"); const key=wbKey(); if(!key) return;
+  const msg=document.getElementById("note-msg");
+  const key=storedKey(); if(!key){ msg.className="dmsg"; msg.textContent="A Workbench key is needed to save. Your note is still here."; showRekey(method,payload,t); return; }
+  NOTE_BUSY=true; const btn=document.getElementById("note-save"); if(btn) btn.disabled=true;
   msg.className="dmsg"; msg.textContent="Saving…";
   try{
     const r=await fetch("/api/workbench-notes",{method,headers:{"Content-Type":"application/json","x-workbench-key":key},body:JSON.stringify(payload)});
     const d=await r.json().catch(()=>({}));
-    if(r.status===401){ forgetKey(); throw new Error("Key rejected — it has been cleared; try again."); }
-    if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+    if(method==="PATCH"){
+      if(r.status===401){ forgetKey(); msg.className="dmsg err"; msg.textContent="That key was not accepted. Enter the current Workbench key."; showRekey(method,payload,t); return; }
+      if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+      await loadNotes(); openDrawer(t.slug,"notes"); return;
+    }
+    const st=r.ok?200:r.status; const out=TFO.interpretSave(st,d);
+    if(out.needKey){ forgetKey(); msg.className="dmsg err"; msg.textContent=out.message; showRekey(method,payload,t); return; }
+    if(!out.clear){ msg.className="dmsg err"; msg.textContent=out.message; return; }
+    TFO.clearDraft(LS,t.slug);
     await loadNotes(); openDrawer(t.slug,"notes");
-  }catch(e){ msg.className="dmsg err"; msg.textContent=e.message; }
+    const m2=document.getElementById("note-msg"); if(m2){ m2.className="dmsg"; m2.textContent=out.message; }
+  }catch(e){ msg.className="dmsg err"; msg.textContent="Not saved: "+e.message+". Your note is still here; press Save to try again."; }
+  finally{ NOTE_BUSY=false; const b2=document.getElementById("note-save"); if(b2) b2.disabled=false; }
 }
+async function retryPending(t){
+  TF_RETRIED[t.slug]=true; const key=storedKey(); if(!key) return;
+  try{
+    const r=await fetch("/api/thoughtforge-sync",{method:"POST",headers:{"Content-Type":"application/json","x-workbench-key":key},body:"{}"});
+    const d=await r.json().catch(()=>({}));
+    if(r.ok&&d.considered){ await loadNotes(); if(DRAFT_OPEN(t.slug)) openDrawer(t.slug,"notes"); }
+  }catch(e){ /* the cron retries too */ }
+  setTimeout(()=>{ TF_RETRIED[t.slug]=false; },120000);
+}
+const DRAFT_OPEN=slug=>DRAWER.slug===slug&&DRAWER.tab==="notes"&&document.getElementById("drawer").classList.contains("open");
 async function renderIssues(t){
   const body=document.getElementById("drawer-body"); body.innerHTML='<div class="dmsg">Loading open issues from Linear…</div>';
   const key=wbKey(); if(!key){ body.innerHTML='<div class="dmsg err">A workbench key is needed to read Linear.</div>'; return; }
