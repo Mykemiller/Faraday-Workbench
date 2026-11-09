@@ -21,12 +21,14 @@ console.log('PASS  pure logic');
 // ---- gating ----
 const handler = require('../api/workbench-subscribers.js');
 const mkRes = () => { const r = { code: 0, body: null, setHeader() {}, status(c) { r.code = c; return r; }, json(b) { r.body = b; return r; } }; return r; };
-delete process.env.WORKBENCH_REFRESH_SECRET;
+// FDY-285: the gate is a session cookie (Owner or break-glass), not the x-workbench-key header.
+delete process.env.WORKBENCH_SESSION_SECRET;
 let r = mkRes(); await handler({ method: 'GET', headers: {} }, r); assert.equal(r.code, 503);
-process.env.WORKBENCH_REFRESH_SECRET = 's3cret';
-r = mkRes(); await handler({ method: 'GET', headers: { 'x-workbench-key': 'wrong' } }, r); assert.equal(r.code, 401);
+const S = await import('./_session.mjs'); S.configure();
+r = mkRes(); await handler({ method: 'GET', headers: {} }, r); assert.equal(r.code, 401);
+r = mkRes(); await handler({ method: 'GET', headers: { 'x-workbench-key': S.SHARED_KEY } }, r); assert.equal(r.code, 401);
 r = mkRes(); await handler({ method: 'DELETE', headers: {} }, r); assert.equal(r.code, 405);
-console.log('PASS  gating (503 unset, 401 wrong key, 405 method)');
+console.log('PASS  gating (503 unset, 401 no session, 401 raw shared key, 405 method)');
 
 // ---- page ----
 const { chromium } = await import(process.env.WB_PLAYWRIGHT || 'playwright');
@@ -48,7 +50,7 @@ const subs = [
 ];
 const calls = []; let posted = null;
 await page.route('**/api/workbench-subscribers**', route => {
-  const req = route.request(); calls.push(req.method() + ' ' + new URL(req.url()).search + ' key=' + req.headers()['x-workbench-key']);
+  const req = route.request(); calls.push(req.method() + ' ' + new URL(req.url()).search + ' key=' + (req.headers()['x-workbench-key'] || 'none'));
   if (req.method() === 'POST') { posted = JSON.parse(req.postData()); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, message: 'Account paused.' }) }); }
   const u = new URL(req.url());
   const body = u.searchParams.get('id')
@@ -56,14 +58,19 @@ await page.route('**/api/workbench-subscribers**', route => {
     : { subscribers: subs, plans: [] };
   route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
 });
-await page.addInitScript(() => localStorage.setItem('wb.refresh.key', 'k1'));
+await page.addInitScript(() => localStorage.setItem('wb.refresh.key', 'k1')); // a leftover key from before FDY-285
+await page.addInitScript(() => { window.__wbAuthProbe = true; }); await page.route('**/api/auth', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ signedIn: true, kind: 'owner', email: 'owner@example.com', personId: '11111111-1111-4111-8111-111111111111', fresh: true }) }));
 await page.goto(PAGE);
 await page.waitForTimeout(400);
 assert.equal(calls.length, 0); console.log('PASS  Admin does not call the API until opened');
 await page.click('#tab-admin');
 await page.waitForSelector('.adm-row[data-id]');
 assert.equal(await page.locator('.adm-row[data-id]').count(), 2);
-assert.match(calls[0], /GET\s+key=k1/); console.log('PASS  list loads with the stored key');
+assert.match(calls[0], /GET\s+key=none/);
+assert.equal(await page.evaluate(() => localStorage.getItem('wb.refresh.key')), null);
+assert.equal(await page.inputValue('#isp-actor'), 'owner@example.com'); assert.equal(await page.getAttribute('#isp-actor', 'readonly'), '');
+assert.match(await page.textContent('#wb-auth'), /owner@example\.com · Sign out/);
+console.log('PASS  list loads with the session; the shared key is neither sent nor kept in the browser; actor is the signed-in owner');
 await page.click('#adm-filters [data-f="paused"]');
 assert.equal(await page.locator('.adm-row[data-id]').count(), 1);
 await page.click('#adm-filters [data-f="all"]');

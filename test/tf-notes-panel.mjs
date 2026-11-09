@@ -19,17 +19,20 @@ await serve('workbench_idf', other.idf); await serve('workbench_forecast_model',
 let NOTES = { 'thought-forge': [{ id: 9, kind: 'note', body: 'older note', status: 'open', created_at: '2026-11-07T12:00:00Z', sync_status: 'linear_pending', attempts: 2, last_error: 'Linear 500' }] };
 await page.route('**/rpc/workbench_product_notes', (x) => x.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(NOTES) }));
 
-const posts = []; let mode = '401'; const retries = [];
+// FDY-285: the panel signs in with a session cookie; no key is sent or stored. The notes route
+// itself checks no key (PR #31), so a save needs no sign-in; the Linear retry does.
+const posts = []; let mode = 'ok'; const retries = [];
+await page.addInitScript(() => { window.__wbAuthProbe = true; }); await page.route('**/api/auth', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ signedIn: true, kind: 'owner', email: 'owner@example.com', personId: '11111111-1111-4111-8111-111111111111', fresh: true }) }));
 await page.route('**/api/workbench-notes', async (route) => {
   const req = route.request(); const body = JSON.parse(req.postData() || '{}');
-  posts.push({ key: req.headers()['x-workbench-key'], body });
+  posts.push({ key: req.headers()['x-workbench-key'] || null, body });
+  if (mode === 'down') return route.fulfill({ status: 502, contentType: 'application/json', body: '{"error":"upstream"}' });
   if (mode === 'slow') await new Promise((r) => setTimeout(r, 400));
-  if (req.headers()['x-workbench-key'] !== 'good-key') return route.fulfill({ status: 401, contentType: 'application/json', body: '{"error":"Unauthorized"}' });
   const note = { id: 10, kind: body.kind, body: body.body, status: 'open', created_at: '2026-11-08T17:30:00Z', client_id: body.client_id, source: body.source, sync_status: 'synced', linear_identifier: 'TH-70', linear_url: 'https://linear.app/x/issue/TH-70' };
   NOTES = { 'thought-forge': [note, ...NOTES['thought-forge']] };
   route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, duplicate: false, note, sync: { status: 'synced' } }) });
 });
-await page.route('**/api/thoughtforge-sync', (route) => { retries.push(route.request().headers()['x-workbench-key']); route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"considered":0,"results":[]}' }); });
+await page.route('**/api/thoughtforge-sync', (route) => { retries.push(route.request().headers()['x-workbench-key'] || null); route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"considered":0,"results":[]}' }); });
 
 await page.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem('wb.refresh.key', 'stale-key'); sessionStorage.setItem('seeded', '1'); } });
 await page.goto(PAGE);
@@ -41,40 +44,38 @@ const open = async () => {
 await open();
 assert.match(await page.textContent('#drawer-body'), /Linear retrying \(2\/10\)/);
 await page.waitForTimeout(150);
-assert.deepEqual(retries, ['stale-key']); console.log('PASS  pending notes are retried when the drawer opens');
+assert.deepEqual(retries, [null]);
+assert.equal(await page.evaluate(() => localStorage.getItem('wb.refresh.key')), null, 'the leftover shared key is deleted on load');
+console.log('PASS  pending notes are retried when the drawer opens, by session, with no key sent or kept');
 
 await page.fill('#note-body', ACCEPT);
 await page.selectOption('#note-source', 'voice');
+mode = 'down';
 await page.click('#note-save');
-await page.waitForSelector('#rekey-input');
-assert.equal(await page.inputValue('#note-body'), ACCEPT, 'draft kept after 401');
-assert.match(await page.textContent('#note-msg'), /not accepted.*still here/i);
-assert.equal(await page.evaluate(() => localStorage.getItem('wb.refresh.key')), null);
-assert.equal(await page.getAttribute('#rekey-input', 'autocapitalize'), 'off');
-console.log('PASS  rejected key keeps the draft and asks for the key inline');
+await page.waitForFunction(() => /Not saved/.test(document.getElementById('note-msg')?.textContent || ''));
+assert.equal(await page.inputValue('#note-body'), ACCEPT, 'draft kept after a failed save');
+assert.match(await page.textContent('#note-msg'), /still here/i);
+console.log('PASS  a failed save keeps the draft');
 
-// the drawer is redrawn (close + reopen) before re-keying: the draft must survive that too
+// the drawer is redrawn (close + reopen) before retrying: the draft must survive that too
 await page.click('#drawer-close'); await open();
 assert.equal(await page.inputValue('#note-body'), ACCEPT);
 await page.reload(); await open();
 assert.equal(await page.inputValue('#note-body'), ACCEPT); assert.equal(await page.inputValue('#note-source'), 'voice');
 console.log('PASS  draft survives a redraw and a reload');
 
-await page.click('#note-save'); // no key stored now -> inline form, no prompt()
-await page.waitForSelector('#rekey-input');
-await page.fill('#rekey-input', '  good-key \n');
 mode = 'slow';
-await page.click('#rekey-form button');
+await page.click('#note-save');
 await page.click('#note-save').catch(() => {}); // double-tap while the save is in flight
 await page.waitForFunction(() => /TH-70 created/.test(document.getElementById('note-msg')?.textContent || ''), null, { timeout: 5000 });
-const good = posts.filter((p) => p.key === 'good-key');
+const good = posts.slice(1);
 assert.equal(good.length, 1, 'double-tap sends one save');
-assert.equal(good[0].body.body, ACCEPT); assert.equal(good[0].body.source, 'voice');
+assert.equal(good[0].body.body, ACCEPT); assert.equal(good[0].body.source, 'voice'); assert.equal(good[0].key, null);
 assert.equal(new Set(posts.map((p) => p.body.client_id)).size, 1, 'every attempt carried the same client_id');
 assert.equal(await page.inputValue('#note-body'), '', 'cleared only after 200');
 assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('tf_note_draft') || '{}')['thought-forge'] || null), null);
 assert.match(await page.textContent('#drawer-body'), /TH-70/);
-console.log('PASS  key trimmed, one save, draft cleared after 200, issue chip shown');
+console.log('PASS  one save, draft cleared after 200, issue chip shown');
 
 // feature detection: no Web Speech API -> no mic button
 const p2 = await ctx.newPage();

@@ -8,8 +8,8 @@
  *   ISPYADC_SUPABASE_URL        e.g. https://<ref>.supabase.co
  *   ISPYADC_SERVICE_ROLE_KEY    service role key for that project
  *
- * Gated like every other Workbench route: shared secret in
- * WORKBENCH_REFRESH_SECRET, sent as x-workbench-key, fail-closed when unset.
+ * Gated like every other Workbench route: an Owner session (email code) or a
+ * break-glass session, see api/_auth.js (FDY-285). Fail-closed when unset.
  * When the two ISpyaDC variables are missing the route answers
  * { configured: false, missing: [names] } so the page can say so — no crash,
  * no secret in the message. Nothing here sets those values.
@@ -19,13 +19,14 @@
  *        action: 'add' | 'set_role' | 'set_expiry' | 'revoke' | 'restore'
  *
  * Every write also inserts one ispyadc_access_audit row with the operator's
- * email as actor. The Workbench has no sign-in of its own (the key is shared),
- * so the actor is the "Acting as" email the operator types on the page; it is
- * validated as an email and recorded as given.
+ * email as actor. For a signed-in Owner that is the session's verified email
+ * (the typed value is ignored). Only a break-glass session, which has no person
+ * behind it, still records the "Acting as" email the operator types.
  */
 'use strict';
 
-const { refuseUnlessKeyed, readJson } = require('./_wb.js');
+const { readJson } = require('./_wb.js');
+const { requireOperator } = require('./_auth.js');
 
 const ACTIONS = new Set(['add', 'set_role', 'set_expiry', 'revoke', 'restore']);
 const ROLES = new Set(['admin', 'tester', 'user']);
@@ -160,9 +161,12 @@ async function handleGet(res, cfg) {
   });
 }
 
-async function handlePost(req, res, cfg) {
+async function handlePost(req, res, cfg, actor) {
   let body;
   try { body = await readJson(req); } catch (e) { return res.status(400).json({ error: 'Body is not JSON' }); }
+  // FDY-285: a signed-in Owner is the actor, whatever the page sent. Only a break-glass
+  // session (no person behind it) still uses the typed "Acting as" email.
+  if (actor && actor.kind === 'owner') body = { ...body, actor: actor.email };
   const today = new Date().toISOString().slice(0, 10);
   const p = parseWrite(body, today);
   if (p.error) return res.status(400).json({ error: p.error });
@@ -214,14 +218,15 @@ async function handler(req, res) {
     res.setHeader('Allow', 'GET, POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  if (refuseUnlessKeyed(req, res)) return;
+  const actor = await requireOperator(req, res);
+  if (!actor) return;
   const cfg = ispyConfig(process.env);
   if (!cfg.configured) {
     // Not an error: the page renders a clear "not configured" state. Names only.
     return res.status(200).json({ configured: false, missing: cfg.missing, grants: [], audit: [] });
   }
   try {
-    return req.method === 'GET' ? await handleGet(res, cfg) : await handlePost(req, res, cfg);
+    return req.method === 'GET' ? await handleGet(res, cfg) : await handlePost(req, res, cfg, actor);
   } catch (e) {
     return res.status(e.status && e.status >= 400 && e.status < 600 ? e.status : 502).json({ error: e.message });
   }

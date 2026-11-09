@@ -27,7 +27,8 @@ assert.ok(!txt.includes('FDY-68 ·'));
 for (const must of ['NEVER merge', 'decoy xgbpmlkanxewtfizloay', 'RECOMMENDED', 'US Central Time', 'ORCHESTRATOR']) assert.ok(txt.includes(must), must);
 
 // API: pages through results and flags has_prompt without returning the text
-process.env.LINEAR_API_KEY = 'k'; process.env.WORKBENCH_REFRESH_SECRET = 's';
+process.env.LINEAR_API_KEY = 'k';
+const S = await import('./_session.mjs'); S.configure(); // FDY-285: session cookie, not x-workbench-key
 const handler = require('../api/workbench-linear.js');
 const node = (id, pr, desc, comments = []) => ({ identifier: id, title: id, url: 'u', priority: pr, priorityLabel: 'x', updatedAt: '2026-11-05', description: desc,
   state: { name: 'Backlog', type: 'backlog' }, assignee: null, labels: { nodes: [{ name: 'L' }] }, comments: { nodes: comments.map((body) => ({ body })) } });
@@ -39,7 +40,7 @@ let call = 0;
 global.fetch = async (_u, init) => { const v = JSON.parse(init.body).variables; assert.equal(v.after, call ? 'c1' : null); return { ok: true, status: 200, json: async () => ({ data: { issues: pages[call++] } }) }; };
 let out;
 const res = { setHeader() {}, status(c) { this.code = c; return this; }, json(b) { out = b; return this; } };
-await handler({ method: 'GET', url: '/api/workbench-linear?label=Estate%20Security', headers: { 'x-workbench-key': 's' } }, res);
+await handler({ method: 'GET', url: '/api/workbench-linear?label=Estate%20Security', headers: S.breakGlassHeaders() }, res);
 assert.equal(res.code, 200); assert.equal(call, 2);
 assert.deepEqual(out.issues.map((i) => i.identifier), ['A-2', 'A-3', 'A-1']);
 assert.deepEqual(out.issues.map((i) => i.has_prompt), [true, true, false]);

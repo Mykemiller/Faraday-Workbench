@@ -1,8 +1,8 @@
 /* Workbench Admin tab · subscriber and product management.
  *
  * Moved here from the League Office (/league-office/subscribers). Gated like the
- * other Workbench routes: shared secret in WORKBENCH_REFRESH_SECRET, sent as
- * x-workbench-key, fail-closed when unset. Reads and writes use the service key
+ * other Workbench routes: an Owner session (email code) or a break-glass session,
+ * see api/_auth.js (FDY-285). Fail-closed when unset. Reads and writes use the service key
  * held server-side; the browser never sees it.
  *
  *   GET                       -> { subscribers[], plans[] }
@@ -19,7 +19,8 @@
  */
 'use strict';
 
-const { refuseUnlessKeyed, sb, readJson, faradayServiceKey } = require('./_wb.js');
+const { sb, readJson, faradayServiceKey } = require('./_wb.js');
+const { requireOperator } = require('./_auth.js');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ACTIONS = new Set(['pause', 'rejoin', 'set_tier']);
@@ -170,7 +171,7 @@ async function handler(req, res) {
     res.setHeader('Allow', 'GET, POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  if (refuseUnlessKeyed(req, res)) return;
+  if (!(await requireOperator(req, res))) return;
   const key = faradayServiceKey();
   if (!key) return res.status(503).json({ error: 'FARADAY_SERVICE_ROLE_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY) is not set on this deployment.' });
   try {

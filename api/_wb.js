@@ -1,6 +1,5 @@
 /* Shared helpers for the Workbench API routes (CC-WORKBENCH-NOTES-LINEAR-1.0).
- * Same gating model as workbench-recompute: a shared secret in
- * WORKBENCH_REFRESH_SECRET, compared in constant time, fail-closed when unset. */
+ * Gating lives in api/_auth.js (FDY-285): an Owner session or a break-glass session. */
 'use strict';
 
 const crypto = require('crypto');
@@ -20,20 +19,6 @@ function secretMatches(supplied, expected) {
   const b = Buffer.from(String(expected || ''), 'utf8');
   if (a.length === 0 || b.length === 0 || a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
-}
-
-/** Returns null when the request is authorised, otherwise sends the refusal and returns true. */
-function refuseUnlessKeyed(req, res) {
-  const secret = process.env.WORKBENCH_REFRESH_SECRET;
-  if (!secret) {
-    res.status(503).json({ error: 'WORKBENCH_REFRESH_SECRET is not set on this deployment.' });
-    return true;
-  }
-  if (!secretMatches(req.headers['x-workbench-key'], secret)) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return true;
-  }
-  return null;
 }
 
 function sb(path, serviceKey, init) {
@@ -56,4 +41,4 @@ async function readJson(req) {
   return raw ? JSON.parse(raw) : {};
 }
 
-module.exports = { SUPABASE_URL, secretMatches, refuseUnlessKeyed, sb, readJson, faradayServiceKey };
+module.exports = { SUPABASE_URL, secretMatches, sb, readJson, faradayServiceKey };

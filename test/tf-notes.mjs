@@ -163,9 +163,8 @@ function world() {
   const handler = require('../api/workbench-notes.js');
   const mkRes = () => { const r = { code: 0, body: null, setHeader() {}, status(c) { r.code = c; return r; }, json(b) { r.body = b; return r; } }; return r; };
   const reqBody = { slug: 'thought-forge', kind: 'note', body: ACCEPT, source: 'voice', client_id: CID };
-  let res = mkRes(); await handler({ method: 'POST', headers: { 'x-workbench-key': 'wrong' }, body: reqBody }, res);
-  assert.equal(res.code, 401); assert.equal(rows.length, 0);
-  res = mkRes(); await handler({ method: 'POST', headers: { 'x-workbench-key': 'k1' }, body: reqBody }, res);
+  // The notes route checks no key (PR #31: Vercel SSO is its gate), so there is no 401 case here.
+  let res = mkRes(); await handler({ method: 'POST', headers: { 'x-workbench-key': 'k1' }, body: reqBody }, res);
   assert.equal(res.code, 200); assert.equal(rows.length, 1); assert.equal(rows[0].sync_status, 'pending_sync'); assert.equal(rows[0].source, 'voice');
   assert.match(res.body.sync.error, /LINEAR_API_KEY/); // saved even though Linear is not configured
   res = mkRes(); await handler({ method: 'POST', headers: { 'x-workbench-key': 'k1' }, body: reqBody }, res);
@@ -174,7 +173,7 @@ function world() {
   assert.equal(res.code, 400);
   res = mkRes(); await handler({ method: 'POST', headers: { 'x-workbench-key': 'k1' }, body: { slug: 'boundstone', kind: 'note', body: 'x' } }, res);
   assert.equal(res.code, 200); assert.equal(rows[1].sync_status, null); assert.equal(res.body.sync, null);
-  console.log('PASS  save route: 401 writes nothing, 200 after commit, same client_id never duplicates');
+  console.log('PASS  save route: 200 after commit, same client_id never duplicates');
 }
 
 // ---------- browser outbox: the key-rejection path keeps the draft ----------

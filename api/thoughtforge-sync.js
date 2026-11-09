@@ -2,7 +2,7 @@
  *
  *   GET  (Vercel cron, every 15 min)  Authorization: Bearer $CRON_SECRET
  *        retries notes in pending_sync / linear_pending last touched more than 2 minutes ago
- *   POST (the panel, when it opens)   x-workbench-key
+ *   POST (the panel, when it opens)   Owner or break-glass session cookie
  *        same, with a 30-second age so it never races the save request's own inline attempt
  *
  * After 10 attempts a note becomes `failed` and its last_error shows in the panel. A failed
@@ -11,7 +11,8 @@
  */
 'use strict';
 
-const { refuseUnlessKeyed, secretMatches } = require('./_wb.js');
+const { secretMatches } = require('./_wb.js');
+const { requireOperator } = require('./_auth.js');
 const TF = require('./_tfnotes.js');
 const { syncNote, depsFromEnv } = require('./_tfsync.js');
 
@@ -43,7 +44,7 @@ module.exports = async function handler(req, res) {
       return res.status(out.code).json(out.body);
     }
     if (req.method === 'POST') {
-      if (refuseUnlessKeyed(req, res)) return;
+      if (!(await requireOperator(req, res))) return;
       const out = await run(30);
       return res.status(out.code).json(out.body);
     }
