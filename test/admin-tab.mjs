@@ -21,8 +21,8 @@ console.log('PASS  pure logic');
 // ---- gating ----
 const handler = require('../api/workbench-subscribers.js');
 const mkRes = () => { const r = { code: 0, body: null, setHeader() {}, status(c) { r.code = c; return r; }, json(b) { r.body = b; return r; } }; return r; };
-// FDY-285: the gate is a session cookie (Owner or break-glass), not the x-workbench-key header.
-delete process.env.WORKBENCH_SESSION_SECRET;
+// FDY-285: the gate is a signed-in Owner session cookie, not the x-workbench-key header.
+delete process.env.WORKBENCH_REFRESH_SECRET;
 let r = mkRes(); await handler({ method: 'GET', headers: {} }, r); assert.equal(r.code, 503);
 const S = await import('./_session.mjs'); S.configure();
 r = mkRes(); await handler({ method: 'GET', headers: {} }, r); assert.equal(r.code, 401);

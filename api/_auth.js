@@ -1,25 +1,22 @@
-/* Workbench sign-in and session (FDY-285, ADM-0.2).
+/* Workbench sign-in and session (FDY-285, revised).
  *
- * Decisions: D2 (email-code sign-in first; the shared key becomes owner-only break-glass, removed
- * later), D4 (Owner is the only console role through Phase 1).
+ * Sign-in is the Workbench key (WORKBENCH_REFRESH_SECRET), typed once. The key is the owner's
+ * own secret; no email code and no separate session secret are needed.
  *
- * Entry rule: an active, unexpired public.product_access row with product = 'workbench' and
- * role = 'owner', read through the service-role RPC estate_access_for(email, product) on the
- * Faraday Supabase project (FDY-252 Phase 1). The rule is re-checked on EVERY request, so a
- * revoke takes effect at once, not when the cookie expires.
+ * Entry rule: the key must match, AND WORKBENCH_OWNER_EMAIL must hold an active, unexpired
+ * public.product_access row with product = 'workbench' and role = 'owner' (read through the
+ * service-role RPC estate_access_for(email, product) on the Faraday Supabase project). That rule
+ * is re-checked on EVERY request, so a revoke in Supabase takes effect at once.
  *
- * Session: one httpOnly, Secure, SameSite=Strict cookie, signed with WORKBENCH_SESSION_SECRET
- * (HMAC-SHA256), valid 8 hours. It carries no secret: person id, email, kind and timestamps.
+ * Session: one httpOnly, Secure, SameSite=Strict cookie, valid 8 hours, signed with an HMAC
+ * derived from the key. Rotating WORKBENCH_REFRESH_SECRET ends every session. The cookie carries
+ * the person id, email and timestamps only; no secret is stored in the browser.
  *
- *   kind 'owner'  a person who entered an email code. The audit actor is their estate_people id.
- *   kind 'bg'     break-glass: someone presented the shared key (WORKBENCH_REFRESH_SECRET).
- *                 Valid 1 hour; every exchange writes admin_audit and emails the owner.
+ * Step-up: price changes and console-role grants call requireFresh(), which needs a sign-in
+ * (or a repeat sign-in) under 10 minutes old.
  *
- * Step-up: price changes and console-role grants call requireFresh(), which needs an owner
- * session whose last email code is under 10 minutes old. Break-glass never satisfies it.
- *
- * Everything fails closed: no secret, no service key, an unreadable access row or a failed audit
- * write all refuse. Service-role keys stay on the server; nothing here is sent to the browser.
+ * Everything fails closed: no key, no owner email, no service key, an unreadable access row or a
+ * failed audit write all refuse. Service-role keys stay on the server; nothing here is sent to the browser.
  */
 'use strict';
 
@@ -28,7 +25,6 @@ const { SUPABASE_URL, secretMatches, faradayServiceKey } = require('./_wb.js');
 
 const COOKIE = 'wb_session';
 const OWNER_TTL_S = 8 * 60 * 60;
-const BREAK_GLASS_TTL_S = 60 * 60;
 const FRESH_S = 10 * 60;
 const PRODUCT = 'workbench';
 const OWNER_ROLE = 'owner';
@@ -39,16 +35,18 @@ const nowS = () => Math.floor(Date.now() / 1000);
 const normalizeEmail = (raw) => String(raw || '').trim().toLowerCase();
 const isEmail = (e) => EMAIL.test(e) && e.length <= 254;
 
-function sessionSecret() {
-  const s = process.env.WORKBENCH_SESSION_SECRET || '';
-  return s.length >= 32 ? s : '';
-}
-function breakGlassSecret() {
+/** The Workbench key. Unset means the Workbench refuses every sign-in and every session. */
+function workbenchKey() {
   return process.env.WORKBENCH_REFRESH_SECRET || '';
 }
-/** Short fingerprint of the shared key, so rotating the key ends every break-glass session. */
-function keyFingerprint(secret) {
-  return crypto.createHash('sha256').update('wb-bg:' + secret).digest('hex').slice(0, 16);
+/** The owner's email, from server env only (never in the repo). */
+function ownerEmail() {
+  return normalizeEmail(process.env.WORKBENCH_OWNER_EMAIL);
+}
+/** Cookie signing key: derived from the Workbench key, so the key alone governs sessions. */
+function sessionSecret() {
+  const k = workbenchKey();
+  return k ? crypto.createHmac('sha256', 'wb-session-v1').update(k).digest('hex') : '';
 }
 
 /* ---- cookie ------------------------------------------------------------- */
@@ -73,7 +71,7 @@ function unsign(token, secret, now) {
   let p;
   try { p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')); } catch (e) { return null; }
   if (!p || typeof p !== 'object') return null;
-  if (p.k !== 'owner' && p.k !== 'bg') return null;
+  if (p.k !== 'owner') return null;
   if (!Number.isFinite(p.exp) || !Number.isFinite(p.iat)) return null;
   const t = now === undefined ? nowS() : now;
   if (p.exp <= t || p.iat > t + 60) return null;
@@ -102,10 +100,6 @@ function clearSessionCookie(res) {
 function ownerPayload(personId, email, now) {
   const t = now === undefined ? nowS() : now;
   return { k: 'owner', pid: personId, em: email, iat: t, exp: t + OWNER_TTL_S, fr: t };
-}
-function breakGlassPayload(now) {
-  const t = now === undefined ? nowS() : now;
-  return { k: 'bg', kf: keyFingerprint(breakGlassSecret()), iat: t, exp: t + BREAK_GLASS_TTL_S };
 }
 
 /* ---- Supabase (service role, server only) -------------------------------- */
@@ -154,16 +148,10 @@ function sameOrigin(req) {
 /** Resolve the caller. { actor } on success, { deny: [status, message] } otherwise. Never throws. */
 async function resolveActor(req) {
   const secret = sessionSecret();
-  if (!secret) return { deny: [503, 'WORKBENCH_SESSION_SECRET is not set on this deployment (32 characters or more).'] };
+  if (!secret) return { deny: [503, 'WORKBENCH_REFRESH_SECRET is not set on this deployment.'] };
   if (!sameOrigin(req)) return { deny: [401, 'Unauthorized'] };
   const s = unsign(readCookie(req), secret);
   if (!s) return { deny: [401, 'Unauthorized'] };
-
-  if (s.k === 'bg') {
-    const bg = breakGlassSecret();
-    if (!bg || !secretMatches(s.kf, keyFingerprint(bg))) return { deny: [401, 'Unauthorized'] };
-    return { actor: { kind: 'break-glass', actor: 'break-glass:shared-key', verified: false, personId: null, email: null, expiresAt: s.exp, freshAt: null } };
-  }
 
   const key = faradayServiceKey();
   if (!key) return { deny: [503, 'FARADAY_SERVICE_ROLE_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY) is not set on this deployment.'] };
@@ -189,13 +177,9 @@ async function requireAdmin(req, res) {
   return null;
 }
 
-/** Gate for the console (/admin and its data routes): a signed-in Owner only (D4). A break-glass
- *  session is not a person, so it gets the same bare 404 as no session at all. */
+/** Gate for the console (/admin and its data routes): the Owner only (D4). */
 async function requireOwner(req, res) {
-  const r = await resolveActor(req);
-  if (r.actor && r.actor.kind === 'owner') return r.actor;
-  res.status(404).json({ error: 'Not found' });
-  return null;
+  return requireAdmin(req, res);
 }
 
 function isFresh(actor, now) {
@@ -204,16 +188,16 @@ function isFresh(actor, now) {
   return t - actor.freshAt <= FRESH_S;
 }
 
-/** Step-up gate: an owner whose last email code is under 10 minutes old. Sends 403 and returns false otherwise. */
+/** Step-up gate: a sign-in under 10 minutes old. Sends 403 and returns false otherwise. */
 function requireFresh(actor, res) {
   if (isFresh(actor)) return true;
-  res.status(403).json({ error: 'step_up_required', message: 'Enter a fresh email code to do this.' });
+  res.status(403).json({ error: 'step_up_required', message: 'Enter the Workbench key again to do this.' });
   return false;
 }
 
 module.exports = {
-  COOKIE, OWNER_TTL_S, BREAK_GLASS_TTL_S, FRESH_S, PRODUCT, OWNER_ROLE,
-  normalizeEmail, isEmail, sessionSecret, breakGlassSecret, keyFingerprint,
-  sign, unsign, readCookie, setSessionCookie, clearSessionCookie, ownerPayload, breakGlassPayload,
+  COOKIE, OWNER_TTL_S, FRESH_S, PRODUCT, OWNER_ROLE,
+  normalizeEmail, isEmail, workbenchKey, ownerEmail, sessionSecret,
+  sign, unsign, readCookie, setSessionCookie, clearSessionCookie, ownerPayload,
   sbFetch, ownerAccess, writeAudit, sameOrigin, resolveActor, requireOperator, requireAdmin, requireOwner, isFresh, requireFresh
 };

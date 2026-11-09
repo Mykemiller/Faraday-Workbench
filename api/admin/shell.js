@@ -1,5 +1,5 @@
 /* The /admin pages (FDY-287). vercel.json rewrites /admin and /admin/<area> here. The Owner gate
- * runs first: no session, an expired session, a non-owner or a break-glass session all get a bare
+ * runs first: no session, an expired session, a non-owner all get a bare
  * 404, the same answer an unknown area gets. Nothing about the console is served to anyone else.
  */
 'use strict';

@@ -1,7 +1,7 @@
 /* Workbench Admin tab · subscriber and product management.
  *
  * Moved here from the League Office (/league-office/subscribers). Gated like the
- * other Workbench routes: an Owner session (email code) or a break-glass session,
+ * other Workbench routes: a signed-in Owner session,
  * see api/_auth.js (FDY-285). Fail-closed when unset. Reads and writes use the service key
  * held server-side; the browser never sees it.
  *

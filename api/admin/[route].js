@@ -2,7 +2,7 @@
  * route is a file in api/_admin/ plus one line here, and no route can forget its gate:
  * the gate runs HERE, before the route's code, and anything it refuses is a bare 404.
  *
- *   session   Owner or break-glass session      api/_admin/session.js (does its own requireAdmin)
+ *   session   signed-in Owner session      api/_admin/session.js (does its own requireAdmin)
  *   people    Owner only                        api/_admin/people.js
  *   audit     Owner only                        api/_admin/audit.js
  */

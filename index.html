@@ -399,24 +399,12 @@ body.js-views .view.is-active{border-top:0}
 <body>
 <dialog id="wb-signin" aria-labelledby="wb-si-title">
   <h2 id="wb-si-title">Sign in to the Workbench</h2>
-  <p id="wb-si-lede">Enter your email and we will send a one-time code. Owner access only.</p>
-  <form id="wb-si-email-form">
-    <input id="wb-si-email" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" aria-label="Email" required>
-    <button class="wbtn gold" type="submit">Send code</button>
-  </form>
-  <form id="wb-si-code-form" hidden>
-    <input id="wb-si-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*" placeholder="Code from the email" aria-label="Code from the email" required>
+  <p id="wb-si-lede">Enter your Workbench key. The session lasts 8 hours.</p>
+  <form id="wb-si-key-form">
+    <input id="wb-si-key" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Workbench key" aria-label="Workbench key" required>
     <button class="wbtn gold" type="submit">Sign in</button>
   </form>
   <div id="wb-si-msg" role="status" aria-live="polite"></div>
-  <details>
-    <summary>Email code not working? Use the break-glass key</summary>
-    <p style="margin-top:8px">For emergencies only. Every use is logged and emailed to the owner, and the session lasts 1 hour.</p>
-    <form id="wb-si-bg-form">
-      <input id="wb-si-bg" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Break-glass key" aria-label="Break-glass key" required>
-      <button class="wbtn" type="submit">Use key</button>
-    </form>
-  </details>
   <form method="dialog" style="justify-content:flex-end;margin:10px 0 0"><button class="wbtn" id="wb-si-close">Close</button></form>
 </dialog>
 <header>
@@ -764,17 +752,17 @@ function renderStorefronts(tiles,computedAt,staleAfterHours){
 let TILES=[], NOTES={}, DRAWER={slug:null,tab:"notes"};
 const fmtCT=ts=>{const d=new Date(ts); return isNaN(d)?"—":d.toLocaleString("en-US",{timeZone:"America/Chicago",month:"2-digit",day:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"})+" CT";};
 const shortDate=ts=>{const d=new Date(ts); return isNaN(d)?"—":d.toLocaleDateString("en-US",{timeZone:"America/Chicago",month:"2-digit",day:"2-digit",year:"2-digit"});};
-/* FDY-285 (ADM-0.2): the Workbench signs in with an email code. The session is an httpOnly
-   cookie set by /api/auth, so nothing secret is kept in this browser; the old shared key in
+/* FDY-285 (revised): the Workbench signs in with the Workbench key, typed once. The session is an
+   httpOnly cookie set by /api/auth, so nothing secret is kept in this browser; any old key left in
    localStorage is deleted on load. wbKey() keeps its name for its callers: it answers "may I
    call the API?" and opens the sign-in dialog when the answer is no. */
 const WB_AUTH={signedIn:false,kind:null,email:null,after:null,ready:null};
 function wbAuthSet(d){
   WB_AUTH.signedIn=!!(d&&d.signedIn); WB_AUTH.kind=WB_AUTH.signedIn?d.kind:null; WB_AUTH.email=WB_AUTH.signedIn?(d.email||null):null;
   const b=document.getElementById("wb-auth");
-  if(b){ b.textContent=!WB_AUTH.signedIn?"Sign in":(WB_AUTH.kind==="owner"?(WB_AUTH.email||"Owner"):"Break-glass")+" · Sign out";
-    b.dataset.state=WB_AUTH.signedIn?WB_AUTH.kind:"out"; }
-  const con=document.getElementById("wb-console"); if(con) con.hidden=WB_AUTH.kind!=="owner";   /* FDY-287: the console is Owner-only */
+  if(b){ b.textContent=!WB_AUTH.signedIn?"Sign in":(WB_AUTH.email||"Owner")+" · Sign out";
+    b.dataset.state=WB_AUTH.signedIn?"owner":"out"; }
+  const con=document.getElementById("wb-console"); if(con) con.hidden=!WB_AUTH.signedIn;   /* FDY-287: the console is Owner-only */
   const act=document.getElementById("isp-actor");
   if(act){ if(WB_AUTH.kind==="owner"&&WB_AUTH.email){ act.value=WB_AUTH.email; act.readOnly=true; } else act.readOnly=false; }
 }
@@ -794,13 +782,13 @@ function wbSignInSay(text,kind){ const m=document.getElementById("wb-si-msg"); i
 function wbSignInOpen(after){
   const dlg=document.getElementById("wb-signin"); if(!dlg) return;
   if(typeof after==="function") WB_AUTH.after=after;
-  document.getElementById("wb-si-code-form").hidden=true; wbSignInSay("");
+  wbSignInSay("");
   if(!dlg.open){ if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open",""); }
-  document.getElementById("wb-si-email").focus();
+  document.getElementById("wb-si-key").focus();
 }
 function wbSignedIn(d){
   wbAuthSet(d); const dlg=document.getElementById("wb-signin"); if(dlg&&dlg.open) dlg.close();
-  document.getElementById("wb-si-code").value=""; document.getElementById("wb-si-bg").value="";
+  document.getElementById("wb-si-key").value="";
   const after=WB_AUTH.after; WB_AUTH.after=null;
   if(after) after();
   else if(document.getElementById("tab-admin").getAttribute("aria-selected")==="true" && window.__admEnsure) window.__admEnsure();
@@ -812,21 +800,10 @@ function initWbAuth(){
     try{ await wbAuthCall({action:"sign_out"}); }catch(e){}
     wbAuthSet(null);
   });
-  document.getElementById("wb-si-email-form").addEventListener("submit",async e=>{ e.preventDefault();
-    const email=document.getElementById("wb-si-email").value.trim(); if(!email) return;
-    wbSignInSay("Sending…");
-    try{ const d=await wbAuthCall({action:"request_code",email}); wbSignInSay(d.message||"Check your email.");
-      document.getElementById("wb-si-code-form").hidden=false; document.getElementById("wb-si-code").focus(); }
-    catch(err){ wbSignInSay(err.message,"err"); } });
-  document.getElementById("wb-si-code-form").addEventListener("submit",async e=>{ e.preventDefault();
-    const email=document.getElementById("wb-si-email").value.trim(), code=document.getElementById("wb-si-code").value.trim();
+  document.getElementById("wb-si-key-form").addEventListener("submit",async e=>{ e.preventDefault();
+    const key=document.getElementById("wb-si-key").value.trim(); if(!key) return;
     wbSignInSay("Checking…");
-    try{ wbSignedIn(await wbAuthCall({action:"verify_code",email,code})); }
-    catch(err){ wbSignInSay(err.message,"err"); } });
-  document.getElementById("wb-si-bg-form").addEventListener("submit",async e=>{ e.preventDefault();
-    const key=document.getElementById("wb-si-bg").value.trim(); if(!key) return;
-    wbSignInSay("Checking…");
-    try{ wbSignedIn(await wbAuthCall({action:"break_glass",key})); }
+    try{ wbSignedIn(await wbAuthCall({action:"sign_in",key})); }
     catch(err){ wbSignInSay(err.message,"err"); } });
   WB_AUTH.ready=wbAuthRefresh();
 }

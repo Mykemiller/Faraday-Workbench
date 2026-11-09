@@ -2,7 +2,7 @@
  *
  *   GET  (Vercel cron, every 15 min)  Authorization: Bearer $CRON_SECRET
  *        retries notes in pending_sync / linear_pending last touched more than 2 minutes ago
- *   POST (the panel, when it opens)   Owner or break-glass session cookie
+ *   POST (the panel, when it opens)   signed-in Owner session cookie
  *        same, with a 30-second age so it never races the save request's own inline attempt
  *
  * After 10 attempts a note becomes `failed` and its last_error shows in the panel. A failed

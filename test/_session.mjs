@@ -1,19 +1,22 @@
-// Test helper (FDY-285): session cookies for route tests, and a fake of the three
-// services sign-in talks to (Supabase REST, Supabase Auth, Resend). No network.
+// Test helper (FDY-285, revised): session cookies for route tests, and a fake of the two
+// services sign-in talks to (Supabase REST and Resend). No network.
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const A = require('../api/_auth.js');
 
-export const SESSION_SECRET = 'test-session-secret-0123456789abcdef-xyz';
-export const SHARED_KEY = 's3cret-break-glass-key';
+export const SHARED_KEY = 's3cret-workbench-key';
+export const OWNER = 'owner@example.com';
+export const OWNER_ID = '11111111-1111-4111-8111-111111111111';
 
 export function configure() {
-  process.env.WORKBENCH_SESSION_SECRET = SESSION_SECRET;
   process.env.WORKBENCH_REFRESH_SECRET = SHARED_KEY;
+  process.env.WORKBENCH_OWNER_EMAIL = OWNER;
+  delete process.env.WORKBENCH_SESSION_SECRET;
 }
-export const cookieOf = (payload) => `${A.COOKIE}=${A.sign(payload, SESSION_SECRET)}`;
-/** A break-glass session cookie: needs no database read, so route tests can keep their own fetch stubs. */
-export const breakGlassHeaders = () => ({ cookie: cookieOf(A.breakGlassPayload()) });
+export const sessionSecret = () => A.sessionSecret();
+export const cookieOf = (payload) => `${A.COOKIE}=${A.sign(payload, A.sessionSecret())}`;
+/** A signed-in Owner's cookie header. Route tests use this instead of a stub fetch. */
+export const signedInHeaders = () => ({ cookie: cookieOf(A.ownerPayload(OWNER_ID, OWNER)) });
 export const ownerHeaders = (personId, email, now) => ({ cookie: cookieOf(A.ownerPayload(personId, email, now)) });
 
 export function mkRes() {
@@ -27,9 +30,9 @@ export function cookieFrom(res) {
   return v && !v.endsWith('=') ? v : '';
 }
 
-/** Fake Supabase + Resend. `world.access[email] = { role, status, expires_at, person_id }`. */
+/** Fake Supabase REST and Resend. `world.access[email] = { role, status, expires_at, person_id }`. */
 export function fakeWorld() {
-  const w = { access: {}, audit: [], otp: [], codes: {}, mail: [], failAudit: false, failAccess: false, failMail: false, calls: [] };
+  const w = { access: {}, audit: [], mail: [], failAudit: false, failAccess: false, failMail: false, calls: [] };
   w.fetch = async (url, init = {}) => {
     const u = new URL(url); const body = init.body ? JSON.parse(init.body) : {};
     const json = (b, s = 200) => ({ ok: s < 300, status: s, json: async () => b });
@@ -48,11 +51,6 @@ export function fakeWorld() {
     if (u.pathname === '/rest/v1/admin_audit') {
       if (w.failAudit) return json({ message: 'boom' }, 500);
       w.audit.push(body); return json(null, 201);
-    }
-    if (u.pathname === '/auth/v1/otp') { w.otp.push(body); w.codes[body.email] = '123456'; return json({}); }
-    if (u.pathname === '/auth/v1/verify') {
-      if (w.codes[body.email] && w.codes[body.email] === body.token) { delete w.codes[body.email]; return json({ access_token: 'at', user: { id: 'aaaaaaaa-0000-4000-8000-000000000001', email: body.email } }); }
-      return json({ error_code: 'otp_expired' }, 403);
     }
     throw new Error('unexpected fetch ' + u);
   };
