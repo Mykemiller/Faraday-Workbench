@@ -17,7 +17,7 @@ export const breakGlassHeaders = () => ({ cookie: cookieOf(A.breakGlassPayload()
 export const ownerHeaders = (personId, email, now) => ({ cookie: cookieOf(A.ownerPayload(personId, email, now)) });
 
 export function mkRes() {
-  const r = { code: 0, body: null, headers: {}, setHeader(k, v) { r.headers[k.toLowerCase()] = v; }, status(c) { r.code = c; return r; }, json(b) { r.body = b; return r; } };
+  const r = { code: 0, body: null, headers: {}, setHeader(k, v) { r.headers[k.toLowerCase()] = v; }, status(c) { r.code = c; return r; }, json(b) { r.body = b; return r; }, send(b) { r.body = b; return r; } };
   return r;
 }
 /** The cookie a response set, as a request header value ('' when cleared or absent). */

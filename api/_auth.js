@@ -189,6 +189,15 @@ async function requireAdmin(req, res) {
   return null;
 }
 
+/** Gate for the console (/admin and its data routes): a signed-in Owner only (D4). A break-glass
+ *  session is not a person, so it gets the same bare 404 as no session at all. */
+async function requireOwner(req, res) {
+  const r = await resolveActor(req);
+  if (r.actor && r.actor.kind === 'owner') return r.actor;
+  res.status(404).json({ error: 'Not found' });
+  return null;
+}
+
 function isFresh(actor, now) {
   if (!actor || actor.kind !== 'owner' || !Number.isFinite(actor.freshAt)) return false;
   const t = now === undefined ? nowS() : now;
@@ -206,5 +215,5 @@ module.exports = {
   COOKIE, OWNER_TTL_S, BREAK_GLASS_TTL_S, FRESH_S, PRODUCT, OWNER_ROLE,
   normalizeEmail, isEmail, sessionSecret, breakGlassSecret, keyFingerprint,
   sign, unsign, readCookie, setSessionCookie, clearSessionCookie, ownerPayload, breakGlassPayload,
-  sbFetch, ownerAccess, writeAudit, sameOrigin, resolveActor, requireOperator, requireAdmin, isFresh, requireFresh
+  sbFetch, ownerAccess, writeAudit, sameOrigin, resolveActor, requireOperator, requireAdmin, requireOwner, isFresh, requireFresh
 };
