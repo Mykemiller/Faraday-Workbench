@@ -1,5 +1,5 @@
 /* GET /api/admin/session (FDY-285). Served through api/admin/[route].js. requireAdmin() first,
- * so anything short of a valid session (Owner or break-glass) is a bare 404.
+ * so anything short of a valid session (signed-in Owner) is a bare 404.
  *
  *   GET -> { kind, email, personId, expiresAt, fresh }
  */

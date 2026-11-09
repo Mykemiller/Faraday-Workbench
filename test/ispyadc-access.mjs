@@ -61,13 +61,17 @@ console.log('PASS  config detection (names only)');
 
 // ---- gating ----
 const mkRes = () => { const r = { code: 0, body: null, setHeader() {}, status(c) { r.code = c; return r; }, json(b) { r.body = b; return r; } }; return r; };
-// FDY-285: the gate is a session cookie (Owner or break-glass), not the x-workbench-key header.
-delete process.env.WORKBENCH_SESSION_SECRET;
+// FDY-285: the gate is a signed-in Owner session cookie, not the x-workbench-key header.
+delete process.env.WORKBENCH_REFRESH_SECRET;
 let r = mkRes(); await api({ method: 'GET', headers: {} }, r); assert.equal(r.code, 503);
 const S = await import('./_session.mjs'); S.configure();
+process.env.FARADAY_SERVICE_ROLE_KEY = 'svc'; // the owner session is re-checked against estate_access_for on every request
+globalThis.fetch = async (url) => String(url).includes('/rpc/estate_access_for')
+  ? { ok: true, status: 200, json: async () => ({ person_id: S.OWNER_ID, product: 'workbench', role: 'owner', status: 'active', expires_at: null, usable: true }) }
+  : { ok: false, status: 500, json: async () => ({}) };
 r = mkRes(); await api({ method: 'GET', headers: { 'x-workbench-key': S.SHARED_KEY } }, r); assert.equal(r.code, 401);
 r = mkRes(); await api({ method: 'DELETE', headers: {} }, r); assert.equal(r.code, 405);
-const H = S.breakGlassHeaders();
+const H = S.signedInHeaders();
 delete process.env.ISPYADC_SUPABASE_URL; delete process.env.ISPYADC_SERVICE_ROLE_KEY;
 r = mkRes(); await api({ method: 'GET', headers: H }, r);
 assert.equal(r.code, 200); assert.equal(r.body.configured, false);
@@ -82,6 +86,7 @@ const calls = [];
 const existing = { id, email: 'tester@example.com', role: 'tester', status: 'active', expires_at: '2026-11-20T23:59:59Z', note: null, added_by: 'ops@example.com', created_at: '2026-11-06T00:00:00Z', updated_at: '2026-11-06T00:00:00Z' };
 let table = [existing];
 globalThis.fetch = async (url, init) => {
+  if (String(url).includes('/rpc/estate_access_for')) return { ok: true, status: 200, json: async () => ({ person_id: S.OWNER_ID, product: 'workbench', role: 'owner', status: 'active', expires_at: null, usable: true }) };
   const u = new URL(url); const method = (init && init.method) || 'GET';
   calls.push({ method, path: u.pathname + u.search, body: init && init.body ? JSON.parse(init.body) : null, headers: init && init.headers });
   assert.equal(u.origin, 'https://ispy.example.supabase.co', 'talks to the ISpyaDC project, not the estate project');
@@ -112,13 +117,13 @@ r = mkRes(); await api(body({ action: 'add', actor: 'Ops@Example.com', email: 'N
 assert.equal(r.code, 200, JSON.stringify(r.body));
 const ins = calls.find((c) => c.method === 'POST' && c.path.endsWith('/ispyadc_access'));
 assert.equal(ins.body.email, 'new@example.com'); assert.equal(ins.body.role, 'tester'); assert.equal(ins.body.status, 'active');
-assert.equal(ins.body.added_by, 'ops@example.com');
+assert.equal(ins.body.added_by, 'owner@example.com', 'the signed-in Owner is recorded, not the typed Acting-as value');
 const todayUtc = new Date().toISOString().slice(0, 10);
 assert.equal(ins.body.expires_at, defaultExpiry('tester', todayUtc) + 'T23:59:59Z', 'tester default expiry = today + 14');
 const au = calls.find((c) => c.method === 'POST' && c.path.endsWith('/ispyadc_access_audit'));
-assert.ok(au, 'an audit row is written'); assert.equal(au.body.action, 'add'); assert.equal(au.body.actor, 'ops@example.com');
+assert.ok(au, 'an audit row is written'); assert.equal(au.body.action, 'add'); assert.equal(au.body.actor, 'owner@example.com');
 assert.equal(au.body.email, 'new@example.com'); assert.equal(au.body.old_value, null); assert.equal(au.body.new_value.role, 'tester');
-console.log('PASS  add writes the grant and an audit row with the operator as actor');
+console.log('PASS  add writes the grant and an audit row with the signed-in Owner as actor');
 
 // FDY-285: a signed-in Owner is the actor; the typed "Acting as" value is ignored
 {
@@ -185,7 +190,7 @@ async function openAdmin(ispyGet) {
     if (req.method() === 'POST') { posted.push(JSON.parse(req.postData())); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, message: 'Done.' }) }); }
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ispyGet()) });
   });
-  await page.addInitScript(() => { window.__wbAuthProbe = true; }); await page.route('**/api/auth', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ signedIn: true, kind: 'break-glass', email: null, personId: null, fresh: false }) }));
+  await page.addInitScript(() => { window.__wbAuthProbe = true; }); await page.route('**/api/auth', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ signedIn: true, kind: 'owner', email: 'owner@example.com', personId: '11111111-1111-4111-8111-111111111111', fresh: true }) }));
   await page.goto(PAGE);
   await page.click('#tab-admin');
   await page.waitForSelector('#ispy-access');
@@ -223,18 +228,15 @@ async function openAdmin(ispyGet) {
   assert.equal(expDefault, plus14, 'tester default expiry shown');
   await page.selectOption('#isp-role', 'admin'); assert.equal(await page.inputValue('#isp-exp'), '', 'admin clears the default');
   await page.selectOption('#isp-role', 'tester'); assert.equal(await page.inputValue('#isp-exp'), plus14);
-  // add without an actor is refused client-side
-  await page.fill('#isp-email', 'New@Example.com'); await page.click('#isp-add');
-  await page.waitForFunction(() => /acting as/i.test(document.getElementById('isp-msg').textContent));
-  assert.equal(posted.length, 0);
   // duplicate is refused client-side too
-  await page.fill('#isp-actor', 'ops@example.com'); await page.fill('#isp-email', 'TESTER@example.com'); await page.click('#isp-add');
+  assert.equal(await page.getAttribute('#isp-actor', 'readonly') !== null, true, 'the Acting-as value is the signed-in Owner and cannot be typed');
+  await page.fill('#isp-email', 'TESTER@example.com'); await page.click('#isp-add');
   await page.waitForFunction(() => /already has a grant/.test(document.getElementById('isp-msg').textContent));
   assert.equal(posted.length, 0);
   // a real add posts the lowercased email, the role and the default expiry
   await page.fill('#isp-email', 'New@Example.com'); await page.click('#isp-add');
   await page.waitForFunction(() => document.getElementById('isp-msg').textContent === 'Done.');
-  assert.deepEqual(posted[0], { action: 'add', email: 'new@example.com', role: 'tester', expiresAt: plus14, actor: 'ops@example.com' });
+  assert.deepEqual(posted[0], { action: 'add', email: 'new@example.com', role: 'tester', expiresAt: plus14, actor: 'owner@example.com' });
   // revoke needs a confirm step
   await page.click(`button[data-isp="revoke"][data-id="${id}"]`);
   await page.waitForSelector(`button[data-isp="revoke-confirm"][data-id="${id}"]`);
@@ -244,11 +246,11 @@ async function openAdmin(ispyGet) {
   await page.click(`button[data-isp="revoke"][data-id="${id}"]`);
   await page.click(`button[data-isp="revoke-confirm"][data-id="${id}"]`);
   await page.waitForTimeout(200);
-  assert.deepEqual(posted[1], { action: 'revoke', id, actor: 'ops@example.com' });
+  assert.deepEqual(posted[1], { action: 'revoke', id, actor: 'owner@example.com' });
   // restore is one click
   await page.click('button[data-isp="restore"][data-id="33333333-3333-3333-3333-333333333333"]');
   await page.waitForTimeout(200);
-  assert.deepEqual(posted[2], { action: 'restore', id: '33333333-3333-3333-3333-333333333333', actor: 'ops@example.com' });
+  assert.deepEqual(posted[2], { action: 'restore', id: '33333333-3333-3333-3333-333333333333', actor: 'owner@example.com' });
   assert.deepEqual(errs, []);
   await page.close();
   console.log('PASS  page: list, search, 14-day default, actor required, duplicate refused, add payload, revoke confirm step, restore');

@@ -6,7 +6,7 @@
  * them. The service key never reaches the client bundle - it is read here
  * from a server-only env var and used only to POST to Supabase.
  *
- * Gating: an Owner session (email code) or a break-glass session, see
+ * Gating: a signed-in Owner session, see
  * api/_auth.js (FDY-285). If the session secret or the service key is absent
  * the route fails CLOSED with 503 - it never falls back to running
  * unauthenticated.
@@ -64,7 +64,7 @@ module.exports = async function handler(req, res) {
       error: 'FARADAY_SERVICE_ROLE_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY) is not set on this deployment. Recompute is disabled.'
     });
   }
-  // FDY-285: an Owner session (email code) or a break-glass session; 401/503 otherwise.
+  // FDY-285: a signed-in Owner session; 401/503 otherwise.
   if (!(await requireOperator(req, res))) return;
 
   // Fired in parallel: worst measured lane is scoring at 27.4s, so the wall

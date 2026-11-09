@@ -3,7 +3,7 @@
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
 import fs from 'node:fs'; import path from 'node:path'; import { fileURLToPath } from 'node:url';
-import { configure, mkRes, fakeWorld, ownerHeaders, breakGlassHeaders } from './_session.mjs';
+import { configure, mkRes, fakeWorld, ownerHeaders } from './_session.mjs';
 const require = createRequire(import.meta.url);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const A = require('../api/_auth.js');
@@ -45,7 +45,7 @@ function world() {
 {
   const w = world();
   const expired = ownerHeaders(OWNER_ID, OWNER, Math.floor(Date.now() / 1000) - A.OWNER_TTL_S - 5);
-  const others = { 'no session': {}, 'expired session': expired, 'non-owner (role admin)': ownerHeaders(ADMIN_ID, ADMIN), 'break-glass session': breakGlassHeaders(), 'forged cookie': { cookie: 'wb_session=x.y' } };
+  const others = { 'no session': {}, 'expired session': expired, 'non-owner (role admin)': ownerHeaders(ADMIN_ID, ADMIN), 'forged cookie': { cookie: 'wb_session=x.y' } };
   for (const [who, headers] of Object.entries(others)) {
     for (const area of [undefined, 'people', 'audit', 'console']) {
       const r = await call(shell, { method: 'GET', headers, query: { area } });
@@ -65,7 +65,7 @@ function world() {
   assert.equal((await call(shell, { method: 'POST', headers: h, query: {} })).code, 404, 'the page is GET only');
   w.access[OWNER].status = 'revoked';
   assert.equal((await call(shell, { method: 'GET', headers: h, query: {} })).code, 404, 'a revoked Owner loses the console at once');
-  console.log('PASS  shell renders for an Owner session; 404 for no session, expired, non-owner, break-glass, forged, revoked');
+  console.log('PASS  shell renders for an Owner session; 404 for no session, expired, non-owner, forged, revoked');
 }
 
 // ---- six areas, each with its own URL; only People and Audit have content ----
@@ -164,7 +164,7 @@ function world() {
   await refuse(owner, { rpc: 'estate_access_set', args: { p_actor: 'someone@else.io' } }, deps, 400, /p_actor is set by the helper/);
   await refuse(owner, { rpc: 'estate_access_set', args: { p_actor_verified: true } }, deps, 400, /set by the helper/);
   await refuse(owner, { rpc: 'estate_access_set', args: { p_reason: 'x' } }, deps, 400, /set by the helper/);
-  await refuse({ kind: 'break-glass', personId: null }, { rpc: 'estate_access_set', args: {} }, deps, 403, /Owner is required/);
+  await refuse({ kind: 'admin', personId: null }, { rpc: 'estate_access_set', args: {} }, deps, 403, /Owner is required/);
   await refuse(null, { rpc: 'estate_access_set', args: {} }, deps, 403, /Owner is required/);
   await refuse({ kind: 'owner', personId: 'typed@email.io' }, { rpc: 'estate_access_set', args: {} }, deps, 403, /Owner is required/);
   await refuse(owner, { rpc: 'estate_access_set', args: {} }, { client }, 503, /service key/);

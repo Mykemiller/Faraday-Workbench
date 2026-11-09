@@ -1,5 +1,5 @@
 /* Shared helpers for the Workbench API routes (CC-WORKBENCH-NOTES-LINEAR-1.0).
- * Gating lives in api/_auth.js (FDY-285): an Owner session or a break-glass session. */
+ * Gating lives in api/_auth.js (FDY-285): a signed-in Owner session. */
 'use strict';
 
 const crypto = require('crypto');

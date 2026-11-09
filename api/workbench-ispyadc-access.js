@@ -8,8 +8,7 @@
  *   ISPYADC_SUPABASE_URL        e.g. https://<ref>.supabase.co
  *   ISPYADC_SERVICE_ROLE_KEY    service role key for that project
  *
- * Gated like every other Workbench route: an Owner session (email code) or a
- * break-glass session, see api/_auth.js (FDY-285). Fail-closed when unset.
+ * Gated like every other Workbench route: a signed-in Owner session, see api/_auth.js (FDY-285). Fail-closed when unset.
  * When the two ISpyaDC variables are missing the route answers
  * { configured: false, missing: [names] } so the page can say so — no crash,
  * no secret in the message. Nothing here sets those values.
@@ -20,8 +19,7 @@
  *
  * Every write also inserts one ispyadc_access_audit row with the operator's
  * email as actor. For a signed-in Owner that is the session's verified email
- * (the typed value is ignored). Only a break-glass session, which has no person
- * behind it, still records the "Acting as" email the operator types.
+ * (the typed value is ignored).
  */
 'use strict';
 
@@ -164,8 +162,7 @@ async function handleGet(res, cfg) {
 async function handlePost(req, res, cfg, actor) {
   let body;
   try { body = await readJson(req); } catch (e) { return res.status(400).json({ error: 'Body is not JSON' }); }
-  // FDY-285: a signed-in Owner is the actor, whatever the page sent. Only a break-glass
-  // session (no person behind it) still uses the typed "Acting as" email.
+  // FDY-285: a signed-in Owner is the actor, whatever the page sent.
   if (actor && actor.kind === 'owner') body = { ...body, actor: actor.email };
   const today = new Date().toISOString().slice(0, 10);
   const p = parseWrite(body, today);
