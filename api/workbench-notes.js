@@ -3,7 +3,7 @@
  * Writes to public.workbench_product_notes, which anon and authenticated cannot
  * touch (RLS on, grants revoked). The page reads notes through the anon RPC
  * workbench_product_notes(); it writes only through here, with the service key
- * held server-side and the shared workbench secret as the gate.
+ * held server-side. The site-level Vercel SSO protection is the gate; no key header is checked here.
  *
  *   POST  { slug, kind: 'note'|'action', body, client_id?, source? }  -> inserts, returns the row
  *   PATCH { id, status: 'open'|'done' }           -> flips status, stamps done_at
@@ -16,7 +16,7 @@
  */
 'use strict';
 
-const { refuseUnlessKeyed, sb, readJson, faradayServiceKey } = require('./_wb.js');
+const { sb, readJson, faradayServiceKey } = require('./_wb.js');
 const TF = require('./_tfnotes.js');
 const { syncNote, depsFromEnv, COLS } = require('./_tfsync.js');
 
@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
     res.setHeader('Allow', 'POST, PATCH');
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  if (refuseUnlessKeyed(req, res)) return;
+  // No per-request key: the whole site sits behind Vercel SSO protection (set on the project).
 
   const serviceKey = faradayServiceKey();
   if (!serviceKey) return res.status(503).json({ error: 'FARADAY_SERVICE_ROLE_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY) is not set on this deployment.' });

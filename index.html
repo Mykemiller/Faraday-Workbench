@@ -858,19 +858,16 @@ function showRekey(method,payload,t){
 }
 async function noteWrite(method,payload,t){
   const msg=document.getElementById("note-msg");
-  const key=storedKey(); if(!key){ msg.className="dmsg"; msg.textContent="A Workbench key is needed to save. Your note is still here."; showRekey(method,payload,t); return; }
   NOTE_BUSY=true; const btn=document.getElementById("note-save"); if(btn) btn.disabled=true;
   msg.className="dmsg"; msg.textContent="Saving…";
   try{
-    const r=await fetch("/api/workbench-notes",{method,headers:{"Content-Type":"application/json","x-workbench-key":key},body:JSON.stringify(payload)});
+    const r=await fetch("/api/workbench-notes",{method,headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
     const d=await r.json().catch(()=>({}));
     if(method==="PATCH"){
-      if(r.status===401){ forgetKey(); msg.className="dmsg err"; msg.textContent="That key was not accepted. Enter the current Workbench key."; showRekey(method,payload,t); return; }
       if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
       await loadNotes(); openDrawer(t.slug,"notes"); return;
     }
     const st=r.ok?200:r.status; const out=TFO.interpretSave(st,d);
-    if(out.needKey){ forgetKey(); msg.className="dmsg err"; msg.textContent=out.message; showRekey(method,payload,t); return; }
     if(!out.clear){ msg.className="dmsg err"; msg.textContent=out.message; return; }
     TFO.clearDraft(LS,t.slug);
     await loadNotes(); openDrawer(t.slug,"notes");
