@@ -432,6 +432,7 @@ body.js-views .view.is-active{border-top:0}
       <button role="tab" id="tab-links"   aria-controls="links"   data-view="links">Links</button>
     </nav>
     <span class="priv">MYKE ONLY</span>
+    <a class="wbtn" id="wb-console" href="/admin" hidden style="text-decoration:none">Console</a>
     <button class="wbtn" id="wb-auth" type="button" aria-haspopup="dialog">Sign in</button>
   </div>
 </header>
@@ -773,6 +774,7 @@ function wbAuthSet(d){
   const b=document.getElementById("wb-auth");
   if(b){ b.textContent=!WB_AUTH.signedIn?"Sign in":(WB_AUTH.kind==="owner"?(WB_AUTH.email||"Owner"):"Break-glass")+" · Sign out";
     b.dataset.state=WB_AUTH.signedIn?WB_AUTH.kind:"out"; }
+  const con=document.getElementById("wb-console"); if(con) con.hidden=WB_AUTH.kind!=="owner";   /* FDY-287: the console is Owner-only */
   const act=document.getElementById("isp-actor");
   if(act){ if(WB_AUTH.kind==="owner"&&WB_AUTH.email){ act.value=WB_AUTH.email; act.readOnly=true; } else act.readOnly=false; }
 }

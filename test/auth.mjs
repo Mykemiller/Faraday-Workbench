@@ -3,12 +3,13 @@
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
 import fs from 'node:fs'; import path from 'node:path'; import { fileURLToPath } from 'node:url';
-import { configure, SESSION_SECRET, SHARED_KEY, cookieOf, mkRes, cookieFrom, fakeWorld, ownerHeaders, breakGlassHeaders } from './_session.mjs';
+import { configure, SESSION_SECRET, SHARED_KEY, mkRes, cookieFrom, fakeWorld, ownerHeaders } from './_session.mjs';
 const require = createRequire(import.meta.url);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const A = require('../api/_auth.js');
 const auth = require('../api/auth.js');
-const adminSession = require('../api/admin/session.js');
+const adminRouter = require('../api/admin/[route].js');
+const adminSession = (req, res) => adminRouter({ ...req, query: { route: 'session' } }, res);
 const subscribers = require('../api/workbench-subscribers.js');
 
 const OWNER = 'owner@example.com', OWNER_ID = '11111111-1111-4111-8111-111111111111';
@@ -209,20 +210,25 @@ let ownerCookie;
 // ---- quality gates ----
 {
   freshWorld();
+  // Every function file under api/admin/, and every route name the router serves (plus an unknown one).
   const dir = path.join(HERE, '..', 'api', 'admin');
   const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith('.js') ? [path.join(d, e.name)] : []);
-  const routes = walk(dir);
-  assert.ok(routes.length >= 1);
-  for (const f of routes) {
-    const h = require(f);
+  const targets = [];
+  for (const f of walk(dir)) {
+    const h = require(f); const rel = path.relative(dir, f);
+    if (h.ROUTES) for (const name of [...Object.keys(h.ROUTES), 'no-such-route']) targets.push([`${rel} -> ${name}`, h, { route: name }]);
+    else for (const area of [undefined, 'people', 'audit']) targets.push([`${rel} area=${area || 'home'}`, h, { area }]);
+  }
+  assert.ok(targets.length >= 2);
+  for (const [label, h, query] of targets) {
     for (const method of ['GET', 'POST', 'PATCH', 'DELETE']) {
       for (const headers of [{}, { 'x-workbench-key': SHARED_KEY }, { cookie: 'wb_session=forged.forged' }, { authorization: 'Bearer svc' }]) {
-        const r = await call(h, { method, headers, body: {} });
-        assert.equal(r.code, 404, `${path.relative(dir, f)} ${method} unauthenticated must be 404, got ${r.code}`);
+        const r = await call(h, { method, headers, query, body: {} });
+        assert.equal(r.code, 404, `${label} ${method} unauthenticated must be 404, got ${r.code}`);
       }
     }
   }
-  console.log(`PASS  gate: every /api/admin/* route (${routes.length}) answers 404 without a session, on every method`);
+  console.log(`PASS  gate: every /api/admin/* route (${targets.length}) answers 404 without a session, on every method`);
   const html = fs.readFileSync(path.join(HERE, '..', 'index.html'), 'utf8');
   assert.equal(/service_role/i.test(html), false, 'index.html must not contain service_role / SERVICE_ROLE');
   assert.equal(/wb\.refresh\.key["']\s*,/.test(html), false, 'the shared key is no longer stored in the browser');

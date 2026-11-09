@@ -21,5 +21,15 @@
       "path": "/api/thoughtforge-sync",
       "schedule": "*/15 * * * *"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/admin",
+      "destination": "/api/admin/shell"
+    },
+    {
+      "source": "/admin/:area",
+      "destination": "/api/admin/shell?area=:area"
+    }
   ]
 }

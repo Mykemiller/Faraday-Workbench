@@ -53,6 +53,7 @@ assert.equal(await page.locator('#wb-signin[open]').count(), 1);
 await page.fill('#wb-si-code', '123456'); await page.click('#wb-si-code-form button');
 await page.waitForFunction(() => !document.getElementById('wb-signin').open);
 assert.match(await page.textContent('#wb-auth'), /owner@example\.com · Sign out/);
+assert.equal(await page.isVisible('#wb-console'), true); assert.equal(await page.getAttribute('#wb-console', 'href'), '/admin');
 await page.waitForFunction(() => document.getElementById('isp-actor').readOnly === true);
 assert.ok(subsCalls >= 1, 'the Admin tab loads once signed in');
 assert.deepEqual(posts.map((p) => p.action), ['request_code', 'verify_code', 'verify_code']);
@@ -73,6 +74,7 @@ await page.waitForFunction(() => /Unauthorized/.test(document.getElementById('wb
 await page.fill('#wb-si-bg', 'the-key'); await page.click('#wb-si-bg-form button');
 await page.waitForFunction(() => !document.getElementById('wb-signin').open);
 assert.match(await page.textContent('#wb-auth'), /Break-glass · Sign out/);
+assert.equal(await page.isHidden('#wb-console'), true, 'the console link is for an Owner session only');
 assert.equal(await page.inputValue('#wb-si-bg'), '', 'the key is cleared from the field');
 console.log('PASS  break-glass key path: wrong key refused, right key gives a labelled break-glass session');
 

@@ -1,5 +1,5 @@
-/* GET /api/admin/session (FDY-285). The first route under /api/admin/*, and the pattern for the
- * rest: requireAdmin() first, so anything short of a valid session is a bare 404.
+/* GET /api/admin/session (FDY-285). Served through api/admin/[route].js. requireAdmin() first,
+ * so anything short of a valid session (Owner or break-glass) is a bare 404.
  *
  *   GET -> { kind, email, personId, expiresAt, fresh }
  */
