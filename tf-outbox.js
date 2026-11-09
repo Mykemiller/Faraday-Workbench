@@ -64,7 +64,7 @@
       else if (s) msg = 'Saved · Linear issue pending, it will retry automatically.';
       return { clear: true, needKey: false, message: msg };
     }
-    if (status === 401) return { clear: false, needKey: true, message: 'That key was not accepted. Your note is still here. Enter the current Workbench key to save it.' };
+    if (status === 401) return { clear: false, needKey: true, message: 'You are signed out. Your note is still here. Sign in to save it.' };
     var err = (json && json.error) || ('HTTP ' + status);
     return { clear: false, needKey: false, message: 'Not saved: ' + err + '. Your note is still here; press Save to try again.' };
   }

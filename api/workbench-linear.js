@@ -16,7 +16,7 @@
  */
 'use strict';
 
-const { refuseUnlessKeyed } = require('./_wb.js');
+const { requireOperator } = require('./_auth.js');
 const { issueHasPrompt } = require('../fix-prompt.js');
 
 const QUERY = `
@@ -47,7 +47,7 @@ async function handler(req, res) {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  if (refuseUnlessKeyed(req, res)) return;
+  if (!(await requireOperator(req, res))) return;
 
   const apiKey = process.env.LINEAR_API_KEY;
   if (!apiKey) {

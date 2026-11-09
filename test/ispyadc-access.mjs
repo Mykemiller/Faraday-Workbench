@@ -61,18 +61,19 @@ console.log('PASS  config detection (names only)');
 
 // ---- gating ----
 const mkRes = () => { const r = { code: 0, body: null, setHeader() {}, status(c) { r.code = c; return r; }, json(b) { r.body = b; return r; } }; return r; };
-delete process.env.WORKBENCH_REFRESH_SECRET;
+// FDY-285: the gate is a session cookie (Owner or break-glass), not the x-workbench-key header.
+delete process.env.WORKBENCH_SESSION_SECRET;
 let r = mkRes(); await api({ method: 'GET', headers: {} }, r); assert.equal(r.code, 503);
-process.env.WORKBENCH_REFRESH_SECRET = 's3cret';
-r = mkRes(); await api({ method: 'GET', headers: { 'x-workbench-key': 'wrong' } }, r); assert.equal(r.code, 401);
+const S = await import('./_session.mjs'); S.configure();
+r = mkRes(); await api({ method: 'GET', headers: { 'x-workbench-key': S.SHARED_KEY } }, r); assert.equal(r.code, 401);
 r = mkRes(); await api({ method: 'DELETE', headers: {} }, r); assert.equal(r.code, 405);
-const H = { 'x-workbench-key': 's3cret' };
+const H = S.breakGlassHeaders();
 delete process.env.ISPYADC_SUPABASE_URL; delete process.env.ISPYADC_SERVICE_ROLE_KEY;
 r = mkRes(); await api({ method: 'GET', headers: H }, r);
 assert.equal(r.code, 200); assert.equal(r.body.configured, false);
 assert.deepEqual(r.body.missing, ['ISPYADC_SUPABASE_URL', 'ISPYADC_SERVICE_ROLE_KEY']);
-assert.ok(!JSON.stringify(r.body).includes('s3cret'));
-console.log('PASS  gating (503 unset, 401 wrong key, 405 method, 200 not-configured with names only)');
+assert.ok(!JSON.stringify(r.body).includes(S.SHARED_KEY));
+console.log('PASS  gating (503 unset, 401 raw shared key, 405 method, 200 not-configured with names only)');
 
 // ---- handler against a recording fetch stub (the ISpyaDC project is never reached) ----
 process.env.ISPYADC_SUPABASE_URL = 'https://ispy.example.supabase.co';
@@ -118,6 +119,25 @@ const au = calls.find((c) => c.method === 'POST' && c.path.endsWith('/ispyadc_ac
 assert.ok(au, 'an audit row is written'); assert.equal(au.body.action, 'add'); assert.equal(au.body.actor, 'ops@example.com');
 assert.equal(au.body.email, 'new@example.com'); assert.equal(au.body.old_value, null); assert.equal(au.body.new_value.role, 'tester');
 console.log('PASS  add writes the grant and an audit row with the operator as actor');
+
+// FDY-285: a signed-in Owner is the actor; the typed "Acting as" value is ignored
+{
+  calls.length = 0;
+  const OWNER_ID = '11111111-1111-4111-8111-111111111111';
+  const inner = globalThis.fetch; process.env.FARADAY_SERVICE_ROLE_KEY = 'svc';
+  globalThis.fetch = async (url, init) => String(url).includes('/rpc/estate_access_for')
+    ? { ok: true, status: 200, json: async () => ({ person_id: OWNER_ID, product: 'workbench', role: 'owner', status: 'active', expires_at: null, usable: true }) }
+    : inner(url, init);
+  r = mkRes(); await api({ method: 'POST', headers: S.ownerHeaders(OWNER_ID, 'owner@example.com'), body: { action: 'add', actor: 'someone-else@example.com', email: 'viaowner@example.com', role: 'user' } }, r);
+  assert.equal(r.code, 200, JSON.stringify(r.body));
+  const auO = calls.find((c) => c.method === 'POST' && c.path.endsWith('/ispyadc_access_audit'));
+  assert.equal(auO.body.actor, 'owner@example.com', 'the session identity is recorded, not the typed email');
+  assert.equal(calls.find((c) => c.method === 'POST' && c.path.endsWith('/ispyadc_access')).body.added_by, 'owner@example.com');
+  r = mkRes(); await api({ method: 'POST', headers: S.ownerHeaders(OWNER_ID, 'owner@example.com'), body: { action: 'add', email: 'noactor@example.com', role: 'user' } }, r);
+  assert.equal(r.code, 200, 'an Owner need not type an actor at all');
+  globalThis.fetch = inner;
+  console.log('PASS  Owner session: audit actor is the signed-in identity, a typed actor is ignored');
+}
 
 // revoke: PATCH + audit with before/after
 calls.length = 0;
@@ -165,7 +185,7 @@ async function openAdmin(ispyGet) {
     if (req.method() === 'POST') { posted.push(JSON.parse(req.postData())); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, message: 'Done.' }) }); }
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ispyGet()) });
   });
-  await page.addInitScript(() => localStorage.setItem('wb.refresh.key', 'k1'));
+  await page.addInitScript(() => { window.__wbAuthProbe = true; }); await page.route('**/api/auth', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ signedIn: true, kind: 'break-glass', email: null, personId: null, fresh: false }) }));
   await page.goto(PAGE);
   await page.click('#tab-admin');
   await page.waitForSelector('#ispy-access');

@@ -22,7 +22,7 @@ await serve('workbench_storefront', sf);
 const mk = (identifier, priority, has_prompt) => ({ identifier, title: 'T ' + identifier, url: 'https://linear.app/x/' + identifier, priority, priority_label: ['None', 'Urgent', 'High', 'Medium', 'Low'][priority], state: 'Backlog', state_type: 'backlog', assignee: null, labels: ['Estate Security'], has_prompt, updated_at: '2026-11-05T00:00:00Z' });
 let seenUrl = '';
 await page.route('**/api/workbench-linear*', (r) => { seenUrl = r.request().url(); r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, count: 3, prompt_count: 2, fetched_at: new Date().toISOString(), issues: [mk('FDY-211', 4, true), mk('FDY-205', 1, true), mk('FDY-68', 3, false)] }) }); });
-await page.addInitScript(() => { try { localStorage.setItem('wb.refresh.key', 'k'); } catch (e) {} window.prompt = () => 'k'; });
+await page.addInitScript(() => { window.__wbAuthProbe = true; }); await page.route('**/api/auth', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ signedIn: true, kind: 'owner', email: 'owner@example.com', personId: '11111111-1111-4111-8111-111111111111', fresh: true }) }));
 
 await page.goto(PAGE_URL);
 await page.waitForSelector('#storefronts .card .abtn[data-tab="issues"]', { timeout: 15000 });

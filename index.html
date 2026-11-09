@@ -38,6 +38,17 @@ header{border-bottom:1px solid var(--hair);background:var(--forest);position:sti
 nav{margin-left:auto;display:flex;gap:26px;font-size:14px}
 nav a{text-decoration:none;color:var(--warm-dim)}
 nav a:hover,nav a:focus-visible{color:var(--gold-bright)}
+#wb-signin{margin:auto;background:#14110d;color:inherit;border:1px solid var(--gold);border-radius:4px;padding:22px;width:min(420px,92vw)}
+#wb-signin::backdrop{background:rgba(0,0,0,.62)}
+#wb-signin h2{font-family:'IBM Plex Serif',serif;font-size:20px;margin:0 0 6px}
+#wb-signin p{font-size:13px;line-height:1.5;margin:0 0 12px;opacity:.85}
+#wb-signin form{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+#wb-signin form[hidden]{display:none}
+#wb-signin input{flex:1 1 200px;min-width:0;background:#0d0b08;color:inherit;border:1px solid rgba(196,146,42,.4);border-radius:2px;padding:8px 10px;font:inherit;font-size:16px}
+#wb-signin details{margin-top:14px;font-size:12px}
+#wb-signin summary{cursor:pointer;opacity:.7}
+#wb-si-msg{min-height:18px;font-size:13px}
+#wb-si-msg.err{color:#e08a7a}
 .priv{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.2em;border:1px solid var(--gold);color:var(--gold);padding:4px 10px;border-radius:2px}
 
 /* hero strip */
@@ -386,6 +397,28 @@ body.js-views .view.is-active{border-top:0}
 </style>
 </head>
 <body>
+<dialog id="wb-signin" aria-labelledby="wb-si-title">
+  <h2 id="wb-si-title">Sign in to the Workbench</h2>
+  <p id="wb-si-lede">Enter your email and we will send a one-time code. Owner access only.</p>
+  <form id="wb-si-email-form">
+    <input id="wb-si-email" type="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" aria-label="Email" required>
+    <button class="wbtn gold" type="submit">Send code</button>
+  </form>
+  <form id="wb-si-code-form" hidden>
+    <input id="wb-si-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*" placeholder="Code from the email" aria-label="Code from the email" required>
+    <button class="wbtn gold" type="submit">Sign in</button>
+  </form>
+  <div id="wb-si-msg" role="status" aria-live="polite"></div>
+  <details>
+    <summary>Email code not working? Use the break-glass key</summary>
+    <p style="margin-top:8px">For emergencies only. Every use is logged and emailed to the owner, and the session lasts 1 hour.</p>
+    <form id="wb-si-bg-form">
+      <input id="wb-si-bg" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Break-glass key" aria-label="Break-glass key" required>
+      <button class="wbtn" type="submit">Use key</button>
+    </form>
+  </details>
+  <form method="dialog" style="justify-content:flex-end;margin:10px 0 0"><button class="wbtn" id="wb-si-close">Close</button></form>
+</dialog>
 <header>
   <div class="wrap hbar">
     <svg class="bolt" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="#C4922A"/></svg>
@@ -399,6 +432,7 @@ body.js-views .view.is-active{border-top:0}
       <button role="tab" id="tab-links"   aria-controls="links"   data-view="links">Links</button>
     </nav>
     <span class="priv">MYKE ONLY</span>
+    <button class="wbtn" id="wb-auth" type="button" aria-haspopup="dialog">Sign in</button>
   </div>
 </header>
 
@@ -724,18 +758,78 @@ function renderStorefronts(tiles,computedAt,staleAfterHours){
 /* ===== CC-WORKBENCH-NOTES-LINEAR-1.0 — notes, actions, Linear drill-down =======
    Reads: notes via the anon RPC workbench_product_notes(); tiles carry updated_at,
    linear_project_id and linear_query since the same CC. Writes and Linear reads go
-   through /api/workbench-notes and /api/workbench-linear, gated by the same
-   x-workbench-key the Recompute button already stores in this browser. */
+   through /api/workbench-notes and /api/workbench-linear. Linear reads need the
+   signed-in session (FDY-285); nothing secret is stored in this browser. */
 let TILES=[], NOTES={}, DRAWER={slug:null,tab:"notes"};
 const fmtCT=ts=>{const d=new Date(ts); return isNaN(d)?"—":d.toLocaleString("en-US",{timeZone:"America/Chicago",month:"2-digit",day:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"})+" CT";};
 const shortDate=ts=>{const d=new Date(ts); return isNaN(d)?"—":d.toLocaleDateString("en-US",{timeZone:"America/Chicago",month:"2-digit",day:"2-digit",year:"2-digit"});};
-function wbKey(){
-  let key=null; try{ key=localStorage.getItem(WB_KEY_STORE); }catch(e){}
-  if(!key){ key=(prompt("Workbench key (stored in this browser only):")||"").trim(); if(!key) return null;
-    try{ localStorage.setItem(WB_KEY_STORE,key); }catch(e){} }
-  return key;
+/* FDY-285 (ADM-0.2): the Workbench signs in with an email code. The session is an httpOnly
+   cookie set by /api/auth, so nothing secret is kept in this browser; the old shared key in
+   localStorage is deleted on load. wbKey() keeps its name for its callers: it answers "may I
+   call the API?" and opens the sign-in dialog when the answer is no. */
+const WB_AUTH={signedIn:false,kind:null,email:null,after:null,ready:null};
+function wbAuthSet(d){
+  WB_AUTH.signedIn=!!(d&&d.signedIn); WB_AUTH.kind=WB_AUTH.signedIn?d.kind:null; WB_AUTH.email=WB_AUTH.signedIn?(d.email||null):null;
+  const b=document.getElementById("wb-auth");
+  if(b){ b.textContent=!WB_AUTH.signedIn?"Sign in":(WB_AUTH.kind==="owner"?(WB_AUTH.email||"Owner"):"Break-glass")+" · Sign out";
+    b.dataset.state=WB_AUTH.signedIn?WB_AUTH.kind:"out"; }
+  const act=document.getElementById("isp-actor");
+  if(act){ if(WB_AUTH.kind==="owner"&&WB_AUTH.email){ act.value=WB_AUTH.email; act.readOnly=true; } else act.readOnly=false; }
 }
-function forgetKey(){ try{ localStorage.removeItem(WB_KEY_STORE); }catch(e){} }
+async function wbAuthCall(body){
+  const r=await fetch("/api/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+  return d;
+}
+async function wbAuthRefresh(){
+  /* Opened from disk (file://) there is no API to ask; the page tests set __wbAuthProbe to intercept the call. */
+  if(!/^https?:$/.test(location.protocol) && window.__wbAuthProbe!==true){ wbAuthSet(null); return; }
+  try{ const r=await fetch("/api/auth",{headers:{"Accept":"application/json"}}); const d=await r.json(); wbAuthSet(r.ok?d:null); }
+  catch(e){ wbAuthSet(null); }
+}
+function wbSignInSay(text,kind){ const m=document.getElementById("wb-si-msg"); if(m){ m.textContent=text||""; m.className=kind||""; } }
+function wbSignInOpen(after){
+  const dlg=document.getElementById("wb-signin"); if(!dlg) return;
+  if(typeof after==="function") WB_AUTH.after=after;
+  document.getElementById("wb-si-code-form").hidden=true; wbSignInSay("");
+  if(!dlg.open){ if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open",""); }
+  document.getElementById("wb-si-email").focus();
+}
+function wbSignedIn(d){
+  wbAuthSet(d); const dlg=document.getElementById("wb-signin"); if(dlg&&dlg.open) dlg.close();
+  document.getElementById("wb-si-code").value=""; document.getElementById("wb-si-bg").value="";
+  const after=WB_AUTH.after; WB_AUTH.after=null;
+  if(after) after();
+  else if(document.getElementById("tab-admin").getAttribute("aria-selected")==="true" && window.__admEnsure) window.__admEnsure();
+}
+function initWbAuth(){
+  try{ localStorage.removeItem("wb.refresh.key"); }catch(e){}
+  document.getElementById("wb-auth").addEventListener("click",async()=>{
+    if(!WB_AUTH.signedIn){ wbSignInOpen(); return; }
+    try{ await wbAuthCall({action:"sign_out"}); }catch(e){}
+    wbAuthSet(null);
+  });
+  document.getElementById("wb-si-email-form").addEventListener("submit",async e=>{ e.preventDefault();
+    const email=document.getElementById("wb-si-email").value.trim(); if(!email) return;
+    wbSignInSay("Sending…");
+    try{ const d=await wbAuthCall({action:"request_code",email}); wbSignInSay(d.message||"Check your email.");
+      document.getElementById("wb-si-code-form").hidden=false; document.getElementById("wb-si-code").focus(); }
+    catch(err){ wbSignInSay(err.message,"err"); } });
+  document.getElementById("wb-si-code-form").addEventListener("submit",async e=>{ e.preventDefault();
+    const email=document.getElementById("wb-si-email").value.trim(), code=document.getElementById("wb-si-code").value.trim();
+    wbSignInSay("Checking…");
+    try{ wbSignedIn(await wbAuthCall({action:"verify_code",email,code})); }
+    catch(err){ wbSignInSay(err.message,"err"); } });
+  document.getElementById("wb-si-bg-form").addEventListener("submit",async e=>{ e.preventDefault();
+    const key=document.getElementById("wb-si-bg").value.trim(); if(!key) return;
+    wbSignInSay("Checking…");
+    try{ wbSignedIn(await wbAuthCall({action:"break_glass",key})); }
+    catch(err){ wbSignInSay(err.message,"err"); } });
+  WB_AUTH.ready=wbAuthRefresh();
+}
+function wbKey(){ if(WB_AUTH.signedIn) return "session"; wbSignInOpen(); return null; }
+function forgetKey(){ wbAuthSet(null); }
 /* CC-WORKBENCH-TILE-ISSUE-BINDING-1.0 (FDY-245): a tile is Linear-bound by a
    project, a title query, or explicit pinned issue keys — any one of the three.
    The storefront payload also carries linear_feed = bound | no_feed. */
@@ -800,7 +894,7 @@ function openDrawer(slug,tab){
 const TFO=window.TfOutbox;
 const LS=(()=>{ try{ localStorage.setItem("_t","1"); localStorage.removeItem("_t"); return localStorage; }catch(e){ const m={}; return {getItem:k=>m[k]??null,setItem:(k,v)=>{m[k]=String(v);},removeItem:k=>{delete m[k];}}; } })();
 let NOTE_BUSY=false, TF_RETRIED={};
-function storedKey(){ try{ return (localStorage.getItem(WB_KEY_STORE)||"").trim()||null; }catch(e){ return null; } }
+function storedKey(){ return WB_AUTH.signedIn?"session":null; }
 function syncChipHtml(n){
   const c=TFO.syncChip(n); if(!c) return "";
   const inner=c.url?`<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.text)} ↗</a>`:esc(c.text);
@@ -846,16 +940,6 @@ function wireMic(btn,ta,srcSel,keep){
     btn.classList.add("on"); btn.textContent="Stop"; srcSel.value="voice"; keep(); rec.start();
   });
 }
-function showRekey(method,payload,t){
-  const box=document.getElementById("note-rekey"); if(!box) return;
-  box.innerHTML=`<form class="rekey" id="rekey-form"><input id="rekey-input" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Workbench key" aria-label="Workbench key">
-    <button class="abtn gold" type="submit">Save key &amp; retry</button></form>`;
-  const inp=box.querySelector("#rekey-input"); inp.focus();
-  box.querySelector("#rekey-form").addEventListener("submit",e=>{e.preventDefault();
-    const k=inp.value.trim(); if(!k) return;
-    try{ localStorage.setItem(WB_KEY_STORE,k); }catch(err){}
-    box.innerHTML=""; noteWrite(method,payload,t);});
-}
 async function noteWrite(method,payload,t){
   const msg=document.getElementById("note-msg");
   NOTE_BUSY=true; const btn=document.getElementById("note-save"); if(btn) btn.disabled=true;
@@ -876,9 +960,9 @@ async function noteWrite(method,payload,t){
   finally{ NOTE_BUSY=false; const b2=document.getElementById("note-save"); if(b2) b2.disabled=false; }
 }
 async function retryPending(t){
-  TF_RETRIED[t.slug]=true; const key=storedKey(); if(!key) return;
+  TF_RETRIED[t.slug]=true; await WB_AUTH.ready; if(!storedKey()) return;
   try{
-    const r=await fetch("/api/thoughtforge-sync",{method:"POST",headers:{"Content-Type":"application/json","x-workbench-key":key},body:"{}"});
+    const r=await fetch("/api/thoughtforge-sync",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
     const d=await r.json().catch(()=>({}));
     if(r.ok&&d.considered){ await loadNotes(); if(DRAFT_OPEN(t.slug)) openDrawer(t.slug,"notes"); }
   }catch(e){ /* the cron retries too */ }
@@ -887,12 +971,12 @@ async function retryPending(t){
 const DRAFT_OPEN=slug=>DRAWER.slug===slug&&DRAWER.tab==="notes"&&document.getElementById("drawer").classList.contains("open");
 async function renderIssues(t){
   const body=document.getElementById("drawer-body"); body.innerHTML='<div class="dmsg">Loading open issues from Linear…</div>';
-  const key=wbKey(); if(!key){ body.innerHTML='<div class="dmsg err">A workbench key is needed to read Linear.</div>'; return; }
+  await WB_AUTH.ready; if(!wbKey()){ body.innerHTML='<div class="dmsg err">Sign in to read Linear.</div>'; return; }
   const qs=linearQs(t);
   try{
-    const r=await fetch(`/api/workbench-linear?${qs}`,{headers:{"x-workbench-key":key}});
+    const r=await fetch(`/api/workbench-linear?${qs}`);
     const d=await r.json().catch(()=>({}));
-    if(r.status===401){ forgetKey(); throw new Error("Key rejected — it has been cleared; try again."); }
+    if(r.status===401){ forgetKey(); throw new Error("You are signed out. Sign in and try again."); }
     if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
     const keys=Array.isArray(t.linear_issue_keys)?t.linear_issue_keys:[];
     const scope=t.linear_label?`label ${esc(t.linear_label)} · highest priority first`:[t.linear_project_id?`project ${esc(t.jira_key)}`:"", t.linear_query?`title search “${esc(t.linear_query)}”`:"", keys.length?`${keys.length} pinned`:""].filter(Boolean).join(" + ");
@@ -1519,7 +1603,7 @@ function renderScoringAge(p){
   const el=document.getElementById("scoring-age");
   if(!p.computed_at){
     el.innerHTML=caveat("bad","Payload age","No computed_at on the cache — the refresh has never run.",
-      "Force one: select public.workbench_scoring_panels_refresh(); (service_role)");
+      "Force one: select public.workbench_scoring_panels_refresh(); (service role)");
     return;
   }
   const a=agoText(p.computed_at);
@@ -1921,12 +2005,11 @@ async function loadIdf(){
 /* --- CC-WORKBENCH-FINDINGS-REMEDIATION-1.0 refresh controls --------------
    Re-read  : re-runs the five read RPCs (which serve the cron-refreshed cache
               rows) and recomposes findings. Sub-second. Writes NOTHING.
-   Recompute: server-side only. The four refresh RPCs are service_role-only, so
+   Recompute: server-side only. The four refresh RPCs are service-role-only, so
               the browser cannot call them; /api/workbench-recompute holds the
               service key and is gated by a shared secret. Health is excluded -
               cron 33 refreshes it every 5 minutes and it is the slowest lane
               (114s worst case measured over 14 days). */
-const WB_KEY_STORE="wb.refresh.key";
 const RECOMPUTE_LANES=["scoring","idf","storefront","forecast"];
 
 async function syncFindings(){
@@ -1973,18 +2056,18 @@ async function recompute(){
     +"This writes to the cache tables and typically takes ~30 seconds.\n\n"
     +"Health is excluded — cron 33 already refreshes it every 5 minutes.\n\nProceed?")) return;
 
-  const key=wbKey(); if(!key) return;
+  await WB_AUTH.ready; if(!wbKey()) return;
 
   RECOMPUTE_LANES.forEach(x=>BUSY.add(x)); renderTriage();
   let ok=false;
   try{
     const r=await fetch("/api/workbench-recompute",{
-      method:"POST", headers:{"Content-Type":"application/json","x-workbench-key":key}
+      method:"POST", headers:{"Content-Type":"application/json"}
     });
     const d=await r.json().catch(()=>({}));
     if(r.status===401){
-      try{ localStorage.removeItem(WB_KEY_STORE); }catch(e){}
-      alert("Refresh key rejected. It has been cleared — press Recompute again to re-enter it.");
+      forgetKey();
+      alert("You are signed out. Sign in, then press Recompute again.");
     } else if(r.status===503){
       alert("Recompute is not configured on this deployment.\n\n"+((d&&d.error)||"Missing server env var."));
     } else if(!r.ok){
@@ -2004,17 +2087,17 @@ async function recompute(){
 }
 
 /* ===== Admin tab — subscribers and product access =============================
-   Reads and writes go through /api/workbench-subscribers with the same
-   x-workbench-key as Recompute. Loaded on first visit to the tab, not at page load,
+   Reads and writes go through /api/workbench-subscribers with the signed-in
+   session (FDY-285). Loaded on first visit to the tab, not at page load,
    so the key prompt never appears for someone who just opened the Workbench. */
 const ADM={rows:[],plans:[],filter:"all",q:"",loaded:false,sel:null};
 const admFmt=ts=>ts?shortDate(ts):"—";
 function admSay(text,kind){ const m=document.getElementById("adm-msg"); if(!m) return; m.textContent=text||""; m.className="adm-msg"+(kind?" "+kind:""); }
 async function admApi(path,init){
-  const key=wbKey(); if(!key) throw new Error("A Workbench key is needed.");
-  const r=await fetch("/api/workbench-subscribers"+path,{...init,headers:{"Content-Type":"application/json","x-workbench-key":key,...(init&&init.headers)}});
+  await WB_AUTH.ready; if(!WB_AUTH.signedIn) throw new Error("Sign in to use the Admin tab (top right).");
+  const r=await fetch("/api/workbench-subscribers"+path,{...init,headers:{"Content-Type":"application/json",...(init&&init.headers)}});
   const d=await r.json().catch(()=>({}));
-  if(r.status===401){ forgetKey(); throw new Error("Workbench key rejected. It has been cleared — try again to re-enter it."); }
+  if(r.status===401){ forgetKey(); throw new Error("You are signed out. Sign in and try again."); }
   if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
   return d;
 }
@@ -2099,21 +2182,22 @@ function initAdmin(){
   window.__admEnsure=()=>{ if(!ADM.loaded && !ADM.loading){ ADM.loading=true; admLoad().finally(()=>{ ADM.loading=false; }); } };
   if(document.getElementById("tab-admin").getAttribute("aria-selected")==="true") window.__admEnsure();
 }
+initWbAuth();
 initAdmin();
 
 /* ===== Admin tab — ISpyaDC access (FDY-42) =====================================
-   Reads and writes go through /api/workbench-ispyadc-access with the same
-   x-workbench-key. The route talks to ISpyaDC's OWN Supabase project through
-   ISPYADC_SUPABASE_URL / ISPYADC_SERVICE_ROLE_KEY on the server; when those are
+   Reads and writes go through /api/workbench-ispyadc-access with the signed-in
+   session (FDY-285). The route talks to ISpyaDC's OWN Supabase project through
+   two server-only variables; when those are
    missing it says so and the section renders a "not configured" state. */
 const ISPY={grants:[],audit:[],q:"",loaded:false,loading:false,confirm:null,expTouched:false};
 const ISPY_ACTOR_KEY="wb.ispy.actor";
 function ispSay(text,kind){ const m=document.getElementById("isp-msg"); if(!m) return; m.textContent=text||""; m.className="adm-msg"+(kind?" "+kind:""); }
 async function ispApi(init){
-  const key=wbKey(); if(!key) throw new Error("A Workbench key is needed.");
-  const r=await fetch("/api/workbench-ispyadc-access",{...init,headers:{"Content-Type":"application/json","x-workbench-key":key,...(init&&init.headers)}});
+  await WB_AUTH.ready; if(!WB_AUTH.signedIn) throw new Error("Sign in to use the Admin tab (top right).");
+  const r=await fetch("/api/workbench-ispyadc-access",{...init,headers:{"Content-Type":"application/json",...(init&&init.headers)}});
   const d=await r.json().catch(()=>({}));
-  if(r.status===401){ forgetKey(); throw new Error("Workbench key rejected. It has been cleared — try again to re-enter it."); }
+  if(r.status===401){ forgetKey(); throw new Error("You are signed out. Sign in and try again."); }
   if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
   return d;
 }

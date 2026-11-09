@@ -6,9 +6,10 @@
  * them. The service key never reaches the client bundle - it is read here
  * from a server-only env var and used only to POST to Supabase.
  *
- * Gating: a shared secret in WORKBENCH_REFRESH_SECRET, compared in constant
- * time. If either env var is absent the route fails CLOSED with 503 - it
- * never falls back to running unauthenticated.
+ * Gating: an Owner session (email code) or a break-glass session, see
+ * api/_auth.js (FDY-285). If the session secret or the service key is absent
+ * the route fails CLOSED with 503 - it never falls back to running
+ * unauthenticated.
  *
  * Health is deliberately NOT refreshed here. Measured over 14 days of cron
  * history it averages 28.6s and peaks at 114.4s - far and away the slowest
@@ -18,6 +19,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { requireOperator } = require('./_auth.js');
 
 const { SUPABASE_URL, faradayServiceKey } = require('./_wb.js'); // FDY-252 D-09: FARADAY_* names, legacy aliases kept
 
@@ -55,22 +57,15 @@ module.exports = async function handler(req, res) {
   }
 
   const serviceKey = faradayServiceKey();
-  const secret = process.env.WORKBENCH_REFRESH_SECRET;
 
   // Fail closed. An unconfigured deployment refuses rather than running open.
-  if (!secret) {
-    return res.status(503).json({
-      error: 'WORKBENCH_REFRESH_SECRET is not set on this deployment. Recompute is disabled.'
-    });
-  }
   if (!serviceKey) {
     return res.status(503).json({
       error: 'FARADAY_SERVICE_ROLE_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY) is not set on this deployment. Recompute is disabled.'
     });
   }
-  if (!secretMatches(req.headers['x-workbench-key'], secret)) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  // FDY-285: an Owner session (email code) or a break-glass session; 401/503 otherwise.
+  if (!(await requireOperator(req, res))) return;
 
   // Fired in parallel: worst measured lane is scoring at 27.4s, so the wall
   // clock is bounded by the slowest, not by their sum.
