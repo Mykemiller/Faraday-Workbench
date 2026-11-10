@@ -5,6 +5,7 @@
  *   session   signed-in Owner session      api/_admin/session.js (does its own requireAdmin)
  *   people    Owner only                        api/_admin/people.js
  *   person    Owner only                        api/_admin/person.js
+ *   access    Owner only                        api/_admin/access.js
  *   audit     Owner only                        api/_admin/audit.js
  */
 'use strict';
@@ -16,6 +17,7 @@ const ROUTES = Object.freeze({
   session: { gate: 'self', run: require('../_admin/session.js') },
   people: { gate: 'owner', run: require('../_admin/people.js') },
   person: { gate: 'owner', run: require('../_admin/person.js') },
+  access: { gate: 'owner', run: require('../_admin/access.js') },
   audit: { gate: 'owner', run: require('../_admin/audit.js') }
 });
 

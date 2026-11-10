@@ -76,6 +76,13 @@ export function fakeDb() {
       if (sp.get('email_normalised')) rows = rows.filter((p) => p.email === sp.get('email_normalised').slice(3));
       return json((sp.get('select') || '').includes('product_access') ? rows.map(embed) : rows.map((p) => ({ id: p.id, email: p.email })));
     }
+    if (u.pathname === '/rest/v1/product_access' && method === 'GET') {
+      const product = (sp.get('product') || '').slice(3);
+      return json(db.access.filter((a) => !product || a.product === product).map(({ person_id, ...a }) => {
+        const p = db.people.find((x) => x.id === person_id);
+        return { ...a, created_at: a.updated_at, estate_people: p ? { id: p.id, email: p.email, display_name: p.display_name } : null };
+      }));
+    }
     if (u.pathname === '/rest/v1/admin_audit' && method === 'GET') {
       let rows = db.audit.slice().reverse();
       const se = sp.get('subject_email');

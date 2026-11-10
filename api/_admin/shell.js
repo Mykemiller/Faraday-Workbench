@@ -28,7 +28,21 @@ function areaFor(segment) {
 const STATE_OPTIONS = '<option value="">Any status</option><option value="active">Active</option><option value="paused">Paused</option><option value="expired">Expired</option><option value="revoked">Revoked</option><option value="none">No access</option>';
 const EXPIRY_OPTIONS = '<option value="">Any expiry</option><option value="7d">Expires within 7 days</option><option value="30d">Expires within 30 days</option><option value="none">Never expires</option><option value="expired">Expired</option>';
 
+const PEOPLE_TABS = (cur) => `<p class="tabs"><a href="/admin/people"${cur === 'directory' ? ' aria-current="page"' : ''}>Directory</a><a href="/admin/people/access"${cur === 'access' ? ' aria-current="page"' : ''}>Access</a></p>`;
+
 function body(area, id) {
+  if (area.id === 'people' && id === 'access') {
+    return `<h1>People</h1>
+${PEOPLE_TABS('access')}
+<div class="bar"><label for="acc-app">App</label><select id="acc-app" aria-label="App"></select>
+<input id="acc-q" type="search" placeholder="Search email, role or status" aria-label="Search access">
+<span class="count" id="acc-count"></span></div>
+<p class="count" id="acc-note"></p>
+<form id="acc-form" class="bar"><input id="acc-email" type="email" placeholder="Add by email" aria-label="Email to add" autocapitalize="off" spellcheck="false" required>
+<select id="acc-role" aria-label="Role"></select><input id="acc-exp" type="date" aria-label="Expiry (optional)"><button type="submit" class="gold">Add</button></form>
+<div id="acc-msg" class="msg" role="status" aria-live="polite">Loading…</div>
+<div class="scroll"><table id="acc-table" hidden><thead><tr><th>Email</th><th>Role</th><th>State</th><th>Expires</th><th>Added by</th><th>Change</th></tr></thead><tbody></tbody></table></div>`;
+  }
   if (area.id === 'people' && id) {
     return `<p class="crumb"><a href="/admin/people">← People</a></p>
 <h1 id="person-email">Person</h1>
@@ -48,6 +62,7 @@ function body(area, id) {
   }
   if (area.id === 'people') {
     return `<h1>People</h1>
+${PEOPLE_TABS('directory')}
 <div class="bar"><input id="f-q" type="search" placeholder="Search name or email" aria-label="Search name or email">
 <select id="f-app" aria-label="Filter by app"><option value="">Any app</option></select>
 <select id="f-status" aria-label="Filter by status">${STATE_OPTIONS}</select>
@@ -92,6 +107,7 @@ h1{font:600 24px/1.2 Georgia,"Times New Roman",serif;margin:0 0 16px}
 h2{font:500 12px/1.4 ui-monospace,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 10px}
 section{margin:28px 0 0}
 .crumb{margin:0 0 8px;font-size:13px}.crumb a{color:var(--gold)}
+.tabs{display:flex;gap:18px;margin:-6px 0 16px;border-bottom:1px solid var(--line)}.tabs a{padding:8px 0;font-size:14px;color:var(--dim);text-decoration:none;border-bottom:2px solid transparent}.tabs a[aria-current="page"]{color:var(--gold-bright);border-bottom-color:var(--gold)}
 select{background:#0d1a13;color:inherit;border:1px solid var(--line);border-radius:3px;padding:8px 10px;font:inherit;font-size:16px;max-width:100%}
 td select,td input{padding:5px 8px;font-size:14px}
 td.acts{white-space:nowrap}td.acts button{padding:7px 9px;margin:0 6px 4px 0}

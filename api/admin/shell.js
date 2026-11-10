@@ -17,7 +17,8 @@ module.exports = async function handler(req, res) {
   const area = req.method === 'GET' ? areaFor(q.area) : null;
   // /admin/people/<person id> is the only two-level page. Anything else with an id is not a page.
   const id = q.id === undefined || q.id === '' ? '' : String(q.id);
-  if (!area || (id && (area.id !== 'people' || !UUID.test(id)))) return res.status(404).json({ error: 'Not found' });
+  // /admin/people/access is People > Access (FDY-289).
+  if (!area || (id && (area.id !== 'people' || !(UUID.test(id) || id === 'access')))) return res.status(404).json({ error: 'Not found' });
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');

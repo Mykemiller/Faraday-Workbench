@@ -27,7 +27,6 @@ await page.route('**/api/auth', (route) => {
   return ok({ error: 'unknown action' }, 400);
 });
 await page.route('**/api/workbench-subscribers**', (route) => { subsCalls++; route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ subscribers: [], plans: [] }) }); });
-await page.route('**/api/workbench-ispyadc-access**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ configured: false, missing: [], grants: [], audit: [] }) }));
 
 await page.goto(PAGE);
 await page.waitForTimeout(300);
@@ -51,7 +50,6 @@ await page.fill('#wb-si-key', 'the-key'); await page.click('#wb-si-key-form butt
 await page.waitForFunction(() => !document.getElementById('wb-signin').open);
 assert.match(await page.textContent('#wb-auth'), /owner@example\.com · Sign out/);
 assert.equal(await page.isVisible('#wb-console'), true); assert.equal(await page.getAttribute('#wb-console', 'href'), '/admin');
-await page.waitForFunction(() => document.getElementById('isp-actor').readOnly === true);
 assert.ok(subsCalls >= 1, 'the Admin tab loads once signed in');
 assert.deepEqual(posts.map((p) => p.action), ['sign_in', 'sign_in']);
 console.log('PASS  one key field: wrong key stays on the dialog; right key signs in and Admin loads');
@@ -60,7 +58,6 @@ const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }) + d
 assert.equal(/the-key|wb_session/.test(stored), false, 'nothing secret is readable by page script');
 await page.click('#wb-auth');
 await page.waitForFunction(() => document.getElementById('wb-auth').textContent.trim() === 'Sign in');
-assert.equal(await page.evaluate(() => document.getElementById('isp-actor').readOnly), false);
 console.log('PASS  sign out; no key or session is kept in localStorage or readable cookies');
 
 assert.deepEqual(errs, []);

@@ -67,10 +67,11 @@ module.exports = function adminClient() {
   var fillSelect = function (el, items, first) { el.innerHTML = (first ? '<option value="">' + esc(first) + '</option>' : '') + items.map(function (o) { return '<option value="' + esc(o.id) + '">' + esc(o.label) + '</option>'; }).join(''); };
   var daysFromNow = function (n) { return new Date(Date.now() + n * 86400000).toISOString().slice(0, 10); };
 
-  var area = document.body.dataset.area, personId = document.body.dataset.id || '';
+  var area = document.body.dataset.area, subview = document.body.dataset.id || '';
+  var personId = subview === 'access' ? '' : subview;
 
   /* ---- People directory -------------------------------------------------------------------- */
-  if (area === 'people' && !personId) {
+  if (area === 'people' && !subview) {
     var F = ['q', 'app', 'status', 'expiry', 'persona'], OPTS = null, timer = null;
     var params = new URLSearchParams(location.search);
     /* Filters arrive in the URL. Status and expiry have fixed options; app and persona get theirs
@@ -129,6 +130,80 @@ module.exports = function adminClient() {
       }
     });
     loadPeople();
+  }
+
+  /* ---- People > Access (FDY-289): who holds access to one app ---------------------------------- */
+  if (area === 'people' && subview === 'access') {
+    var ACC = null, accApp = new URLSearchParams(location.search).get('app') || '';
+    var accRow = function (id) { return ACC.rows.filter(function (x) { return x.personId === id; })[0]; };
+    var accBefore = function (a) { return { role: a.role, status: a.status, expires: a.expiresAt ? day(a.expiresAt) : 'never' }; };
+    var accExpiry = function () { if (!$('acc-exp').dataset.touched) $('acc-exp').value = $('acc-role').value === 'tester' ? daysFromNow(ACC.testerDefaultDays) : ''; };
+    var accDraw = function () {
+      var n = $('acc-q').value.trim().toLowerCase();
+      var rows = ACC.rows.filter(function (a) { return !n || String(a.email).toLowerCase().indexOf(n) >= 0 || a.role.indexOf(n) >= 0 || a.state.indexOf(n) >= 0; });
+      $('acc-count').textContent = rows.length + (rows.length === 1 ? ' grant' : ' grants');
+      $('acc-table').hidden = !rows.length;
+      say('acc-msg', rows.length ? '' : (n ? 'No grants match.' : 'Nobody has access to ' + ACC.label + ' yet.'));
+      document.querySelector('#acc-table tbody').innerHTML = rows.map(function (a) {
+        var roles = ACC.roles.indexOf(a.role) < 0 ? [a.role].concat(ACC.roles) : ACC.roles;
+        var b = function (act, label, cls) { return '<button type="button" data-act="' + act + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + label + '</button>'; };
+        var acts = a.status === 'revoked' ? b('restore', 'Restore') : (a.status === 'paused' ? b('resume', 'Resume', 'gold') : b('pause', 'Pause')) + b('revoke', 'Revoke');
+        return '<tr data-id="' + esc(a.personId) + '"><td class="wrap"><a href="' + esc(withIssue('/admin/people/' + a.personId)) + '">' + esc(a.email) + '</a></td><td><select data-f="role" aria-label="Role for ' + esc(a.email) + '">'
+          + roles.map(function (r) { return '<option' + (r === a.role ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></td><td><span class="tag' + (a.state === 'active' ? '' : ' off') + '">' + esc(a.state) + '</span></td><td><input type="date" data-f="exp" aria-label="Expiry for ' + esc(a.email) + '" value="' + esc(a.expiresAt ? a.expiresAt.slice(0, 10) : '') + '"></td><td class="wrap">' + esc(a.addedBy || '—') + '</td><td class="acts">' + acts + '</td></tr>';
+      }).join('');
+    };
+    var accLoad = function () {
+      return api('/api/admin/access' + (accApp ? '?app=' + encodeURIComponent(accApp) : '')).then(function (d) {
+        var first = !ACC; ACC = d; accApp = d.app;
+        if (first) { fillSelect($('acc-app'), d.apps); }
+        $('acc-app').value = d.app;
+        fillSelect($('acc-role'), d.roles.map(function (r) { return { id: r, label: r }; }));
+        if (d.roles.indexOf('tester') >= 0) $('acc-role').value = 'tester';
+        $('acc-note').textContent = d.label + ' reads this list itself. A change here is live there within 60 seconds, with no deploy. Testers default to ' + d.testerDefaultDays + ' days.';
+        accExpiry(); accDraw();
+      }).catch(function (e) { say('acc-msg', e.message, 'err'); });
+    };
+    var accWrite = async function (title, before, after, path, body) {
+      var ok = await reasonPanel({ title: title, before: before, after: after, linearIssue: ISSUE });
+      if (!ok) { accDraw(); return; }
+      say('acc-msg', 'Saving…');
+      try {
+        var d = await api(path, Object.assign({ reason: ok.reason, linearIssue: ok.linearIssue }, body));
+        await accLoad(); say('acc-msg', d.message, 'ok');
+      } catch (err) {
+        accDraw();
+        var m = $('acc-msg'); m.className = 'msg err'; m.textContent = err.message + ' ';
+        if (err.data && err.data.url) { var l = document.createElement('a'); l.href = withIssue(err.data.url); l.textContent = 'Open their page'; m.appendChild(l); }
+      }
+    };
+    $('acc-app').addEventListener('change', function () {
+      accApp = $('acc-app').value; delete $('acc-exp').dataset.touched;
+      history.replaceState(null, '', withIssue(location.pathname + '?app=' + encodeURIComponent(accApp)));
+      accLoad();
+    });
+    $('acc-q').addEventListener('input', accDraw);
+    $('acc-role').addEventListener('change', accExpiry);
+    $('acc-exp').addEventListener('input', function () { $('acc-exp').dataset.touched = '1'; });
+    $('acc-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var email = $('acc-email').value.trim().toLowerCase(), role = $('acc-role').value, exp = $('acc-exp').value;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { say('acc-msg', 'That does not look like an email address.', 'err'); return; }
+      accWrite('Add ' + email + ' to ' + ACC.label, {}, { email: email, role: role, status: 'active', expires: exp || 'never' }, '/api/admin/access', { app: ACC.app, email: email, role: role, expiresAt: exp })
+        .then(function () { if ($('acc-msg').className.indexOf('ok') >= 0) { $('acc-email').value = ''; delete $('acc-exp').dataset.touched; accExpiry(); } });
+    });
+    $('acc-table').addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-act]'); if (!btn) return;
+      var id = btn.closest('tr').dataset.id, a = accRow(id), act = btn.dataset.act, before = accBefore(a);
+      var to = { pause: 'paused', resume: 'active', revoke: 'revoked', restore: 'active' }[act];
+      accWrite(act.charAt(0).toUpperCase() + act.slice(1) + ' ' + ACC.label + ' for ' + a.email, before, Object.assign({}, before, { status: to }), '/api/admin/person', { id: id, action: act, product: ACC.app });
+    });
+    $('acc-table').addEventListener('change', function (e) {
+      var f = e.target.dataset && e.target.dataset.f; if (!f) return;
+      var id = e.target.closest('tr').dataset.id, a = accRow(id), before = accBefore(a), v = e.target.value;
+      if (f === 'role') accWrite('Change role: ' + a.email, before, Object.assign({}, before, { role: v }), '/api/admin/person', { id: id, action: 'set_role', product: ACC.app, role: v });
+      if (f === 'exp') accWrite('Change expiry: ' + a.email, before, Object.assign({}, before, { expires: v ? day(v + 'T23:59:59Z') : 'never' }), '/api/admin/person', { id: id, action: 'set_expiry', product: ACC.app, expiresAt: v });
+    });
+    accLoad();
   }
 
   /* ---- Person page ---------------------------------------------------------------------------- */

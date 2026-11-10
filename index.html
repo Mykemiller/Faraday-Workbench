@@ -383,17 +383,7 @@ body.js-views .view.is-active{border-top:0}
 /* ===== Admin tab — ISpyaDC access (FDY-42) ===== */
 .isp{margin-top:34px;padding-top:22px;border-top:1px solid var(--hair)}
 .isp h3{font-size:17px;margin:4px 0 2px}
-.isp-row{display:grid;grid-template-columns:minmax(0,1.5fr) 92px 92px 150px minmax(0,1fr) 92px auto;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid var(--hair);font-size:13.5px}
-.isp-row:first-child{border-top:0}
-.isp-row.isp-head{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--sage);background:var(--forest-deep)}
-.isp-row .e{font-family:'IBM Plex Mono',monospace;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.isp-row .sub{font-size:11px;color:var(--sage)}
-.isp-row select,.isp-row input[type="date"]{background:var(--forest-deep);border:1px solid var(--hair);color:var(--warm);font:inherit;font-size:12.5px;padding:4px 6px;border-radius:3px;max-width:100%}
-.isp-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .adm-pill.exp{color:var(--gold);border-color:rgba(196,146,42,.4)}
-.isp-config{padding:16px 14px;border:1px dashed var(--hair);border-radius:4px;color:var(--warm-dim);font-size:14px}
-.isp-config code{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--warm)}
-@media (max-width:900px){.isp-row{grid-template-columns:minmax(0,1fr) 92px 92px}.isp-row>:nth-child(n+4){display:none}}
 </style>
 </head>
 <body>
@@ -550,28 +540,7 @@ body.js-views .view.is-active{border-top:0}
     <div class="isp" id="ispy-access" aria-labelledby="isp-title">
       <div class="eyebrow">ISpyaDC</div>
       <h3 id="isp-title">ISpyaDC access</h3>
-      <p class="adm-note">The only place ISpyaDC users are added, changed or removed. A grant is <b>admin</b>, <b>tester</b> or <b>user</b>; only an active, unexpired <b>admin</b> can open ispyadc.com/admin. Changes land within 60&nbsp;seconds, no deploy. Every write goes to the audit trail with you as the actor.</p>
-      <div id="isp-config" class="isp-config" hidden></div>
-      <div id="isp-body" hidden>
-        <div class="adm-form" style="margin:0 0 10px">
-          <label class="adm-kv" for="isp-actor">Acting as</label>
-          <input id="isp-actor" type="email" placeholder="your@email" aria-label="Acting as (your email)" autocomplete="email" style="flex:0 1 260px">
-        </div>
-        <div class="adm-form" id="isp-addform" style="margin:0 0 14px">
-          <input id="isp-email" type="email" placeholder="Add by email…" aria-label="Email to add" autocomplete="off">
-          <select id="isp-role" aria-label="Role"><option value="tester" selected>tester</option><option value="admin">admin</option><option value="user">user</option></select>
-          <input id="isp-exp" type="date" aria-label="Expires on (optional)" title="Expires on (optional)">
-          <button class="abtn" id="isp-add">Add</button>
-        </div>
-        <div class="adm-bar">
-          <input id="isp-q" type="search" placeholder="Search grants…" aria-label="Search ISpyaDC grants" autocomplete="off">
-          <span class="adm-count mono" id="isp-count"></span>
-          <button class="abtn" id="isp-reload">Reload</button>
-        </div>
-        <div id="isp-msg" class="adm-msg" role="status" aria-live="polite"></div>
-        <div id="isp-list" class="adm-list"></div>
-        <div class="adm-sec"><h4>Audit trail (last 50)</h4><div id="isp-audit" class="adm-audit"></div></div>
-      </div>
+      <p class="adm-note">ISpyaDC access moved to the Admin console (FDY-289). It is now managed, with every other app, at <a href="/admin/people/access" id="isp-moved">People › Access</a>.</p>
     </div>
   </div>
 </section>
@@ -763,8 +732,6 @@ function wbAuthSet(d){
   if(b){ b.textContent=!WB_AUTH.signedIn?"Sign in":(WB_AUTH.email||"Owner")+" · Sign out";
     b.dataset.state=WB_AUTH.signedIn?"owner":"out"; }
   const con=document.getElementById("wb-console"); if(con) con.hidden=!WB_AUTH.signedIn;   /* FDY-287: the console is Owner-only */
-  const act=document.getElementById("isp-actor");
-  if(act){ if(WB_AUTH.kind==="owner"&&WB_AUTH.email){ act.value=WB_AUTH.email; act.readOnly=true; } else act.readOnly=false; }
 }
 async function wbAuthCall(body){
   const r=await fetch("/api/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
@@ -2164,117 +2131,6 @@ function initAdmin(){
 initWbAuth();
 initAdmin();
 
-/* ===== Admin tab — ISpyaDC access (FDY-42) =====================================
-   Reads and writes go through /api/workbench-ispyadc-access with the signed-in
-   session (FDY-285). The route talks to ISpyaDC's OWN Supabase project through
-   two server-only variables; when those are
-   missing it says so and the section renders a "not configured" state. */
-const ISPY={grants:[],audit:[],q:"",loaded:false,loading:false,confirm:null,expTouched:false};
-const ISPY_ACTOR_KEY="wb.ispy.actor";
-function ispSay(text,kind){ const m=document.getElementById("isp-msg"); if(!m) return; m.textContent=text||""; m.className="adm-msg"+(kind?" "+kind:""); }
-async function ispApi(init){
-  await WB_AUTH.ready; if(!WB_AUTH.signedIn) throw new Error("Sign in to use the Admin tab (top right).");
-  const r=await fetch("/api/workbench-ispyadc-access",{...init,headers:{"Content-Type":"application/json",...(init&&init.headers)}});
-  const d=await r.json().catch(()=>({}));
-  if(r.status===401){ forgetKey(); throw new Error("You are signed out. Sign in and try again."); }
-  if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
-  return d;
-}
-function ispActor(){ return (document.getElementById("isp-actor")||{}).value||""; }
-function ispToday(){ return new Date().toISOString().slice(0,10); }
-function ispPlusDays(d,n){ const x=new Date(d+"T00:00:00Z"); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10); }
-function ispDefaultExpiry(){ const role=document.getElementById("isp-role").value, exp=document.getElementById("isp-exp"); if(ISPY.expTouched) return; exp.value=role==="tester"?ispPlusDays(ispToday(),14):""; }
-function ispVisible(){
-  const n=ISPY.q.trim().toLowerCase();
-  return ISPY.grants.filter(g=>!n||String(g.email||"").toLowerCase().includes(n)||String(g.role||"").includes(n)||String(g.state||"").includes(n)||String(g.added_by||"").toLowerCase().includes(n));
-}
-function ispPill(state){ return `<span class="adm-pill ${state==="active"?"on":state==="expired"?"exp":"off"}">${esc(state)}</span>`; }
-function ispRenderList(){
-  const rows=ispVisible(), box=document.getElementById("isp-list");
-  document.getElementById("isp-count").textContent=rows.length+" grant"+(rows.length===1?"":"s");
-  const head='<div class="isp-row isp-head"><span>Email</span><span>Role</span><span>Status</span><span>Expires</span><span>Added by</span><span>Updated</span><span></span></div>';
-  box.innerHTML=head+(rows.length?rows.map(g=>{
-    const id=esc(g.id), exp=g.expires_at?String(g.expires_at).slice(0,10):"";
-    const confirming=ISPY.confirm===g.id;
-    return `<div class="isp-row" data-id="${id}">`
-      +`<span style="min-width:0"><div class="e">${esc(g.email)}</div>${g.note?`<div class="sub">${esc(g.note)}</div>`:""}</span>`
-      +`<span><select data-isp="role" data-id="${id}" aria-label="Role for ${esc(g.email)}">${["admin","tester","user"].map(r=>`<option value="${r}"${r===g.role?" selected":""}>${r}</option>`).join("")}</select></span>`
-      +`<span>${ispPill(g.state)}</span>`
-      +`<span><input type="date" data-isp="exp" data-id="${id}" value="${esc(exp)}" aria-label="Expiry for ${esc(g.email)}"></span>`
-      +`<span class="sub">${esc(g.added_by||"")}</span>`
-      +`<span class="sub">${g.updated_at?esc(shortDate(g.updated_at)):"—"}</span>`
-      +`<span class="isp-acts">`
-      +(g.status==="revoked"
-        ?`<button class="abtn" data-isp="restore" data-id="${id}">Restore</button>`
-        :confirming
-          ?`<button class="abtn" data-isp="revoke-confirm" data-id="${id}">Confirm revoke</button><button class="abtn" data-isp="revoke-cancel" data-id="${id}">Cancel</button>`
-          :`<button class="abtn" data-isp="revoke" data-id="${id}">Revoke</button>`)
-      +`</span></div>`;
-  }).join("")
-  :'<div class="adm-empty">'+(ISPY.q?"No grants match “"+esc(ISPY.q)+"”.":"No grants yet.")+'</div>');
-  const au=document.getElementById("isp-audit");
-  au.innerHTML=ISPY.audit.length?ISPY.audit.map(a=>`<div>${esc(shortDate(a.at))} · ${esc(a.action)} · ${esc(a.email)} — by ${esc(a.actor)}</div>`).join(""):"<div>No changes logged.</div>";
-}
-async function ispLoad(){
-  ispSay("Loading ISpyaDC access…");
-  try{
-    const d=await ispApi();
-    const cfg=document.getElementById("isp-config"), body=document.getElementById("isp-body");
-    if(d.configured===false){
-      cfg.hidden=false; body.hidden=true;
-      cfg.innerHTML="ISpyaDC access is not configured on this deployment. Set "+(d.missing||[]).map(n=>"<code>"+esc(n)+"</code>").join(" and ")+" (server-only) in the workbench Vercel project. Nothing else is affected.";
-      ISPY.loaded=true; ispSay(""); return;
-    }
-    cfg.hidden=true; body.hidden=false;
-    ISPY.grants=d.grants||[]; ISPY.audit=d.audit||[]; ISPY.loaded=true;
-    ispSay(""); ispRenderList();
-  }catch(e){ ispSay(e.message,"err"); }
-}
-async function ispWrite(payload){
-  const actor=ispActor().trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(actor)){ ispSay("Enter the email you are acting as first.","err"); return; }
-  try{ localStorage.setItem(ISPY_ACTOR_KEY,actor); }catch(e){}
-  try{
-    const d=await ispApi({method:"POST",body:JSON.stringify({...payload,actor})});
-    ISPY.confirm=null; await ispLoad(); ispSay(d.message||"Done.","ok");
-  }catch(e){ ispSay(e.message,"err"); }
-}
-function initIspy(){
-  const sec=document.getElementById("ispy-access"); if(!sec) return;
-  try{ const a=localStorage.getItem(ISPY_ACTOR_KEY); if(a) document.getElementById("isp-actor").value=a; }catch(e){}
-  ispDefaultExpiry();
-  document.getElementById("isp-role").addEventListener("change",()=>{ ISPY.expTouched=false; ispDefaultExpiry(); });
-  document.getElementById("isp-exp").addEventListener("input",()=>{ ISPY.expTouched=true; });
-  document.getElementById("isp-q").addEventListener("input",e=>{ ISPY.q=e.target.value; ispRenderList(); });
-  document.getElementById("isp-reload").addEventListener("click",ispLoad);
-  document.getElementById("isp-add").addEventListener("click",async()=>{
-    const email=document.getElementById("isp-email").value.trim().toLowerCase();
-    const role=document.getElementById("isp-role").value, exp=document.getElementById("isp-exp").value;
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ ispSay("That does not look like an email address.","err"); return; }
-    if(ISPY.grants.some(g=>String(g.email).toLowerCase()===email)){ ispSay(email+" already has a grant — edit, restore or revoke that row instead.","err"); return; }
-    await ispWrite({action:"add",email,role,expiresAt:exp});
-    document.getElementById("isp-email").value=""; ISPY.expTouched=false; ispDefaultExpiry();
-  });
-  document.getElementById("isp-list").addEventListener("click",e=>{
-    const b=e.target.closest("button[data-isp]"); if(!b) return;
-    const id=b.dataset.id, act=b.dataset.isp;
-    if(act==="revoke"){ ISPY.confirm=id; ispRenderList(); return; }
-    if(act==="revoke-cancel"){ ISPY.confirm=null; ispRenderList(); return; }
-    if(act==="revoke-confirm"){ ispWrite({action:"revoke",id}); return; }
-    if(act==="restore"){ ispWrite({action:"restore",id}); return; }
-  });
-  document.getElementById("isp-list").addEventListener("change",e=>{
-    const el=e.target.closest("[data-isp]"); if(!el) return;
-    const id=el.dataset.id;
-    if(el.dataset.isp==="role") ispWrite({action:"set_role",id,role:el.value});
-    if(el.dataset.isp==="exp") ispWrite({action:"set_expiry",id,expiresAt:el.value});
-  });
-  /* load with the Admin tab, lazily, through the same ensure hook */
-  const prevEnsure=window.__admEnsure;
-  window.__admEnsure=()=>{ if(prevEnsure) prevEnsure(); if(!ISPY.loaded && !ISPY.loading){ ISPY.loading=true; ispLoad().finally(()=>{ ISPY.loading=false; }); } };
-  if(document.getElementById("tab-admin").getAttribute("aria-selected")==="true") window.__admEnsure();
-}
-initIspy();
 
 loadAll();
 
