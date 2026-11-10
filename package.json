@@ -3,7 +3,7 @@
   "private": true,
   "description": "Private internal instrument panel for the Faraday estate. Static page; no build step.",
   "scripts": {
-    "test": "node test/auth.mjs && node test/auth-localdb.mjs && node test/auth-page.mjs && node test/admin-shell.mjs && node test/admin-shell-page.mjs && node test/scoring-panels.render.mjs && node test/scoring-panels.states.mjs && node test/information-architecture.mjs && node test/findings-keys.mjs && node test/linear-label-sort.mjs && node test/fix-prompt.mjs && node test/fix-these.render.mjs && node test/admin-tab.mjs && node test/ispyadc-access.mjs && node test/tf-notes.mjs && node test/tf-notes-panel.mjs"
+    "test": "node test/auth.mjs && node test/auth-localdb.mjs && node test/auth-page.mjs && node test/admin-shell.mjs && node test/admin-shell-page.mjs && node test/people.mjs && node test/people-localdb.mjs && node test/people-page.mjs && node test/scoring-panels.render.mjs && node test/scoring-panels.states.mjs && node test/information-architecture.mjs && node test/findings-keys.mjs && node test/linear-label-sort.mjs && node test/fix-prompt.mjs && node test/fix-these.render.mjs && node test/admin-tab.mjs && node test/ispyadc-access.mjs && node test/tf-notes.mjs && node test/tf-notes-panel.mjs"
   },
   "devDependencies": {
     "playwright": "^1.62.1"

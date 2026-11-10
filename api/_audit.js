@@ -23,6 +23,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * verified / via: whether the function accepts p_actor_verified / p_via. All take p_actor, p_reason. */
 const AUDITED_RPCS = Object.freeze({
   estate_access_set: { verified: true, via: true },
+  estate_person_set_persona: { verified: true, via: true },
   estate_audience_gate_set: { verified: true, via: true },
   estate_consent_review: { verified: false, via: false },
   predicts_review_recipient: { verified: false, via: false }

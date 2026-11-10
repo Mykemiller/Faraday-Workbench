@@ -30,6 +30,10 @@
     {
       "source": "/admin/:area",
       "destination": "/api/admin/shell?area=:area"
+    },
+    {
+      "source": "/admin/:area/:id",
+      "destination": "/api/admin/shell?area=:area&id=:id"
     }
   ]
 }
