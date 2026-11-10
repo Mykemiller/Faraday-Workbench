@@ -81,6 +81,12 @@ h2{font-family:'IBM Plex Serif',serif;font-size:27px;margin:6px 0 22px}
 .card .metrics{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--gold-bright);display:flex;flex-wrap:wrap;gap:4px 10px}
 .card .metrics .nofeed{color:var(--sage);opacity:.75}
 .card .metrics .perr{color:var(--red)}
+.card .surf{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--sage);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.card .surf a{color:var(--gold-bright);text-decoration:none}
+.card .surf a:hover{text-decoration:underline}
+.card .surf .s-up{color:var(--gold-bright)}
+.card .surf .s-down{color:var(--red)}
+.card .surf .s-unk{opacity:.75}
 .card .note{font-size:12.5px;color:var(--warm-dim)}
 .card .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--sage);display:flex;justify-content:space-between;margin-top:auto;padding-top:8px;border-top:1px dashed var(--hair)}
 .card .meta a{color:var(--sage);text-decoration:none}
@@ -600,7 +606,7 @@ const sfLinks=[
  {b:"Boundstone",u:"https://boundstone.org",s:"restriction records · stalled"},
  {b:"ISpyaDC",u:"https://ispyadc.com",s:"admin console only"},
  {b:"Civic-Host",u:"https://civic-host.vercel.app",s:"townships · free verified gov websites"},
- {b:"Signal Room",u:"https://faraday-signal-room.com/signal-room",s:"dormant"},
+ {b:"Signal Room",u:"https://faraday-signal-room.com/signal-room",s:"live Signal feed · surface status on the tile"},
  {b:"League Office",u:"https://faraday-intelligence.ai/league-office",s:"Commissioner console · staff only"}
 ];
 const toolLinks=[
@@ -609,9 +615,10 @@ const toolLinks=[
  {b:"Notion — JW 3.0 Release Log",u:"https://app.notion.com/p/40989a0c168081a78e8bcb6e5944dbee",s:"gates G1–G10 · releases WW-YY-vXX"},
  {b:"Notion — Project Hub",u:"https://app.notion.com/p/37189a0c1680808a9107c87d093f032a",s:"canonical operating reference"},
  {b:"Google Drive — Faraday Specs",u:"https://drive.google.com/drive/folders/1wwISpRcxTXniyK2FeaWYh5w4Ch0ssKJ0",s:"specs folder"},
- {b:"GitHub — Faraday-intelligence",u:"https://github.com/Mykemiller/Faraday-intelligence",s:"homepage repo"},
+ {b:"GitHub — Faraday-intelligence",u:"https://github.com/Mykemiller/Faraday-intelligence",s:"Supabase data plane · static site retired"},
  {b:"GitHub — faraday-jurisdiction-watch",u:"https://github.com/Mykemiller/faraday-jurisdiction-watch",s:"JW frontend (supersedes jw)"},
- {b:"GitHub — v0-faraday-daily-challenge",u:"https://github.com/Mykemiller/v0-faraday-daily-challenge",s:"Daily Challenge lobby"},
+ {b:"GitHub — v0-faraday-daily-challenge",u:"https://github.com/Mykemiller/v0-faraday-daily-challenge",s:"homepage + Daily Challenge (engine)"},
+ {b:"GitHub — Faraday-Signal-Room",u:"https://github.com/Mykemiller/Faraday-Signal-Room",s:"Signal Room app"},
  {b:"GitHub — Faraday-Briefing-Library",u:"https://github.com/Mykemiller/Faraday-Briefing-Library",s:"briefing shelf"},
  {b:"GitHub — Faraday-Workbench",u:"https://github.com/Mykemiller/Faraday-Workbench",s:"this page"},
  {b:"Supabase — ycadmmngkdhvpcsrcuaq",u:"https://supabase.com/dashboard/project/ycadmmngkdhvpcsrcuaq",s:"backend project"},
@@ -659,6 +666,81 @@ const METRIC_LABEL={bank_rows:"bank",max_go_live_date:"last go-live",scheduled_a
 const mlabel=k=>METRIC_LABEL[k]||k.replace(/_/g," ");
 const mval=v=>typeof v==="number"?Number(v).toLocaleString("en-US"):String(v);
 
+/* ---- live public surface per tile (CC-WORKBENCH-SIGNAL-ROOM-TILE-1.0) ----
+   The storefront RPC answers "what is in the database". It cannot answer "is the
+   public page up" — on 2026-11-10 the Signal Room tile read 3,681 signals while
+   faraday-signal-room.com/signal-room served its error card, because the app's
+   service-role key belonged to another Supabase project. A tile listed here
+   links its public surface and shows that surface's own health, read in the
+   browser from a counts-only endpoint. Add a storefront = add a row here.
+   The health contract is { ok, status, live, last24h, newestFiredAt }. */
+const SF_SURFACE={
+  "signal-room":{label:"faraday-signal-room.com",url:"https://faraday-signal-room.com/signal-room",
+    health:"https://faraday-signal-room.com/api/signal-room/health"}
+};
+/* Opened from disk (the test suite, a local preview) the page does not call
+   another deployment unless a test opts in — keeps every other test hermetic. */
+const SURFACE_PROBE_ON=location.protocol!=="file:"||window.__WB_SURFACE_PROBE===true;
+const SURFACE_STATE={};          // slug -> {state:"up"|"preview"|"down"|"unknown", text, detail}
+let SF_BASE_CONDS=[], SF_REPORTED=false;
+const tileSlug=t=>t.slug||String(t.name||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+
+function surfaceHtml(t){
+  const slug=tileSlug(t), sf=SF_SURFACE[slug];
+  if(!sf) return "";
+  const st=SURFACE_STATE[slug];
+  const cls=!st?"s-unk":st.state==="up"?"s-up":st.state==="down"?"s-down":"s-unk";
+  return `<div class="surf" data-surface="${esc(slug)}"><a href="${esc(sf.url)}" target="_blank" rel="noopener">${esc(sf.label)} ↗</a><span class="${cls}">${esc(st?st.text:SURFACE_PROBE_ON?"checking surface…":"surface not probed (local file)")}</span></div>`;
+}
+
+/* Pure: turn one health response into what the tile says. A populated feed is
+   "up"; populated but behind the Signal Room's own launch flag is "preview";
+   a 503 with a status is "down"; anything unreadable (404 before the endpoint
+   ships, network, bad JSON) is "unknown" — never assumed up. */
+function surfaceVerdict(httpStatus, body){
+  if(body&&body.ok===true){
+    const n=Number.isInteger(body.last24h)?body.last24h:0;
+    const newest=body.newestFiredAt?shortDate(body.newestFiredAt):"—";
+    return {state:body.live===true?"up":"preview",
+      text:`${body.live===true?"FEED LIVE":"FEED UP · PREVIEW FLAG"} · ${n.toLocaleString("en-US")} in 24h · newest ${newest}`,detail:""};
+  }
+  if(body&&body.ok===false&&typeof body.status==="string")
+    return {state:"down",text:`FEED DOWN · ${body.status}`,detail:`health returned ${body.status} (HTTP ${httpStatus})`};
+  return {state:"unknown",text:"surface health unreadable",detail:httpStatus?`HTTP ${httpStatus}`:"no response"};
+}
+
+function surfaceConds(){
+  const sc=[];
+  for(const slug of Object.keys(SURFACE_STATE)){
+    const st=SURFACE_STATE[slug], sf=SF_SURFACE[slug];
+    if(st.state==="down") sc.push(cond(`ESTATE.${KSLUG(slug)}.SURFACE_DOWN`,"red",
+      `${sf.label} is serving an error — ${st.text}`,"estate","storefronts",st.detail));
+    else if(st.state==="unknown") sc.push(cond(`ESTATE.${KSLUG(slug)}.SURFACE_UNREADABLE`,"amber",
+      `${sf.label} health could not be read`,"estate","storefronts",st.detail));
+  }
+  return sc;
+}
+/* One writer for the storefront lane, so a late surface probe adds to the
+   board's own conditions instead of replacing them (and never registers a
+   sixth source — renderTriage() counts REPORTED against SOURCES). */
+function reportStorefront(){ SF_REPORTED=true; reportConditions("storefront",SF_BASE_CONDS.concat(surfaceConds())); }
+
+async function probeSurfaces(){
+  if(!SURFACE_PROBE_ON) return;
+  await Promise.all(Object.keys(SF_SURFACE).map(async slug=>{
+    let status=0, body=null;
+    try{
+      const r=await fetch(SF_SURFACE[slug].health,{cache:"no-store",signal:AbortSignal.timeout(6000)});
+      status=r.status; body=await r.json().catch(()=>null);
+    }catch(e){ /* unreachable — verdict below says so */ }
+    SURFACE_STATE[slug]=surfaceVerdict(status,body);
+    const el=document.querySelector(`#storefronts .surf[data-surface="${slug}"]`);
+    const t=TILES.find(x=>tileSlug(x)===slug);
+    if(el&&t) el.outerHTML=surfaceHtml(t);
+  }));
+  if(SF_REPORTED) reportStorefront();
+}
+
 function metricsHtml(t){
   if(t.metric_basis==="no_feed")
     return '<span class="nofeed">no feed — not zero</span>';
@@ -693,6 +775,7 @@ function renderStorefronts(tiles,computedAt,staleAfterHours){
  <div class="card"><div class="row"><h3>${esc(t.name)}</h3><span class="pill ${pillClass[t.status]||"p-concept"}">${esc(t.status_tag)}</span></div>
  <div class="note">${esc(t.blurb)}</div>
  <div class="metrics">${metricsHtml(t)}</div>
+ ${surfaceHtml(t)}
  <div class="acts">${actBtns(t)}</div>
  <div class="meta"><a href="${esc(t.jira_url)}" target="_blank" rel="noopener">${esc(t.jira_key)} ↗</a><span><span class="upd">upd ${esc(shortDate(t.updated_at))}</span> · ${esc(stamp)}${badge}</span></div></div>`).join("");
   TILES=tiles;
@@ -706,7 +789,7 @@ function renderStorefronts(tiles,computedAt,staleAfterHours){
     computedAt?("computed "+computedAt):"no computed_at on the cache"));
   if(tiles.some(t=>t.metric_basis==="probe_error")) sc.push(cond("ESTATE.STOREFRONT.PROBE_ERROR","amber","A storefront metric probe errored","estate","storefronts"));
   if(tiles.some(t=>t.metric_basis==="fallback")) sc.push(cond("ESTATE.STOREFRONT.FALLBACK_COPY","amber","Storefront board is on fallback copy — RPC returned nothing","estate","storefronts"));
-  reportConditions("storefront",sc);
+  SF_BASE_CONDS=sc; reportStorefront();
 
   const tk=tiles.map(t=>`<span><b>${esc(t.name)}</b> ${esc(t.status_tag)}</span>`).join("");
   document.getElementById("ticker").innerHTML=tk+tk;
@@ -974,6 +1057,7 @@ async function loadStorefront(){
     console.warn("workbench_storefront fetch failed — fallback board retained.",e);
     renderStorefronts(SF_FALLBACK,null,26);
   }
+  probeSurfaces();   /* not awaited: the board must not wait on another deployment */
 }
 
 /* ---- live health: fetch workbench_health() RPC and render IDF/DC/engine health ---- */
