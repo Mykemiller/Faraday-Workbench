@@ -25,18 +25,50 @@ function areaFor(segment) {
   return AREAS.find((a) => a.id === id) || null;
 }
 
-function body(area) {
+const STATE_OPTIONS = '<option value="">Any status</option><option value="active">Active</option><option value="paused">Paused</option><option value="expired">Expired</option><option value="revoked">Revoked</option><option value="none">No access</option>';
+const EXPIRY_OPTIONS = '<option value="">Any expiry</option><option value="7d">Expires within 7 days</option><option value="30d">Expires within 30 days</option><option value="none">Never expires</option><option value="expired">Expired</option>';
+
+function body(area, id) {
+  if (area.id === 'people' && id) {
+    return `<p class="crumb"><a href="/admin/people">← People</a></p>
+<h1 id="person-email">Person</h1>
+<p class="count" id="person-meta"></p>
+<div id="person-msg" class="msg" role="status" aria-live="polite">Loading…</div>
+<div id="person-body" hidden>
+<section><h2>Access</h2>
+<div class="scroll"><table id="access-table"><thead><tr><th>App</th><th>Role</th><th>State</th><th>Expires</th><th>Change</th></tr></thead><tbody></tbody></table></div>
+<form id="grant-form" class="bar" hidden><label for="grant-app">Grant</label><select id="grant-app" aria-label="App to grant"></select><select id="grant-role" aria-label="Role"></select><input id="grant-exp" type="date" aria-label="Expiry (optional)"><button type="submit" class="gold">Grant access</button></form></section>
+<section><h2>Persona</h2><div class="bar"><select id="persona" aria-label="Persona preset"></select><button type="button" id="persona-save">Save persona</button></div></section>
+<section><h2>Plan</h2><p id="person-plan">None yet</p></section>
+<section><h2>Consent</h2>
+<div class="scroll"><table id="consent-table"><thead><tr><th>App</th><th>Channel</th><th>Status</th><th>Confirmed</th></tr></thead><tbody></tbody></table></div></section>
+<section><h2>History</h2>
+<div class="scroll"><table id="history-table"><thead><tr><th>When (CT)</th><th>Who</th><th>App</th><th>Action</th><th>Change</th><th>Reason</th></tr></thead><tbody></tbody></table></div></section>
+</div>`;
+  }
   if (area.id === 'people') {
-    return `<div class="bar"><input id="people-q" type="search" placeholder="Search email or name" aria-label="Search people"><span class="count" id="people-count"></span></div>
+    return `<h1>People</h1>
+<div class="bar"><input id="f-q" type="search" placeholder="Search name or email" aria-label="Search name or email">
+<select id="f-app" aria-label="Filter by app"><option value="">Any app</option></select>
+<select id="f-status" aria-label="Filter by status">${STATE_OPTIONS}</select>
+<select id="f-expiry" aria-label="Filter by expiry">${EXPIRY_OPTIONS}</select>
+<select id="f-persona" aria-label="Filter by persona preset"><option value="">Any persona</option></select>
+<span class="count" id="people-count"></span></div>
 <div id="people-msg" class="msg" role="status" aria-live="polite">Loading people…</div>
-<div class="scroll"><table id="people-table" hidden><thead><tr><th>Email</th><th>Name</th><th>Access</th><th>Source</th><th>Added</th></tr></thead><tbody></tbody></table></div>`;
+<div class="scroll"><table id="people-table" hidden><thead><tr><th>Email</th><th>Name</th><th>Apps</th><th>Plan</th><th>Consent</th><th>Persona</th></tr></thead><tbody></tbody></table></div>
+<section><h2>Add a person</h2>
+<form id="add-form" class="bar"><input id="add-email" type="email" placeholder="email@example.com" aria-label="Email" autocapitalize="off" spellcheck="false" required>
+<select id="add-app" aria-label="App"></select><select id="add-role" aria-label="Role"></select><input id="add-exp" type="date" aria-label="Expiry (optional)"><button type="submit" class="gold">Add person</button></form>
+<div id="add-msg" class="msg" role="status" aria-live="polite"></div></section>`;
   }
   if (area.id === 'audit') {
-    return `<div class="bar"><input id="audit-q" type="search" placeholder="Filter by subject email" aria-label="Filter by subject email"><span class="count" id="audit-count"></span></div>
+    return `<h1>Audit</h1>
+<div class="bar"><input id="audit-q" type="search" placeholder="Filter by subject email" aria-label="Filter by subject email"><span class="count" id="audit-count"></span></div>
 <div id="audit-msg" class="msg" role="status" aria-live="polite">Loading the audit trail…</div>
 <div class="scroll"><table id="audit-table" hidden><thead><tr><th>When (CT)</th><th>Who</th><th>App</th><th>Subject</th><th>Action</th><th>Reason</th></tr></thead><tbody></tbody></table></div>`;
   }
-  return `<div class="soon"><p class="soon-tag">Coming in Phase ${area.phase}</p><p>${esc(area.blurb)}</p></div>`;
+  return `<h1>${esc(area.label)}</h1>
+<div class="soon"><p class="soon-tag">Coming in Phase ${area.phase}</p><p>${esc(area.blurb)}</p></div>`;
 }
 
 const CSS = `
@@ -57,6 +89,14 @@ nav.areas a:hover{color:var(--warm)}
 nav.areas a[aria-current="page"]{color:var(--gold-bright);background:rgba(196,146,42,.1)}
 main{padding:20px 16px 48px;min-width:0}
 h1{font:600 24px/1.2 Georgia,"Times New Roman",serif;margin:0 0 16px}
+h2{font:500 12px/1.4 ui-monospace,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 10px}
+section{margin:28px 0 0}
+.crumb{margin:0 0 8px;font-size:13px}.crumb a{color:var(--gold)}
+select{background:#0d1a13;color:inherit;border:1px solid var(--line);border-radius:3px;padding:8px 10px;font:inherit;font-size:16px;max-width:100%}
+td select,td input{padding:5px 8px;font-size:14px}
+td.acts{white-space:nowrap}td.acts button{padding:7px 9px;margin:0 6px 4px 0}
+.msg.ok{color:var(--gold-bright)}
+.bar label{font-size:13px;color:var(--dim)}
 .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
 input,textarea{background:#0d1a13;color:inherit;border:1px solid var(--line);border-radius:3px;padding:8px 10px;font:inherit;font-size:16px}
 .bar input{flex:0 1 320px;min-width:0}
@@ -88,93 +128,12 @@ button.gold{color:var(--gold-bright);border-color:var(--gold)}
 @media (max-width:720px){.layout{grid-template-columns:1fr}nav.areas{border-right:0;border-bottom:1px solid var(--line);display:flex;overflow-x:auto;padding:6px 8px}nav.areas a{white-space:nowrap}}
 `;
 
-/* Runs in the browser. Kept free of template placeholders: the only server value it reads is
- * document.body.dataset.area. */
-const JS = `
-(function(){
-  var esc=function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});};
-  var ct=function(ts){var d=new Date(ts);return isNaN(d)?"—":d.toLocaleString("en-US",{timeZone:"America/Chicago",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false});};
-  var day=function(ts){var d=new Date(ts);return isNaN(d)?"—":d.toLocaleDateString("en-US",{timeZone:"America/Chicago",year:"numeric",month:"2-digit",day:"2-digit"});};
-  async function get(path){
-    var r=await fetch(path,{headers:{"Accept":"application/json"}});
-    if(r.status===404) throw new Error("You are signed out. Sign in on the Workbench and reload.");
-    var d=await r.json().catch(function(){return {};});
-    if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
-    return d;
-  }
-  function show(val){ if(val===null||val===undefined||val==="") return "—"; return typeof val==="object"?JSON.stringify(val):String(val); }
-
-  /* Reason side panel. open({title, before, after, linearIssue}) resolves to {reason, linearIssue}
-     on Save and to null on Cancel. The reason is optional: Save never refuses an empty field. */
-  var LINEAR=/^[A-Z][A-Z0-9]{1,9}-[0-9]{1,6}$/;
-  var pending=null;
-  function panelClose(result){
-    document.getElementById("reason-panel").hidden=true; document.getElementById("reason-scrim").hidden=true;
-    var p=pending; pending=null; if(p){ if(p.focus&&p.focus.focus) p.focus.focus(); p.resolve(result); }
-  }
-  function reasonPanel(opts){
-    opts=opts||{};
-    if(pending) panelClose(null);
-    var before=opts.before||{}, after=opts.after||{};
-    var keys=Object.keys(Object.assign({},before,after)).filter(function(k){return show(before[k])!==show(after[k]);});
-    document.getElementById("reason-title").textContent=opts.title||"Confirm change";
-    document.getElementById("reason-diff").innerHTML=keys.length
-      ? keys.map(function(k){return "<tr><th scope=\\"row\\">"+esc(k)+"</th><td class=\\"was\\">"+esc(show(before[k]))+"</td><td class=\\"now\\">"+esc(show(after[k]))+"</td></tr>";}).join("")
-      : "<tr><td colspan=\\"3\\">Nothing changes.</td></tr>";
-    var issue=String(opts.linearIssue||"").trim().toUpperCase(); if(!LINEAR.test(issue)) issue="";
-    var field=document.getElementById("reason-text"); field.value=issue;
-    document.getElementById("reason-hint").textContent=issue?"Optional. Starts as the Linear issue this change names.":"Optional.";
-    document.getElementById("reason-save").disabled=!keys.length;
-    document.getElementById("reason-scrim").hidden=false; document.getElementById("reason-panel").hidden=false;
-    var focus=document.activeElement; field.focus();
-    return new Promise(function(resolve){ pending={resolve:resolve,focus:focus,issue:issue}; });
-  }
-  document.getElementById("reason-save").addEventListener("click",function(){
-    var issue=pending?pending.issue:""; panelClose({reason:document.getElementById("reason-text").value.trim(),linearIssue:issue||null});
-  });
-  document.getElementById("reason-cancel").addEventListener("click",function(){panelClose(null);});
-  document.getElementById("reason-scrim").addEventListener("click",function(){panelClose(null);});
-  document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&pending) panelClose(null); });
-  window.AdminConsole={reasonPanel:reasonPanel};
-
-  var area=document.body.dataset.area;
-  if(area==="people"){
-    var PEOPLE=[];
-    var drawPeople=function(){
-      var n=document.getElementById("people-q").value.trim().toLowerCase();
-      var rows=PEOPLE.filter(function(p){return !n||String(p.email).toLowerCase().indexOf(n)>=0||String(p.displayName||"").toLowerCase().indexOf(n)>=0;});
-      document.getElementById("people-count").textContent=rows.length+(rows.length===1?" person":" people");
-      document.querySelector("#people-table tbody").innerHTML=rows.map(function(p){
-        var acc=(p.access||[]).map(function(a){return "<span class=\\"tag"+(a.state==="active"?"":" off")+"\\" title=\\""+esc(a.state)+(a.expiresAt?" · until "+esc(day(a.expiresAt)):"")+"\\">"+esc(a.product)+" · "+esc(a.role)+"</span>";}).join("")||"—";
-        return "<tr><td class=\\"wrap\\">"+esc(p.email)+"</td><td>"+esc(p.displayName||"—")+"</td><td>"+acc+"</td><td>"+esc(p.source)+"</td><td>"+esc(day(p.createdAt))+"</td></tr>";
-      }).join("");
-    };
-    document.getElementById("people-q").addEventListener("input",drawPeople);
-    get("/api/admin/people").then(function(d){ PEOPLE=d.people||[]; document.getElementById("people-msg").textContent=""; document.getElementById("people-table").hidden=false; drawPeople(); })
-      .catch(function(e){ var m=document.getElementById("people-msg"); m.textContent=e.message; m.className="msg err"; });
-  }
-  if(area==="audit"){
-    var timer=null;
-    var loadAudit=function(){
-      var q=document.getElementById("audit-q").value.trim(), m=document.getElementById("audit-msg");
-      get("/api/admin/audit"+(q?"?q="+encodeURIComponent(q):"")).then(function(d){
-        var rows=d.rows||[]; m.textContent=rows.length?"":"No audit rows match."; m.className="msg";
-        document.getElementById("audit-count").textContent=rows.length+(rows.length===1?" row":" rows")+" (newest 100)";
-        document.getElementById("audit-table").hidden=!rows.length;
-        document.querySelector("#audit-table tbody").innerHTML=rows.map(function(r){
-          var who=esc(r.actorEmail||r.actor)+(r.actorVerified?"":" <span class=\\"unverified\\">(unverified)</span>");
-          return "<tr><td>"+esc(ct(r.at))+"</td><td class=\\"wrap\\">"+who+"</td><td>"+esc(r.product)+"</td><td class=\\"wrap\\">"+esc(r.subject)+"</td><td>"+esc(r.action)+"</td><td class=\\"wrap\\">"+esc(r.reason||"—")+"</td></tr>";
-        }).join("");
-      }).catch(function(e){ m.textContent=e.message; m.className="msg err"; });
-    };
-    document.getElementById("audit-q").addEventListener("input",function(){ clearTimeout(timer); timer=setTimeout(loadAudit,250); });
-    loadAudit();
-  }
-})();
-`;
+/* The browser code is api/_admin/client.js, printed into the page as source. */
+const JS = '(' + require('./client.js').toString() + ')();';
 
 /** The whole page for one area. `actor` is what requireOwner() returned. */
-function renderShell(area, actor) {
+function renderShell(area, actor, id) {
+  const pid = area.id === 'people' && id ? String(id) : '';
   const nav = AREAS.map((a) => `<a href="${a.path}"${a.id === area.id ? ' aria-current="page"' : ''}>${esc(a.label)}</a>`).join('');
   return `<!DOCTYPE html>
 <html lang="en">
@@ -186,7 +145,7 @@ function renderShell(area, actor) {
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <style>${CSS}</style>
 </head>
-<body data-area="${area.id}">
+<body data-area="${area.id}"${pid ? ` data-id="${esc(pid)}"` : ''}>
 <header class="top">
   <div class="brand">Faraday Admin<small>Owner console</small></div>
   <a class="back" href="/">← Workbench</a>
@@ -194,8 +153,8 @@ function renderShell(area, actor) {
 </header>
 <div class="layout">
   <nav class="areas" aria-label="Admin areas">${nav}</nav>
-  <main id="main"><h1>${esc(area.label)}</h1>
-${body(area)}
+  <main id="main">
+${body(area, pid)}
   </main>
 </div>
 <div id="reason-scrim" hidden></div>

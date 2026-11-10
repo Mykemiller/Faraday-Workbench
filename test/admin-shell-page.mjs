@@ -58,16 +58,11 @@ for (const [label, url, re] of [['Apps', '/admin/apps', /Coming in Phase 2/], ['
 }
 console.log('PASS  six areas in the navigation; each opens at its own /admin URL; placeholders name their phase');
 
-// ---- People ----
+// ---- People (the directory and Person page have their own test: test/people-page.mjs) ----
 await page.click('nav.areas a:text-is("People")'); await page.waitForURL(ORIGIN + '/admin/people');
 await page.waitForSelector('#people-table:not([hidden]) tbody tr');
 assert.equal(await page.locator('#people-table tbody tr').count(), 2);
-assert.equal(await page.textContent('#people-count'), '2 people');
-assert.match(await page.textContent('#people-table tbody tr:first-child'), /owner@example\.com.*workbench · owner/s);
-assert.equal(await page.locator('#people-table .tag.off').count(), 1, 'revoked access is struck through');
-await page.fill('#people-q', 'tester'); assert.equal(await page.locator('#people-table tbody tr').count(), 1);
-assert.equal(await page.textContent('#people-count'), '1 person');
-console.log('PASS  People lists people with their access and filters by search');
+console.log('PASS  People opens from the navigation and lists people');
 
 // ---- Audit ----
 await page.goto(ORIGIN + '/admin/audit');

@@ -4,6 +4,7 @@
  *
  *   session   signed-in Owner session      api/_admin/session.js (does its own requireAdmin)
  *   people    Owner only                        api/_admin/people.js
+ *   person    Owner only                        api/_admin/person.js
  *   audit     Owner only                        api/_admin/audit.js
  */
 'use strict';
@@ -14,6 +15,7 @@ const { requireOwner } = require('../_auth.js');
 const ROUTES = Object.freeze({
   session: { gate: 'self', run: require('../_admin/session.js') },
   people: { gate: 'owner', run: require('../_admin/people.js') },
+  person: { gate: 'owner', run: require('../_admin/person.js') },
   audit: { gate: 'owner', run: require('../_admin/audit.js') }
 });
 
@@ -41,6 +43,7 @@ async function handler(req, res) {
   try {
     return await route.run(req, res, { actor, key });
   } catch (e) {
+    if (res.headersSent) return undefined;
     return res.status(502).json({ error: 'The request could not be completed.' });
   }
 }

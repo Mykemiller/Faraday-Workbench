@@ -87,7 +87,7 @@ function world() {
   }
   assert.deepEqual(AREAS.filter((a) => a.content).map((a) => a.id), ['people', 'audit']);
   const rw = JSON.parse(fs.readFileSync(path.join(HERE, '..', 'vercel.json'), 'utf8')).rewrites;
-  assert.deepEqual(rw, [{ source: '/admin', destination: '/api/admin/shell' }, { source: '/admin/:area', destination: '/api/admin/shell?area=:area' }]);
+  assert.deepEqual(rw, [{ source: '/admin', destination: '/api/admin/shell' }, { source: '/admin/:area', destination: '/api/admin/shell?area=:area' }, { source: '/admin/:area/:id', destination: '/api/admin/shell?area=:area&id=:id' }]);
   assert.equal(fs.existsSync(path.join(HERE, '..', 'admin')), false, 'no static /admin files: the page only exists behind the gate');
   console.log('PASS  six areas with their own URLs; People and Audit have content, the rest say "Coming in Phase N"');
 }
@@ -110,9 +110,9 @@ function world() {
   const h = ownerHeaders(OWNER_ID, OWNER);
   let r = await call(router, { method: 'GET', headers: h, query: { route: 'people' } });
   assert.equal(r.code, 200); assert.equal(r.body.count, 2);
-  assert.deepEqual(r.body.people[0].access.map((a) => a.state), ['active', 'revoked']);
+  assert.deepEqual(r.body.people[0].access.map((a) => a.state).sort(), ['active', 'revoked']);
   assert.equal(r.body.people[1].access[0].state, 'expired');
-  assert.equal((await call(router, { method: 'POST', headers: h, query: { route: 'people' }, body: {} })).code, 405, 'People is read-only');
+  assert.equal((await call(router, { method: 'DELETE', headers: h, query: { route: 'people' } })).code, 405);
   r = await call(router, { method: 'GET', headers: h, query: { route: 'audit', q: 'Owner@(x)*', product: 'workbench' } });
   assert.equal(r.code, 200);
   assert.equal(r.body.rows[0].actor, OWNER_ID); assert.equal(r.body.rows[0].actorEmail, OWNER); assert.equal(r.body.rows[0].actorVerified, true);
@@ -123,7 +123,7 @@ function world() {
   assert.equal((await call(router, { method: 'DELETE', headers: h, query: { route: 'audit' } })).code, 405, 'Audit is read-only');
   r = await call(router, { method: 'GET', url: '/api/admin/people?x=1', headers: h });
   assert.equal(r.code, 200, 'the route name is also read from the URL');
-  console.log('PASS  People and Audit routes: Owner-only, read-only, filters validated, actor id shown with its email');
+  console.log('PASS  People and Audit routes: Owner-only, filters validated, actor id shown with its email (People writes: test/people.mjs)');
 }
 
 // ---- audit helper: unit tests with a mocked client ----
@@ -173,7 +173,7 @@ function world() {
   const failing = { key: 'svc', client: async () => ({ ok: false, status: 400, json: async () => ({ message: 'estate_access_set: status must be active or revoked (got x)' }) }) };
   await refuse(owner, { rpc: 'estate_access_set', args: {} }, failing, 400, /status must be active or revoked/);
   await refuse(owner, { rpc: 'estate_access_set', args: {} }, { key: 'svc', client: async () => { throw new Error('ECONNRESET'); } }, 502, /nothing was saved/);
-  assert.deepEqual(Object.keys(AUDITED_RPCS).sort(), ['estate_access_set', 'estate_audience_gate_set', 'estate_consent_review', 'predicts_review_recipient']);
+  assert.deepEqual(Object.keys(AUDITED_RPCS).sort(), ['estate_access_set', 'estate_audience_gate_set', 'estate_consent_review', 'estate_person_set_persona', 'predicts_review_recipient']);
   assert.ok(Object.isFrozen(AUDITED_RPCS));
   console.log('PASS  audit helper: actor = person id, reason optional, Linear issue default, only audited functions, refusals write nothing');
 }
