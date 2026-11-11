@@ -1,6 +1,6 @@
 /* The Admin console shell (FDY-287, ADM-0.4): one HTML page, six areas, each with its own URL
  * under /admin. Rendered on the server by api/admin/shell.js AFTER the Owner gate, so the markup
- * never reaches anyone else. People and Audit have content; the rest say which phase brings them.
+ * never reaches anyone else. People, Apps and Audit have content; the rest say which phase brings them.
  *
  * The page carries the reason side panel every write will use (window.AdminConsole.reasonPanel):
  * before and after, an optional reason, Save. Reason is never required; when the change names a
@@ -11,7 +11,7 @@
 const AREAS = Object.freeze([
   { id: 'home', path: '/admin', label: 'Home', phase: 1, blurb: 'A summary of people, access and recent changes.' },
   { id: 'people', path: '/admin/people', label: 'People', content: true },
-  { id: 'apps', path: '/admin/apps', label: 'Apps', phase: 2, blurb: 'Settings for each app, changed here without a redeploy.' },
+  { id: 'apps', path: '/admin/apps', label: 'Apps', content: true },
   { id: 'plans', path: '/admin/plans', label: 'Plans and billing', phase: 3, blurb: 'Plans, seats and billing.' },
   { id: 'audit', path: '/admin/audit', label: 'Audit', content: true },
   { id: 'console', path: '/admin/console', label: 'Console', phase: 2, blurb: 'Who may use this console, and in what role.' }
@@ -30,7 +30,24 @@ const EXPIRY_OPTIONS = '<option value="">Any expiry</option><option value="7d">E
 
 const PEOPLE_TABS = (cur) => `<p class="tabs"><a href="/admin/people"${cur === 'directory' ? ' aria-current="page"' : ''}>Directory</a><a href="/admin/people/access"${cur === 'access' ? ' aria-current="page"' : ''}>Access</a><a href="/admin/people/review"${cur === 'review' ? ' aria-current="page"' : ''}>Review</a></p>`;
 
+const APPS_TABS = '<p class="tabs" id="apps-tabs"><a href="/admin/apps" data-tab="cards" aria-current="page">Cards</a><a href="/admin/apps?tab=settings" data-tab="settings">Settings</a></p>';
+
 function body(area, id) {
+  if (area.id === 'apps') {
+    // One page, two panels; client.js shows one by ?tab= (no path segment, so no new page id).
+    return `<h1>Apps</h1>
+${APPS_TABS}
+<div id="apps-cards-panel">
+<p class="count" id="apps-count"></p>
+<div id="apps-msg" class="msg" role="status" aria-live="polite">Loading apps…</div>
+<div id="apps-grid" class="cards"></div>
+</div>
+<div id="apps-settings-panel" hidden>
+<p class="count" id="set-note">The Workbench is the pilot: its settings are listed here and changed here, with no redeploy. The other 14 apps follow.</p>
+<div id="set-msg" class="msg" role="status" aria-live="polite">Loading settings…</div>
+<div id="set-groups"></div>
+</div>`;
+  }
   if (area.id === 'people' && id === 'access') {
     return `<h1>People</h1>
 ${PEOPLE_TABS('access')}
@@ -134,6 +151,26 @@ td.wrap{overflow-wrap:anywhere}
 .tag{display:inline-block;font:500 11px/1.5 ui-monospace,Menlo,monospace;border:1px solid var(--line);border-radius:2px;padding:0 6px;margin:0 4px 4px 0;white-space:nowrap}
 .tag.off{opacity:.55;text-decoration:line-through}
 .unverified{color:var(--bad)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{border:1px solid var(--line);border-radius:4px;background:var(--panel);padding:14px 16px;min-width:0;display:flex;flex-direction:column;gap:8px}
+.card h3{font:600 17px/1.25 Georgia,"Times New Roman",serif;margin:0;overflow-wrap:anywhere}
+.card .code{font:600 12px/1.5 ui-monospace,Menlo,monospace;letter-spacing:.14em;color:var(--gold)}
+.card .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.card dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:13px}
+.card dt{color:var(--dim)}.card dd{margin:0;overflow-wrap:anywhere}
+.card dd.na{color:var(--dim)}
+.card .acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.card form.promote{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.card form.promote[hidden]{display:none}
+.card form.promote input{padding:6px 8px;font-size:14px;min-width:0}
+.card form.promote input[name=version]{width:84px}.card form.promote input[name=release]{flex:1 1 140px}
+.chip{display:inline-block;font:600 11px/1.6 ui-monospace,Menlo,monospace;letter-spacing:.06em;border:1px solid var(--gold);border-radius:10px;padding:0 9px;color:var(--gold-bright)}
+.chip.s-notready,.chip.s-notstarted{border-color:var(--line);color:var(--dim)}
+.card-msg{font-size:13px;color:var(--dim);margin:0}.card-msg.err{color:var(--bad)}.card-msg.ok{color:var(--gold-bright)}
+.setrow{border-top:1px solid rgba(248,245,240,.08);padding:12px 0}
+.setrow .name{font-weight:600}.setrow .key{font:12px/1.4 ui-monospace,Menlo,monospace;color:var(--dim)}
+.setrow .facts{display:flex;gap:6px 16px;flex-wrap:wrap;font-size:13px;color:var(--dim);margin:6px 0}
+.setrow .edit{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .soon{border:1px dashed var(--line);border-radius:4px;padding:28px 20px;max-width:560px}
 .soon-tag{font:500 12px/1.4 ui-monospace,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 8px}
 .soon p{margin:0}
