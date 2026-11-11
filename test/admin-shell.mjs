@@ -118,7 +118,7 @@ function world() {
   assert.equal(r.body.rows[0].actor, OWNER_ID); assert.equal(r.body.rows[0].actorEmail, OWNER); assert.equal(r.body.rows[0].actorVerified, true);
   assert.equal(r.body.rows[1].actorEmail, null); assert.equal(r.body.rows[1].actorVerified, false);
   const q = seen.find((s) => s.startsWith('/rest/v1/admin_audit'));
-  assert.match(q, /product=eq\.workbench/); assert.match(q, /subject_email=ilike\.\*owner%40x\*$/, 'wildcards and brackets typed by the user are stripped'); assert.match(q, /limit=100/);
+  assert.match(q, /product=eq\.workbench/); assert.match(q, /subject_email=ilike\.\*owner%40x\*$/, 'wildcards and brackets typed by the user are stripped'); assert.match(q, /limit=101/, 'a page of 100 plus one, to know whether older rows exist');
   assert.equal((await call(router, { method: 'GET', headers: h, query: { route: 'audit', product: 'x;drop' } })).code, 400);
   assert.equal((await call(router, { method: 'DELETE', headers: h, query: { route: 'audit' } })).code, 405, 'Audit is read-only');
   r = await call(router, { method: 'GET', url: '/api/admin/people?x=1', headers: h });

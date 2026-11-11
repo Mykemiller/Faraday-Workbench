@@ -602,20 +602,45 @@ module.exports = function adminClient() {
 
   /* ---- Audit --------------------------------------------------------------------------------- */
   if (area === 'audit') {
-    var atimer = null;
-    var loadAudit = function () {
-      var q = $('audit-q').value.trim();
-      api('/api/admin/audit' + (q ? '?q=' + encodeURIComponent(q) : '')).then(function (d) {
-        var rows = d.rows || []; say('audit-msg', rows.length ? '' : 'No audit rows match.');
-        $('audit-count').textContent = rows.length + (rows.length === 1 ? ' row' : ' rows') + ' (newest 100)';
-        $('audit-table').hidden = !rows.length;
-        document.querySelector('#audit-table tbody').innerHTML = rows.map(function (r) {
-          var who = esc(r.actorEmail || r.actor) + (r.actorVerified ? '' : ' <span class="unverified">(unverified)</span>');
-          return '<tr><td>' + esc(ct(r.at)) + '</td><td class="wrap">' + who + '</td><td>' + esc(r.product) + '</td><td class="wrap">' + esc(r.subject) + '</td><td>' + esc(r.action) + '</td><td class="wrap">' + esc(r.reason || '—') + '</td></tr>';
-        }).join('');
+    var atimer = null, cursor = null, shown = [];
+    var short = function (v) { var t = show(v); return t.length > 160 ? t.slice(0, 157) + '…' : t; };
+    var qs = function (before) {
+      var p = [['q', 'person'], ['actor', 'actor'], ['app', 'app'], ['setting', 'setting']].map(function (f) { var v = $('audit-' + f[0]).value.trim(); return v ? f[1] + '=' + encodeURIComponent(v) : ''; }).filter(Boolean);
+      var src = $('audit-source').value; if (src) p.push('source=' + src);
+      if (before) p.push('before=' + encodeURIComponent(before));
+      return p.length ? '?' + p.join('&') : '';
+    };
+    var draw = function () {
+      $('audit-table').hidden = !shown.length;
+      $('audit-count').textContent = shown.length + (shown.length === 1 ? ' row' : ' rows');
+      $('audit-more').hidden = !cursor;
+      document.querySelector('#audit-table tbody').innerHTML = shown.map(function (r, i) {
+        var who = esc(r.actorEmail || r.actor) + (r.actorVerified === false ? ' <span class="unverified">(unverified)</span>' : '');
+        var act = r.revert && r.revert.possible
+          ? '<button type="button" data-revert="' + i + '">Revert</button>'
+          : '<span class="count" title="' + esc(r.revert ? r.revert.why : '') + '">' + esc(r.revertedBy ? 'Reverted' : 'No revert') + '</span>';
+        return '<tr><td>' + esc(ct(r.at)) + '</td><td class="wrap">' + who + '</td><td>' + esc(r.app || r.product) + '</td><td class="wrap">' + esc(r.subject) + '</td><td>' + esc(r.action) + '</td><td class="wrap">' + esc(short(r.before)) + '</td><td class="wrap">' + esc(short(r.after)) + '</td><td class="wrap">' + esc(r.reason || '—') + '</td><td class="acts">' + act + '</td></tr>';
+      }).join('');
+    };
+    var loadAudit = function (more) {
+      return api('/api/admin/audit' + qs(more ? cursor : null)).then(function (d) {
+        var rows = d.rows || []; shown = more ? shown.concat(rows) : rows; cursor = d.next || null;
+        say('audit-msg', shown.length ? (d.sources && d.sources.league_office === 'unavailable' ? 'League Office rows are not available right now; showing console changes only.' : '') : 'No audit rows match.');
+        draw();
       }).catch(function (e) { say('audit-msg', e.message, 'err'); });
     };
-    $('audit-q').addEventListener('input', function () { clearTimeout(atimer); atimer = setTimeout(loadAudit, 250); });
-    loadAudit();
+    document.querySelector('#audit-table tbody').addEventListener('click', async function (ev) {
+      var b = ev.target.closest('button[data-revert]'); if (!b) return;
+      var r = shown[Number(b.getAttribute('data-revert'))]; if (!r) return;
+      var ok = await reasonPanel({ title: 'Revert: ' + r.action + ' (' + (r.subject || r.app) + ')', before: { state: short(r.after) }, after: { state: short(r.before === null ? 'access ended (revoked)' : r.before) }, linearIssue: ISSUE });
+      if (!ok) return;
+      say('audit-msg', 'Reverting…');
+      try { var d = await api('/api/admin/audit', { id: r.key, reason: ok.reason, linearIssue: ok.linearIssue }); await loadAudit(false); say('audit-msg', d.message, 'ok'); }
+      catch (err) { say('audit-msg', err.message, 'err'); }
+    });
+    ['audit-q', 'audit-actor', 'audit-app', 'audit-setting'].forEach(function (id) { $(id).addEventListener('input', function () { clearTimeout(atimer); atimer = setTimeout(function () { loadAudit(false); }, 250); }); });
+    $('audit-source').addEventListener('change', function () { loadAudit(false); });
+    $('audit-more').addEventListener('click', function () { loadAudit(true); });
+    loadAudit(false);
   }
 };
