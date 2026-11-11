@@ -18,7 +18,8 @@ const ROUTES = Object.freeze({
   people: { gate: 'owner', run: require('../_admin/people.js') },
   person: { gate: 'owner', run: require('../_admin/person.js') },
   access: { gate: 'owner', run: require('../_admin/access.js') },
-  audit: { gate: 'owner', run: require('../_admin/audit.js') }
+  audit: { gate: 'owner', run: require('../_admin/audit.js') },
+  apps: { gate: 'owner', run: require('../_admin/apps.js') }
 });
 
 function routeName(req) {
