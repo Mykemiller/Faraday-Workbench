@@ -4,7 +4,7 @@
 import { randomUUID } from 'node:crypto';
 
 export function fakeDb() {
-  const db = { people: [], access: [], consent: [], audit: [], calls: [], failRpc: null,
+  const db = { people: [], access: [], consent: [], audit: [], calls: [], failRpc: null, recipients: [], noView: false, noFunctions: new Set(),
     // ADM-2.1 (FDY-294): the app registry. Mirrors the database contract: deny-all tables read with the service key.
     apps: [], defs: [], vals: [], metric: {}, failRead: null, hangRpc: null,
     vercel: { mode: 'ok', deployments: [], calls: [] } };
@@ -19,6 +19,11 @@ export function fakeDb() {
   };
   db.addConsent = (person, product, review_status, optin_status) => {
     db.consent.push({ person_id: person.id, product, channel: 'email', review_status, optin_status, reviewed_at: null, confirmed_at: optin_status === 'confirmed' ? '2026-11-06T12:00:00Z' : null, unsubscribed_at: null, token: 'SECRET-TOKEN' });
+  };
+  // FDY-290: predicts_recipients as v_predicts_recipient_review shows it (the consent token is never in the view).
+  db.addRecipient = (email, extra = {}) => {
+    const r = { email, source: null, dc_created_at: new Date(Date.now() - db.recipients.length * 86400000).toISOString(), last_seen_at: null, dc_active: true, review_status: 'pending_review', optin_status: 'not_invited', reviewed_at: null, reviewed_by: null, ...extra };
+    db.recipients.push(r); return r;
   };
   const STATES = ['Launch Ready', 'Needs Tuning', 'Just Functioning', 'Not Ready', 'Not Started'];
   db.addApp = (code, name, major, minor, extra = {}) => {
@@ -105,6 +110,16 @@ export function fakeDb() {
       const m = db.metric[b.p_code];
       return m ? { label: m.label, value: m.value, as_of: m.as_of || null } : { label: null, value: null, as_of: null };
     },
+    predicts_review_recipient(b) {   // the 4-argument FDY-252 form: review + admin_audit in one step
+      if (!['approve', 'reject'].includes(b.p_decision)) throw new Error('p_decision must be approve or reject');
+      if (!b.p_actor || !String(b.p_actor).trim()) throw new Error('predicts_review_recipient: p_actor is required (who decided)');
+      const r = db.recipients.find((x) => norm(x.email) === norm(b.p_email));
+      if (!r) throw new Error('no predicts recipient with email ' + b.p_email);
+      const old = { review_status: r.review_status, reviewed_by: r.reviewed_by, reviewed_at: r.reviewed_at };
+      r.review_status = b.p_decision === 'approve' ? 'approved' : 'rejected'; r.reviewed_by = b.p_actor; r.reviewed_at = new Date().toISOString();
+      audit({ actor: b.p_actor, actor_verified: false, product: 'predicts', subject_email: r.email, action: 'consent.' + b.p_decision, reason: b.p_reason ?? null, old_value: old, new_value: { review_status: r.review_status, reviewed_by: r.reviewed_by, reviewed_at: r.reviewed_at }, via: 'rpc:predicts_review_recipient' });
+      return { email: r.email, review_status: r.review_status, optin_status: r.optin_status, reviewed_at: r.reviewed_at, reviewed_by: r.reviewed_by };
+    },
     estate_person_set_persona(b) {
       const p = db.people.find((x) => x.email === norm(b.p_email));
       if (!p) throw new Error('estate_person_set_persona: no person with that email');
@@ -130,7 +145,7 @@ export function fakeDb() {
     db.calls.push({ method, path: u.pathname, search: u.search, body });
     const m = /^\/rest\/v1\/rpc\/(\w+)$/.exec(u.pathname);
     if (m) {
-      if (!rpc[m[1]]) return json({ message: 'no function ' + m[1] }, 404);
+      if (!rpc[m[1]] || db.noFunctions.has(m[1])) return json({ code: 'PGRST202', message: 'no function ' + m[1] }, 404);
       if (db.failRpc === m[1]) return json({ message: 'boom' }, 500);
       if (db.hangRpc === m[1]) return hang(init);
       try { return json(rpc[m[1]](body)); } catch (e) { return json({ message: e.message }, 400); }
@@ -145,6 +160,11 @@ export function fakeDb() {
       const rows = tbl[1] === 'app_registry' ? db.apps.filter((r) => keep(r, 'code')).slice().sort((a, b) => (a.code < b.code ? -1 : 1))
         : tbl[1] === 'app_setting_def' ? db.defs.filter((r) => keep(r, 'app_code')) : db.vals.filter((r) => keep(r, 'app_code'));
       return json(rows);
+    }
+    if (u.pathname === '/rest/v1/v_predicts_recipient_review' && method === 'GET') {
+      if (db.noView) return json({ code: 'PGRST205', message: 'Could not find the table in the schema cache' }, 404);
+      const rows = db.recipients.slice().sort((a, b) => (b.review_status === 'pending_review') - (a.review_status === 'pending_review') || String(a.dc_created_at).localeCompare(String(b.dc_created_at)));
+      return json(rows.map((r) => ({ ...r })));
     }
     if (u.pathname === '/rest/v1/estate_people' && method === 'GET') {
       let rows = db.people.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));

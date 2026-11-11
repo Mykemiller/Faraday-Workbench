@@ -69,9 +69,12 @@ module.exports = function adminClient() {
 
   var area = document.body.dataset.area, subview = document.body.dataset.id || '';
   var personId = subview === 'access' ? '' : subview;
+  /* /admin/people/review is served by the same page as the directory (vercel.json rewrites it to /admin/people);
+     the path tells this code which panel to show. */
+  var isReview = area === 'people' && !subview && location.pathname.replace(/\/+$/, '') === '/admin/people/review';
 
   /* ---- People directory -------------------------------------------------------------------- */
-  if (area === 'people' && !subview) {
+  if (area === 'people' && !subview && !isReview) {
     var F = ['q', 'app', 'status', 'expiry', 'persona'], OPTS = null, timer = null;
     var params = new URLSearchParams(location.search);
     /* Filters arrive in the URL. Status and expiry have fixed options; app and persona get theirs
@@ -130,6 +133,58 @@ module.exports = function adminClient() {
       }
     });
     loadPeople();
+  }
+
+
+  /* ---- People > Review (FDY-290): the Predicts review queue ------------------------------------ */
+  if (isReview) {
+    $('dir-panel').hidden = true; $('rev-panel').hidden = false;
+    document.title = 'Review · Faraday Admin';
+    Array.prototype.forEach.call(document.querySelectorAll('.tabs a'), function (a) {
+      if (a.getAttribute('href') === '/admin/people/review') a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    var REV = [];
+    var revWord = { pending_review: 'Pending review', approved: 'Approved', rejected: 'Rejected' };
+    var optWord = { not_invited: 'Not invited', invited: 'Invited', confirmed: 'Confirmed', unsubscribed: 'Unsubscribed' };
+    var revDraw = function () {
+      var pending = REV.filter(function (r) { return r.reviewStatus === 'pending_review'; }).length;
+      $('rev-count').textContent = REV.length + (REV.length === 1 ? ' person' : ' people') + ' · ' + pending + ' pending';
+      $('rev-table').hidden = !REV.length;
+      document.querySelector('#rev-table tbody').innerHTML = REV.map(function (r) {
+        var decide = r.reviewStatus === 'pending_review'
+          ? '<button type="button" class="gold" data-act="approve">Approve</button><button type="button" data-act="reject">Reject</button>'
+          : esc(r.reviewedBy ? 'by ' + r.reviewedBy : '—');
+        return '<tr data-email="' + esc(r.email) + '"><td class="wrap">' + esc(r.email) + '</td><td>' + esc(r.source || '—') + '</td><td>' + esc(r.createdAt ? day(r.createdAt) : '—')
+          + '</td><td>' + esc(r.lastSeenAt ? day(r.lastSeenAt) : '—') + '</td><td>' + esc(optWord[r.optinStatus] || r.optinStatus) + '</td><td><span class="tag' + (r.reviewStatus === 'pending_review' ? '' : ' off') + '">'
+          + esc(revWord[r.reviewStatus] || r.reviewStatus) + '</span></td><td class="acts">' + decide + '</td></tr>';
+      }).join('');
+    };
+    var revLoad = function () {
+      return api('/api/admin/review').then(function (d) {
+        if (d.waiting) { REV = []; revDraw(); $('rev-table').hidden = true; $('rev-count').textContent = ''; say('rev-msg', d.message || 'Waiting on FDY-252 migration', 'err'); return; }
+        REV = d.rows; say('rev-msg', REV.length ? '' : 'Nobody is waiting for a decision.'); revDraw();
+      }).catch(function (e) { say('rev-msg', e.message, 'err'); });
+    };
+    $('rev-table').addEventListener('click', async function (e) {
+      var btn = e.target.closest('button[data-act]'); if (!btn) return;
+      var email = btn.closest('tr').dataset.email, act = btn.dataset.act;
+      var to = act === 'approve' ? 'Approved' : 'Rejected';
+      var ok = await reasonPanel({
+        title: (act === 'approve' ? 'Approve ' : 'Reject ') + email,
+        before: { review: 'Pending review', 'invitation email': 'not sent' },
+        after: { review: to, 'invitation email': act === 'approve' ? 'not sent now; the FDY-112 job sends it later' : 'never sent' },
+        linearIssue: ISSUE
+      });
+      if (!ok) return;
+      say('rev-msg', 'Saving…');
+      try {
+        var d = await api('/api/admin/review', { email: email, decision: act, confirm: true, reason: ok.reason, linearIssue: ok.linearIssue });
+        await revLoad(); say('rev-msg', d.message, 'ok');
+      } catch (err) { say('rev-msg', err.message, 'err'); await revLoad().then(function () { say('rev-msg', err.message, 'err'); }); }
+    });
+    revLoad();
+  } else if (area === 'people' && !subview) {
+    $('rev-panel').hidden = true;
   }
 
   /* ---- People > Access (FDY-289): who holds access to one app ---------------------------------- */

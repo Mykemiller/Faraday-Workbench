@@ -24,6 +24,10 @@
   ],
   "rewrites": [
     {
+      "source": "/admin/people/review",
+      "destination": "/api/admin/shell?area=people"
+    },
+    {
       "source": "/admin",
       "destination": "/api/admin/shell"
     },
