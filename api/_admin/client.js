@@ -72,9 +72,11 @@ module.exports = function adminClient() {
   /* /admin/people/review is served by the same page as the directory (vercel.json rewrites it to /admin/people);
      the path tells this code which panel to show. */
   var isReview = area === 'people' && !subview && location.pathname.replace(/\/+$/, '') === '/admin/people/review';
+  /* /admin/people?tab=gate is the audience gate (FDY-291): the same people page, a different panel. */
+  var isGate = area === 'people' && !subview && !isReview && new URLSearchParams(location.search).get('tab') === 'gate';
 
   /* ---- People directory -------------------------------------------------------------------- */
-  if (area === 'people' && !subview && !isReview) {
+  if (area === 'people' && !subview && !isReview && !isGate) {
     var F = ['q', 'app', 'status', 'expiry', 'persona'], OPTS = null, timer = null;
     var params = new URLSearchParams(location.search);
     /* Filters arrive in the URL. Status and expiry have fixed options; app and persona get theirs
@@ -135,6 +137,60 @@ module.exports = function adminClient() {
     loadPeople();
   }
 
+
+  /* ---- People > Audience gate (FDY-291): who Predicts may email ---------------------------------- */
+  if (isGate) {
+    $('dir-panel').hidden = true; $('gate-panel').hidden = false;
+    document.title = 'Audience gate · Faraday Admin';
+    Array.prototype.forEach.call(document.querySelectorAll('.tabs a'), function (a) {
+      if (a.getAttribute('href') === '/admin/people?tab=gate') a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    var GATE = null, HIST = [];
+    var gateDescribe = function (lifted) { return lifted ? 'lifted: every approved and confirmed person is mailed' : 'armed: only the pinned addresses are mailed'; };
+    var gateDraw = function () {
+      $('gate-card').hidden = !GATE;
+      if (!GATE) return;
+      $('gate-state').innerHTML = (GATE.lifted ? '<span class="tag">LIFTED</span> Every approved and confirmed person is mailed.' : '<span class="tag">ARMED</span> Only the pinned addresses are mailed.')
+        + (GATE.changedAt ? ' Last changed ' + esc(ct(GATE.changedAt)) + ' CT' + (GATE.changedBy ? ' by ' + esc(GATE.changedBy) : '') + '.' : '');
+      $('gate-pinned').textContent = 'Pinned: ' + (GATE.pinned.length ? GATE.pinned.join(', ') : 'nobody');
+      var im = GATE.impact;
+      $('gate-impact').textContent = !im ? '' : GATE.lifted
+        ? im.eligible + ' approved and confirmed ' + (im.eligible === 1 ? 'person is' : 'people are') + ' being mailed.'
+        : im.eligible + ' ' + (im.eligible === 1 ? 'person is' : 'people are') + ' approved and confirmed; ' + im.newlyMailed + ' of them ' + (im.newlyMailed === 1 ? 'is' : 'are') + ' not pinned and would start receiving mail if you lift the gate.';
+      $('gate-arm').disabled = !GATE.lifted;
+      $('gate-confirm').disabled = GATE.lifted;
+      $('gate-lift').disabled = GATE.lifted || $('gate-confirm').value.trim() !== 'lift';
+      $('gate-history').hidden = !HIST.length;
+      document.querySelector('#gate-history tbody').innerHTML = HIST.map(function (r) {
+        return '<tr><td>' + esc(ct(r.at)) + '</td><td class="wrap">' + esc(r.actor) + (r.actorVerified ? '' : ' <span class="unverified">(unverified)</span>') + '</td><td>' + esc(r.action) + '</td><td class="wrap">' + esc(r.reason || '—') + '</td></tr>';
+      }).join('');
+    };
+    var gateLoad = function () {
+      return api('/api/admin/gate').then(function (d) {
+        if (d.waiting) { GATE = null; HIST = []; gateDraw(); say('gate-msg', d.message || 'Waiting on FDY-252 migration', 'err'); return; }
+        GATE = d.gates.filter(function (g) { return g.product === 'predicts'; })[0] || null; HIST = d.history || [];
+        say('gate-msg', GATE ? '' : 'There is no Predicts audience gate yet.'); gateDraw();
+      }).catch(function (e) { say('gate-msg', e.message, 'err'); });
+    };
+    var gateWrite = async function (lifted) {
+      var ok = await reasonPanel({
+        title: (lifted ? 'Lift' : 'Arm') + ' the Predicts audience gate',
+        before: { gate: gateDescribe(GATE.lifted) }, after: { gate: gateDescribe(lifted) }, linearIssue: ISSUE
+      });
+      if (!ok) return;
+      if (!ok.reason && !ok.linearIssue) { say('gate-msg', 'A reason is required for every change to this gate.', 'err'); return; }
+      say('gate-msg', 'Saving…');
+      try {
+        var d = await api('/api/admin/gate', { product: 'predicts', lifted: lifted, confirm: lifted ? 'lift' : undefined, reason: ok.reason, linearIssue: ok.linearIssue });
+        $('gate-confirm').value = '';
+        await gateLoad(); say('gate-msg', d.message, 'ok');
+      } catch (err) { say('gate-msg', err.message, 'err'); }
+    };
+    $('gate-confirm').addEventListener('input', gateDraw);
+    $('gate-lift').addEventListener('click', function () { gateWrite(true); });
+    $('gate-arm').addEventListener('click', function () { gateWrite(false); });
+    gateLoad();
+  }
 
   /* ---- People > Review (FDY-290): the Predicts review queue ------------------------------------ */
   if (isReview) {
