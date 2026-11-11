@@ -120,9 +120,16 @@ ${PEOPLE_TABS('directory')}
   }
   if (area.id === 'audit') {
     return `<h1>Audit</h1>
-<div class="bar"><input id="audit-q" type="search" placeholder="Filter by subject email" aria-label="Filter by subject email"><span class="count" id="audit-count"></span></div>
+<p class="count">Console changes and League Office changes in one timeline, newest first. A revert makes a new change and a new row; nothing here is ever edited.</p>
+<div class="bar"><input id="audit-q" type="search" placeholder="Person (subject)" aria-label="Filter by person (subject)">
+<input id="audit-actor" type="search" placeholder="Who did it" aria-label="Filter by who made the change">
+<input id="audit-app" type="search" placeholder="App" aria-label="Filter by app">
+<input id="audit-setting" type="search" placeholder="Setting" aria-label="Filter by setting">
+<select id="audit-source" aria-label="Which log"><option value="">Both logs</option><option value="admin">Console</option><option value="league_office">League Office</option></select>
+<span class="count" id="audit-count"></span></div>
 <div id="audit-msg" class="msg" role="status" aria-live="polite">Loading the audit trail…</div>
-<div class="scroll"><table id="audit-table" hidden><thead><tr><th>When (CT)</th><th>Who</th><th>App</th><th>Subject</th><th>Action</th><th>Reason</th></tr></thead><tbody></tbody></table></div>`;
+<div class="scroll"><table id="audit-table" hidden><thead><tr><th>When (CT)</th><th>Who</th><th>App</th><th>Subject</th><th>Action</th><th>Before</th><th>After</th><th>Reason</th><th></th></tr></thead><tbody></tbody></table></div>
+<p class="bar"><button type="button" id="audit-more" hidden>Older rows</button></p>`;
   }
   return `<h1>${esc(area.label)}</h1>
 <div class="soon"><p class="soon-tag">Coming in Phase ${area.phase}</p><p>${esc(area.blurb)}</p></div>`;

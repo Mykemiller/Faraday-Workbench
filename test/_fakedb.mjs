@@ -4,7 +4,7 @@
 import { randomUUID } from 'node:crypto';
 
 export function fakeDb() {
-  const db = { people: [], access: [], consent: [], audit: [], calls: [], failRpc: null, recipients: [], noView: false, noFunctions: new Set(), gates: [], noGate: false,
+  const db = { people: [], access: [], consent: [], audit: [], calls: [], failRpc: null, recipients: [], noView: false, noFunctions: new Set(), gates: [], noGate: false, lo: [], noLo: false,
     // ADM-2.1 (FDY-294): the app registry. Mirrors the database contract: deny-all tables read with the service key.
     apps: [], defs: [], vals: [], metric: {}, failRead: null, hangRpc: null,
     vercel: { mode: 'ok', deployments: [], calls: [] } };
@@ -26,6 +26,11 @@ export function fakeDb() {
   db.addRecipient = (email, extra = {}) => {
     const r = { email, source: null, dc_created_at: new Date(Date.now() - db.recipients.length * 86400000).toISOString(), last_seen_at: null, dc_active: true, review_status: 'pending_review', optin_status: 'not_invited', reviewed_at: null, reviewed_by: null, ...extra };
     db.recipients.push(r); return r;
+  };
+  // FDY-292: lo_audit_log (League Office) rows.
+  db.addLo = (staff_email, domain, action, extra = {}) => {
+    const r = { id: randomUUID(), at: new Date().toISOString(), staff_email, domain, action, reason: 'test', target_type: null, target_id: null, before: null, after: null, reversible: false, reverts_id: null, reverted_by: null, ...extra };
+    db.lo.push(r); return r;
   };
   const STATES = ['Launch Ready', 'Needs Tuning', 'Just Functioning', 'Not Ready', 'Not Started'];
   db.addApp = (code, name, major, minor, extra = {}) => {
@@ -190,7 +195,7 @@ export function fakeDb() {
       let rows = db.people.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
       if (sp.get('id')) { const v = sp.get('id'); rows = v.startsWith('eq.') ? rows.filter((p) => p.id === v.slice(3)) : rows.filter((p) => v.slice(4, -1).split(',').includes(p.id)); }
       if (sp.get('email_normalised')) rows = rows.filter((p) => p.email === sp.get('email_normalised').slice(3));
-      return json((sp.get('select') || '').includes('product_access') ? rows.map(embed) : rows.map((p) => ({ id: p.id, email: p.email })));
+      return json((sp.get('select') || '').includes('product_access') ? rows.map(embed) : rows.map((p) => ((sp.get('select') || '').includes('persona_preset') ? { id: p.id, email: p.email, persona_preset: p.persona_preset } : { id: p.id, email: p.email })));
     }
     if (u.pathname === '/rest/v1/product_access' && method === 'GET') {
       const product = (sp.get('product') || '').slice(3);
@@ -201,11 +206,29 @@ export function fakeDb() {
     }
     if (u.pathname === '/rest/v1/admin_audit' && method === 'GET') {
       let rows = db.audit.slice().reverse();
-      const se = sp.get('subject_email');
-      if (se && se.startsWith('eq.')) rows = rows.filter((r) => r.subject_email === se.slice(3));
-      if (se && se.startsWith('ilike.')) rows = rows.filter((r) => r.subject_email.includes(se.slice(6).replace(/\*/g, '')));
+      const f = (k) => { const v = sp.get(k); const i = v ? v.indexOf('.') : -1; return i < 0 ? null : { op: v.slice(0, i), val: v.slice(i + 1) }; };
+      const se = f('subject_email'), ac = f('actor'), at = f('at'), id = f('id'), act = f('action');
+      if (se && se.op === 'eq') rows = rows.filter((r) => r.subject_email === se.val);
+      if (se && se.op === 'ilike') rows = rows.filter((r) => String(r.subject_email || '').toLowerCase().includes(se.val.replace(/\*/g, '').toLowerCase()));
       if (sp.get('product')) rows = rows.filter((r) => r.product === sp.get('product').slice(3));
-      return json(rows.slice(0, 100));
+      if (act && act.op === 'eq') rows = rows.filter((r) => r.action === act.val);
+      if (id && id.op === 'eq') rows = rows.filter((r) => String(r.id) === id.val);
+      if (ac && ac.op === 'eq') rows = rows.filter((r) => r.actor === ac.val);
+      if (ac && ac.op === 'in') rows = rows.filter((r) => ac.val.slice(1, -1).split(',').includes(r.actor));
+      if (ac && ac.op === 'ilike') rows = rows.filter((r) => String(r.actor || '').toLowerCase().includes(ac.val.replace(/\*/g, '').toLowerCase()));
+      if (at && at.op === 'lt') rows = rows.filter((r) => Date.parse(r.at) < Date.parse(at.val));
+      return json(rows.slice(0, Number(sp.get('limit')) || 100));
+    }
+    if (u.pathname === '/rest/v1/lo_audit_log' && method === 'GET') {
+      if (db.noLo) return json({ code: 'PGRST205', message: 'Could not find the table in the schema cache' }, 404);
+      let rows = db.lo.slice().reverse();
+      const f = (k) => { const v = sp.get(k); const i = v ? v.indexOf('.') : -1; return i < 0 ? null : { op: v.slice(0, i), val: v.slice(i + 1) }; };
+      const dom = f('domain'), st = f('staff_email'), ti = f('target_id'), at = f('at');
+      if (dom) rows = rows.filter((r) => r.domain === dom.val);
+      if (st) rows = rows.filter((r) => r.staff_email.toLowerCase().includes(st.val.replace(/\*/g, '').toLowerCase()));
+      if (ti) rows = rows.filter((r) => String(r.target_id || '').toLowerCase().includes(ti.val.replace(/\*/g, '').toLowerCase()));
+      if (at && at.op === 'lt') rows = rows.filter((r) => Date.parse(r.at) < Date.parse(at.val));
+      return json(rows.slice(0, Number(sp.get('limit')) || 100));
     }
     if (u.pathname === '/rest/v1/admin_audit' && method === 'POST') { audit(body); return json(null, 201); }
     throw new Error('unexpected fetch ' + method + ' ' + u);
