@@ -87,7 +87,7 @@ function world() {
   }
   assert.deepEqual(AREAS.filter((a) => a.content).map((a) => a.id), ['people', 'audit']);
   const rw = JSON.parse(fs.readFileSync(path.join(HERE, '..', 'vercel.json'), 'utf8')).rewrites;
-  assert.deepEqual(rw, [{ source: '/admin', destination: '/api/admin/shell' }, { source: '/admin/:area', destination: '/api/admin/shell?area=:area' }, { source: '/admin/:area/:id', destination: '/api/admin/shell?area=:area&id=:id' }]);
+  assert.deepEqual(rw, [{ source: '/admin/people/review', destination: '/api/admin/shell?area=people' }, { source: '/admin', destination: '/api/admin/shell' }, { source: '/admin/:area', destination: '/api/admin/shell?area=:area' }, { source: '/admin/:area/:id', destination: '/api/admin/shell?area=:area&id=:id' }]);
   assert.equal(fs.existsSync(path.join(HERE, '..', 'admin')), false, 'no static /admin files: the page only exists behind the gate');
   console.log('PASS  six areas with their own URLs; People and Audit have content, the rest say "Coming in Phase N"');
 }

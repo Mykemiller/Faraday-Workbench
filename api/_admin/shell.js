@@ -28,7 +28,7 @@ function areaFor(segment) {
 const STATE_OPTIONS = '<option value="">Any status</option><option value="active">Active</option><option value="paused">Paused</option><option value="expired">Expired</option><option value="revoked">Revoked</option><option value="none">No access</option>';
 const EXPIRY_OPTIONS = '<option value="">Any expiry</option><option value="7d">Expires within 7 days</option><option value="30d">Expires within 30 days</option><option value="none">Never expires</option><option value="expired">Expired</option>';
 
-const PEOPLE_TABS = (cur) => `<p class="tabs"><a href="/admin/people"${cur === 'directory' ? ' aria-current="page"' : ''}>Directory</a><a href="/admin/people/access"${cur === 'access' ? ' aria-current="page"' : ''}>Access</a></p>`;
+const PEOPLE_TABS = (cur) => `<p class="tabs"><a href="/admin/people"${cur === 'directory' ? ' aria-current="page"' : ''}>Directory</a><a href="/admin/people/access"${cur === 'access' ? ' aria-current="page"' : ''}>Access</a><a href="/admin/people/review"${cur === 'review' ? ' aria-current="page"' : ''}>Review</a></p>`;
 
 function body(area, id) {
   if (area.id === 'people' && id === 'access') {
@@ -63,6 +63,7 @@ ${PEOPLE_TABS('access')}
   if (area.id === 'people') {
     return `<h1>People</h1>
 ${PEOPLE_TABS('directory')}
+<div id="dir-panel">
 <div class="bar"><input id="f-q" type="search" placeholder="Search name or email" aria-label="Search name or email">
 <select id="f-app" aria-label="Filter by app"><option value="">Any app</option></select>
 <select id="f-status" aria-label="Filter by status">${STATE_OPTIONS}</select>
@@ -74,7 +75,14 @@ ${PEOPLE_TABS('directory')}
 <section><h2>Add a person</h2>
 <form id="add-form" class="bar"><input id="add-email" type="email" placeholder="email@example.com" aria-label="Email" autocapitalize="off" spellcheck="false" required>
 <select id="add-app" aria-label="App"></select><select id="add-role" aria-label="Role"></select><input id="add-exp" type="date" aria-label="Expiry (optional)"><button type="submit" class="gold">Add person</button></form>
-<div id="add-msg" class="msg" role="status" aria-live="polite"></div></section>`;
+<div id="add-msg" class="msg" role="status" aria-live="polite"></div></section>
+</div>
+<div id="rev-panel" hidden>
+<p class="count">People waiting for a Predicts decision, oldest first. <strong>Approving sends no email.</strong> The FDY-112 invitation job sends the invitation later.</p>
+<div id="rev-msg" class="msg" role="status" aria-live="polite">Loading the review queue…</div>
+<p class="count" id="rev-count"></p>
+<div class="scroll"><table id="rev-table" hidden><thead><tr><th>Email</th><th>Source</th><th>Created</th><th>Last seen</th><th>Opt-in</th><th>Review</th><th>Decide</th></tr></thead><tbody></tbody></table></div>
+</div>`;
   }
   if (area.id === 'audit') {
     return `<h1>Audit</h1>

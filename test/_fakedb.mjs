@@ -4,7 +4,7 @@
 import { randomUUID } from 'node:crypto';
 
 export function fakeDb() {
-  const db = { people: [], access: [], consent: [], audit: [], calls: [], failRpc: null };
+  const db = { people: [], access: [], consent: [], audit: [], calls: [], failRpc: null, recipients: [], noView: false, noFunctions: new Set() };
   const norm = (e) => String(e || '').trim().toLowerCase();
   db.addPerson = (email, extra = {}) => {
     const p = { id: extra.id || randomUUID(), email: norm(email), display_name: null, source: 'test', created_at: new Date(Date.now() - db.people.length * 1000).toISOString(), persona_preset: null, ...extra };
@@ -16,6 +16,11 @@ export function fakeDb() {
   };
   db.addConsent = (person, product, review_status, optin_status) => {
     db.consent.push({ person_id: person.id, product, channel: 'email', review_status, optin_status, reviewed_at: null, confirmed_at: optin_status === 'confirmed' ? '2026-11-06T12:00:00Z' : null, unsubscribed_at: null, token: 'SECRET-TOKEN' });
+  };
+  // FDY-290: predicts_recipients as v_predicts_recipient_review shows it (the consent token is never in the view).
+  db.addRecipient = (email, extra = {}) => {
+    const r = { email, source: null, dc_created_at: new Date(Date.now() - db.recipients.length * 86400000).toISOString(), last_seen_at: null, dc_active: true, review_status: 'pending_review', optin_status: 'not_invited', reviewed_at: null, reviewed_by: null, ...extra };
+    db.recipients.push(r); return r;
   };
   const embed = (p) => ({
     ...p,
@@ -47,6 +52,16 @@ export function fakeDb() {
       audit({ actor: b.p_actor, actor_verified: b.p_actor_verified === true, product: b.p_product, subject_email: email, action, reason: b.p_reason ?? null, old_value: before, new_value: { role: b.p_role, status: b.p_status, expires_at: exp, note }, via: b.p_via || 'sql' });
       return { changed: true, action, person_id: p.id, product: b.p_product, role: b.p_role, status: b.p_status, expires_at: exp };
     },
+    predicts_review_recipient(b) {   // the 4-argument FDY-252 form: review + admin_audit in one step
+      if (!['approve', 'reject'].includes(b.p_decision)) throw new Error('p_decision must be approve or reject');
+      if (!b.p_actor || !String(b.p_actor).trim()) throw new Error('predicts_review_recipient: p_actor is required (who decided)');
+      const r = db.recipients.find((x) => norm(x.email) === norm(b.p_email));
+      if (!r) throw new Error('no predicts recipient with email ' + b.p_email);
+      const old = { review_status: r.review_status, reviewed_by: r.reviewed_by, reviewed_at: r.reviewed_at };
+      r.review_status = b.p_decision === 'approve' ? 'approved' : 'rejected'; r.reviewed_by = b.p_actor; r.reviewed_at = new Date().toISOString();
+      audit({ actor: b.p_actor, actor_verified: false, product: 'predicts', subject_email: r.email, action: 'consent.' + b.p_decision, reason: b.p_reason ?? null, old_value: old, new_value: { review_status: r.review_status, reviewed_by: r.reviewed_by, reviewed_at: r.reviewed_at }, via: 'rpc:predicts_review_recipient' });
+      return { email: r.email, review_status: r.review_status, optin_status: r.optin_status, reviewed_at: r.reviewed_at, reviewed_by: r.reviewed_by };
+    },
     estate_person_set_persona(b) {
       const p = db.people.find((x) => x.email === norm(b.p_email));
       if (!p) throw new Error('estate_person_set_persona: no person with that email');
@@ -65,11 +80,16 @@ export function fakeDb() {
     db.calls.push({ method, path: u.pathname, search: u.search, body });
     const m = /^\/rest\/v1\/rpc\/(\w+)$/.exec(u.pathname);
     if (m) {
-      if (!rpc[m[1]]) return json({ message: 'no function ' + m[1] }, 404);
+      if (!rpc[m[1]] || db.noFunctions.has(m[1])) return json({ code: 'PGRST202', message: 'no function ' + m[1] }, 404);
       if (db.failRpc === m[1]) return json({ message: 'boom' }, 500);
       try { return json(rpc[m[1]](body)); } catch (e) { return json({ message: e.message }, 400); }
     }
     const sp = u.searchParams;
+    if (u.pathname === '/rest/v1/v_predicts_recipient_review' && method === 'GET') {
+      if (db.noView) return json({ code: 'PGRST205', message: 'Could not find the table in the schema cache' }, 404);
+      const rows = db.recipients.slice().sort((a, b) => (b.review_status === 'pending_review') - (a.review_status === 'pending_review') || String(a.dc_created_at).localeCompare(String(b.dc_created_at)));
+      return json(rows.map((r) => ({ ...r })));
+    }
     if (u.pathname === '/rest/v1/estate_people' && method === 'GET') {
       let rows = db.people.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
       if (sp.get('id')) { const v = sp.get('id'); rows = v.startsWith('eq.') ? rows.filter((p) => p.id === v.slice(3)) : rows.filter((p) => v.slice(4, -1).split(',').includes(p.id)); }
