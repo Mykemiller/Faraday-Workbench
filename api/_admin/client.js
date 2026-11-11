@@ -290,6 +290,12 @@ module.exports = function adminClient() {
   /* ---- Apps (FDY-294): cards and settings --------------------------------------------------- */
   if (area === 'apps') {
     var APPS = null;
+    var tab = new URLSearchParams(location.search).get('tab') === 'settings' ? 'settings' : 'cards';
+    $('apps-cards-panel').hidden = tab !== 'cards'; $('apps-settings-panel').hidden = tab !== 'settings';
+    Array.prototype.forEach.call(document.querySelectorAll('#apps-tabs a'), function (a) {
+      if (a.dataset.tab === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+      a.href = withIssue(a.getAttribute('href'));
+    });
     var STATE_OF_MAJOR = function (major) { return major < 1 ? 'Not Ready' : (major < 3 ? 'Just Functioning' : null); };
     var VERSION_RE = /^([0-9]{1,2})\.([0-9]{1,2})$/;
     var parseVer = function (v) {
@@ -302,7 +308,7 @@ module.exports = function adminClient() {
     var appsLoad = function () { return api('/api/admin/apps').then(function (d) { APPS = d; return d; }); };
 
     /* ---- cards ---- */
-    if (!subview) {
+    if (tab === 'cards') {
       var cardOf = function (code) { return document.querySelector('#apps-grid .card[data-code="' + code + '"]'); };
       var field = function (code, name) { var c = cardOf(code); return c ? c.querySelector('[data-live="' + name + '"]') : null; };
       var setLive = function (code, name, text, na, title) {
@@ -418,7 +424,7 @@ module.exports = function adminClient() {
     }
 
     /* ---- settings (pilot: the Workbench itself) ---- */
-    if (subview === 'settings') {
+    if (tab === 'settings') {
       var okValue = function (s, v) {
         if (s.type === 'boolean') return typeof v === 'boolean' ? '' : s.label + ' must be true or false.';
         if (s.type === 'integer') {

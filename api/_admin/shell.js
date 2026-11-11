@@ -30,22 +30,23 @@ const EXPIRY_OPTIONS = '<option value="">Any expiry</option><option value="7d">E
 
 const PEOPLE_TABS = (cur) => `<p class="tabs"><a href="/admin/people"${cur === 'directory' ? ' aria-current="page"' : ''}>Directory</a><a href="/admin/people/access"${cur === 'access' ? ' aria-current="page"' : ''}>Access</a></p>`;
 
-const APPS_TABS = (cur) => `<p class="tabs"><a href="/admin/apps"${cur === 'cards' ? ' aria-current="page"' : ''}>Cards</a><a href="/admin/apps/settings"${cur === 'settings' ? ' aria-current="page"' : ''}>Settings</a></p>`;
+const APPS_TABS = '<p class="tabs" id="apps-tabs"><a href="/admin/apps" data-tab="cards" aria-current="page">Cards</a><a href="/admin/apps?tab=settings" data-tab="settings">Settings</a></p>';
 
 function body(area, id) {
-  if (area.id === 'apps' && id === 'settings') {
-    return `<h1>Apps</h1>
-${APPS_TABS('settings')}
-<p class="count" id="set-note">The Workbench is the pilot: its settings are listed here and changed here, with no redeploy. The other 14 apps follow.</p>
-<div id="set-msg" class="msg" role="status" aria-live="polite">Loading settings…</div>
-<div id="set-groups"></div>`;
-  }
   if (area.id === 'apps') {
+    // One page, two panels; client.js shows one by ?tab= (no path segment, so no new page id).
     return `<h1>Apps</h1>
-${APPS_TABS('cards')}
+${APPS_TABS}
+<div id="apps-cards-panel">
 <p class="count" id="apps-count"></p>
 <div id="apps-msg" class="msg" role="status" aria-live="polite">Loading apps…</div>
-<div id="apps-grid" class="cards"></div>`;
+<div id="apps-grid" class="cards"></div>
+</div>
+<div id="apps-settings-panel" hidden>
+<p class="count" id="set-note">The Workbench is the pilot: its settings are listed here and changed here, with no redeploy. The other 14 apps follow.</p>
+<div id="set-msg" class="msg" role="status" aria-live="polite">Loading settings…</div>
+<div id="set-groups"></div>
+</div>`;
   }
   if (area.id === 'people' && id === 'access') {
     return `<h1>People</h1>
@@ -185,7 +186,7 @@ const JS = '(' + require('./client.js').toString() + ')();';
 
 /** The whole page for one area. `actor` is what requireOwner() returned. */
 function renderShell(area, actor, id) {
-  const pid = (area.id === 'people' || area.id === 'apps') && id ? String(id) : '';
+  const pid = area.id === 'people' && id ? String(id) : '';
   const nav = AREAS.map((a) => `<a href="${a.path}"${a.id === area.id ? ' aria-current="page"' : ''}>${esc(a.label)}</a>`).join('');
   return `<!DOCTYPE html>
 <html lang="en">

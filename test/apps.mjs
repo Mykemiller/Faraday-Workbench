@@ -251,18 +251,21 @@ const rpcCalls = (name) => db.calls.filter((c) => c.path === '/rest/v1/rpc/' + n
     }
     const p = mkRes(); await shell({ method: 'GET', headers, query: { area: 'apps' } }, p); assert.equal(p.code, 404);
     const q = mkRes(); await shell({ method: 'GET', headers, query: { area: 'apps', id: 'settings' } }, q); assert.equal(q.code, 404);
+    const q2 = mkRes(); await shell({ method: 'GET', headers, query: { area: 'apps', tab: 'settings' } }, q2); assert.equal(q2.code, 404, 'the tab is a query on /admin/apps, gated the same');
   }
   assert.equal(db.audit.length, n, 'nothing written for anyone refused'); assert.equal(db.calls.slice(calls).some((c) => /app_|apps/.test(c.path)), false, 'no registry data read for anyone refused');
   assert.equal((await call({ method: 'DELETE', headers: H(), query: { route: 'apps' } })).code, 405);
-  // pages: Owner sees both tabs; anything else under /admin/apps is not a page
-  for (const [id, re] of [['', /id="apps-grid"/], ['settings', /id="set-groups"/]]) {
-    const pr = mkRes(); await shell({ method: 'GET', headers: H(), query: { area: 'apps', ...(id ? { id } : {}) } }, pr);
-    assert.equal(pr.code, 200); assert.match(pr.body, re); assert.equal(/Coming in Phase/.test(pr.body), false);
-    assert.match(pr.body, new RegExp(`href="/admin/apps${id ? '/settings' : ''}" aria-current="page"`));
+  // one page, both panels, Settings reached by ?tab=settings; /admin/apps/<anything> is not a page
+  for (const query of [{ area: 'apps' }, { area: 'apps', tab: 'settings' }]) {
+    const pr = mkRes(); await shell({ method: 'GET', headers: H(), query }, pr);
+    assert.equal(pr.code, 200); assert.match(pr.body, /id="apps-grid"/); assert.match(pr.body, /id="set-groups"/); assert.equal(/Coming in Phase/.test(pr.body), false);
+    assert.match(pr.body, /href="\/admin\/apps\?tab=settings"/); assert.match(pr.body, /href="\/admin\/apps" data-tab="cards"/);
   }
-  for (const id of ['other', 'access', '11111111-1111-4111-8111-111111111111']) { const pr = mkRes(); await shell({ method: 'GET', headers: H(), query: { area: 'apps', id } }, pr); assert.equal(pr.code, 404, id); }
+  for (const id of ['settings', 'other', 'access', '11111111-1111-4111-8111-111111111111']) {
+    const pr = mkRes(); await shell({ method: 'GET', headers: H(), query: { area: 'apps', id } }, pr); assert.equal(pr.code, 404, 'owner: /admin/apps/' + id); assert.deepEqual(pr.body, { error: 'Not found' });
+  }
   const pr = mkRes(); await shell({ method: 'GET', headers: H(), query: { area: 'audit', id: 'settings' } }, pr); assert.equal(pr.code, 404);
-  console.log('PASS  /api/admin/apps and /admin/apps[/settings] are Owner-only: no session, forged cookie and non-owner all get the bare 404; nothing read or written');
+  console.log('PASS  /api/admin/apps and /admin/apps[?tab=settings] are Owner-only: no session, forged cookie and non-owner all get the bare 404; nothing read or written');
 }
 
 // ---- wiring and hygiene ----

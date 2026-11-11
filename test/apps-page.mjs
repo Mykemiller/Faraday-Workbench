@@ -61,7 +61,7 @@ await page.goto(ORIGIN + '/admin/apps');
 await page.waitForSelector('#apps-grid .card');
 assert.equal(await page.locator('#apps-grid .card').count(), 15);
 assert.equal((await page.textContent('#apps-count')).trim(), '15 apps');
-assert.equal((await page.textContent('h1')).trim(), 'Apps'); assert.equal(await page.getAttribute('.tabs a[aria-current="page"]', 'href'), '/admin/apps');
+assert.equal((await page.textContent('h1')).trim(), 'Apps'); assert.equal(await page.getAttribute('.tabs a[aria-current="page"]', 'href'), '/admin/apps'); assert.equal(await page.isHidden('#set-groups'), true);
 assert.equal(await page.locator('main .soon').count(), 0, 'the Phase 2 placeholder is gone');
 assert.equal((await page.textContent(`${card('WB')} [data-f="version"]`)).trim(), '02.34');
 assert.match(await page.textContent(card('WB')), /Just Functioning/); assert.match(await page.textContent(card('WB')), /set by rule/);
@@ -132,8 +132,9 @@ assert.match(await page.textContent(`${card('WB')} [data-f="state-chip"]`), /Jus
 console.log('PASS  Promote: refused in the browser for a bad version or no release name; the diff shows the rule-set state; one audit row; crossing 03.00 leaves the state and enables Set state');
 
 // ---- Settings (pilot: the Workbench) ----
-await page.click('.tabs a:text-is("Settings")'); await page.waitForURL(ORIGIN + '/admin/apps/settings');
+await page.click('.tabs a:text-is("Settings")'); await page.waitForURL(ORIGIN + '/admin/apps?tab=settings');
 await page.waitForSelector('.setrow');
+assert.equal(await page.getAttribute('.tabs a[aria-current="page"]', 'href'), '/admin/apps?tab=settings'); assert.equal(await page.isHidden('#apps-grid'), true);
 assert.equal(await page.locator('.setrow').count(), 3); assert.match(await page.textContent('#set-note'), /other 14 apps follow/);
 const row = (k) => `.setrow[data-key="${k}"]`;
 assert.match(await page.textContent(row('apps_live_read_timeout_ms')), /whole number 500 to 15000/); assert.match(await page.textContent(row('apps_live_read_timeout_ms')), /Default: 4000/);

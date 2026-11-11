@@ -5,7 +5,8 @@ The Workbench half of the app registry: one card per app, a promote control, an 
 ## Screens
 
 - `/admin/apps` (Cards): one card per app, from `app_registry`. Each shows the code, name, version as `XX.YY`, the state with how it was set ("set by rule" or "set by Owner"), the lifecycle stage, owner ("Owner not set" when empty), Supabase project, settings schema version and its tracker and console links. Three live fields load after the card is drawn: Open tickets, Last build, Key metric.
-- `/admin/apps/settings` (Settings): the Workbench's settings, each with type and range, default, effective value, enforcement status, precedence group and whether a change needs a redeploy. The other 14 apps follow.
+- `/admin/apps?tab=settings` (Settings): the Workbench's settings, each with type and range, default, effective value, enforcement status, precedence group and whether a change needs a redeploy. The other 14 apps follow.
+- One page, `/admin/apps`, holds both panels; the `tab` query parameter picks which is shown (`?issue=` is carried on the tab links). There is no `/admin/apps/<anything>` page: that is a bare 404 for the Owner and everyone else.
 - Owner only. Anyone else gets the same bare 404 as every other console route.
 
 ## The state rule
@@ -57,7 +58,7 @@ The effective value is the stored value when a row exists, else the default. If 
 
 ## Files
 
-`api/_admin/apps-logic.js` (pure rules and shaping) · `api/_admin/apps.js` (the route) · one line in `api/admin/[route].js` · three entries in `api/_audit.js` · `api/admin/shell.js` (the `/admin/apps/settings` page id) · page and browser code in `api/_admin/shell.js`, `api/_admin/client.js`.
+`api/_admin/apps-logic.js` (pure rules and shaping) · `api/_admin/apps.js` (the route) · one line in `api/admin/[route].js` · three entries in `api/_audit.js` · page and browser code in `api/_admin/shell.js`, `api/_admin/client.js`.
 
 ## Tests
 
