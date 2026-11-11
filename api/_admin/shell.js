@@ -28,7 +28,7 @@ function areaFor(segment) {
 const STATE_OPTIONS = '<option value="">Any status</option><option value="active">Active</option><option value="paused">Paused</option><option value="expired">Expired</option><option value="revoked">Revoked</option><option value="none">No access</option>';
 const EXPIRY_OPTIONS = '<option value="">Any expiry</option><option value="7d">Expires within 7 days</option><option value="30d">Expires within 30 days</option><option value="none">Never expires</option><option value="expired">Expired</option>';
 
-const PEOPLE_TABS = (cur) => `<p class="tabs"><a href="/admin/people"${cur === 'directory' ? ' aria-current="page"' : ''}>Directory</a><a href="/admin/people/access"${cur === 'access' ? ' aria-current="page"' : ''}>Access</a><a href="/admin/people/review"${cur === 'review' ? ' aria-current="page"' : ''}>Review</a></p>`;
+const PEOPLE_TABS = (cur) => `<p class="tabs"><a href="/admin/people"${cur === 'directory' ? ' aria-current="page"' : ''}>Directory</a><a href="/admin/people/access"${cur === 'access' ? ' aria-current="page"' : ''}>Access</a><a href="/admin/people/review"${cur === 'review' ? ' aria-current="page"' : ''}>Review</a><a href="/admin/people?tab=gate"${cur === 'gate' ? ' aria-current="page"' : ''}>Audience gate</a></p>`;
 
 const APPS_TABS = '<p class="tabs" id="apps-tabs"><a href="/admin/apps" data-tab="cards" aria-current="page">Cards</a><a href="/admin/apps?tab=settings" data-tab="settings">Settings</a></p>';
 
@@ -93,6 +93,23 @@ ${PEOPLE_TABS('directory')}
 <form id="add-form" class="bar"><input id="add-email" type="email" placeholder="email@example.com" aria-label="Email" autocapitalize="off" spellcheck="false" required>
 <select id="add-app" aria-label="App"></select><select id="add-role" aria-label="Role"></select><input id="add-exp" type="date" aria-label="Expiry (optional)"><button type="submit" class="gold">Add person</button></form>
 <div id="add-msg" class="msg" role="status" aria-live="polite"></div></section>
+</div>
+<div id="gate-panel" hidden>
+<p class="count">Who may be emailed by Predicts. <strong>Armed:</strong> only the pinned addresses. <strong>Lifted:</strong> every person who is approved and confirmed. A change reaches the senders within 60 seconds, and nothing here sends email.</p>
+<div id="gate-msg" class="msg" role="status" aria-live="polite">Loading the audience gate…</div>
+<div id="gate-card" hidden>
+<h2>Predicts</h2>
+<p id="gate-state"></p>
+<p class="count" id="gate-pinned"></p>
+<p class="count" id="gate-impact"></p>
+<p class="count">If a sender cannot read this setting it falls back to the two pinned owner addresses, closed.</p>
+<div class="bar"><button type="button" id="gate-arm">Arm the gate</button>
+<input id="gate-confirm" type="text" placeholder="type lift to confirm" aria-label="Type lift to confirm" autocomplete="off" spellcheck="false">
+<button type="button" class="gold" id="gate-lift" disabled>Lift the gate</button></div>
+<p class="count">A reason is required for every change to this gate.</p>
+</div>
+<section><h2>History</h2>
+<div class="scroll"><table id="gate-history" hidden><thead><tr><th>When (CT)</th><th>Who</th><th>Action</th><th>Reason</th></tr></thead><tbody></tbody></table></div></section>
 </div>
 <div id="rev-panel" hidden>
 <p class="count">People waiting for a Predicts decision, oldest first. <strong>Approving sends no email.</strong> The FDY-112 invitation job sends the invitation later.</p>

@@ -4,7 +4,7 @@
 import { randomUUID } from 'node:crypto';
 
 export function fakeDb() {
-  const db = { people: [], access: [], consent: [], audit: [], calls: [], failRpc: null, recipients: [], noView: false, noFunctions: new Set(),
+  const db = { people: [], access: [], consent: [], audit: [], calls: [], failRpc: null, recipients: [], noView: false, noFunctions: new Set(), gates: [], noGate: false,
     // ADM-2.1 (FDY-294): the app registry. Mirrors the database contract: deny-all tables read with the service key.
     apps: [], defs: [], vals: [], metric: {}, failRead: null, hangRpc: null,
     vercel: { mode: 'ok', deployments: [], calls: [] } };
@@ -20,6 +20,8 @@ export function fakeDb() {
   db.addConsent = (person, product, review_status, optin_status) => {
     db.consent.push({ person_id: person.id, product, channel: 'email', review_status, optin_status, reviewed_at: null, confirmed_at: optin_status === 'confirmed' ? '2026-11-06T12:00:00Z' : null, unsubscribed_at: null, token: 'SECRET-TOKEN' });
   };
+  // FDY-291: audience_gate rows (product, lifted, pinned) as FDY-252 Phase 1 defines them.
+  db.addGate = (product, lifted, pinned, extra = {}) => { const g = { product, lifted, pinned, lifted_by: null, lifted_at: null, reason: null, updated_at: new Date().toISOString(), ...extra }; db.gates.push(g); return g; };
   // FDY-290: predicts_recipients as v_predicts_recipient_review shows it (the consent token is never in the view).
   db.addRecipient = (email, extra = {}) => {
     const r = { email, source: null, dc_created_at: new Date(Date.now() - db.recipients.length * 86400000).toISOString(), last_seen_at: null, dc_active: true, review_status: 'pending_review', optin_status: 'not_invited', reviewed_at: null, reviewed_by: null, ...extra };
@@ -110,6 +112,19 @@ export function fakeDb() {
       const m = db.metric[b.p_code];
       return m ? { label: m.label, value: m.value, as_of: m.as_of || null } : { label: null, value: null, as_of: null };
     },
+    estate_audience_gate_set(b) {   // FDY-252 Phase 1: the ONLY writer of audience_gate; audits in the same step
+      if (!b.p_actor || !String(b.p_actor).trim()) throw new Error('estate_audience_gate_set: actor is required');
+      if (!b.p_reason || !String(b.p_reason).trim()) throw new Error('estate_audience_gate_set: reason is required');
+      if (typeof b.p_lifted !== 'boolean') throw new Error('estate_audience_gate_set: p_lifted must be true or false');
+      if (b.p_lifted && (b.p_confirm || '') !== 'lift') throw new Error("estate_audience_gate_set: lifting requires p_confirm = 'lift'");
+      const g = db.gates.find((x) => x.product === b.p_product);
+      if (!g) throw new Error('no audience_gate row for product ' + b.p_product);
+      if (g.lifted === b.p_lifted) return { changed: false, product: g.product, lifted: g.lifted };
+      const old = { lifted: g.lifted };
+      Object.assign(g, { lifted: b.p_lifted, lifted_by: b.p_actor, lifted_at: new Date().toISOString(), reason: b.p_reason });
+      audit({ actor: b.p_actor, actor_verified: b.p_actor_verified === true, product: g.product, subject_email: '*', action: b.p_lifted ? 'gate.lift' : 'gate.arm', reason: b.p_reason, old_value: old, new_value: { lifted: g.lifted }, via: b.p_via || 'sql' });
+      return { changed: true, product: g.product, lifted: g.lifted };
+    },
     predicts_review_recipient(b) {   // the 4-argument FDY-252 form: review + admin_audit in one step
       if (!['approve', 'reject'].includes(b.p_decision)) throw new Error('p_decision must be approve or reject');
       if (!b.p_actor || !String(b.p_actor).trim()) throw new Error('predicts_review_recipient: p_actor is required (who decided)');
@@ -160,6 +175,11 @@ export function fakeDb() {
       const rows = tbl[1] === 'app_registry' ? db.apps.filter((r) => keep(r, 'code')).slice().sort((a, b) => (a.code < b.code ? -1 : 1))
         : tbl[1] === 'app_setting_def' ? db.defs.filter((r) => keep(r, 'app_code')) : db.vals.filter((r) => keep(r, 'app_code'));
       return json(rows);
+    }
+    if (u.pathname === '/rest/v1/audience_gate' && method === 'GET') {
+      if (db.noGate) return json({ code: 'PGRST205', message: 'Could not find the table in the schema cache' }, 404);
+      const pr = sp.get('product');
+      return json(db.gates.filter((g) => !pr || !pr.startsWith('eq.') || g.product === pr.slice(3)).map((g) => ({ ...g })));
     }
     if (u.pathname === '/rest/v1/v_predicts_recipient_review' && method === 'GET') {
       if (db.noView) return json({ code: 'PGRST205', message: 'Could not find the table in the schema cache' }, 404);
