@@ -4,7 +4,10 @@
 import { randomUUID } from 'node:crypto';
 
 export function fakeDb() {
-  const db = { people: [], access: [], consent: [], audit: [], calls: [], failRpc: null };
+  const db = { people: [], access: [], consent: [], audit: [], calls: [], failRpc: null,
+    // ADM-2.1 (FDY-294): the app registry. Mirrors the database contract: deny-all tables read with the service key.
+    apps: [], defs: [], vals: [], metric: {}, failRead: null, hangRpc: null,
+    vercel: { mode: 'ok', deployments: [], calls: [] } };
   const norm = (e) => String(e || '').trim().toLowerCase();
   db.addPerson = (email, extra = {}) => {
     const p = { id: extra.id || randomUUID(), email: norm(email), display_name: null, source: 'test', created_at: new Date(Date.now() - db.people.length * 1000).toISOString(), persona_preset: null, ...extra };
@@ -17,6 +20,18 @@ export function fakeDb() {
   db.addConsent = (person, product, review_status, optin_status) => {
     db.consent.push({ person_id: person.id, product, channel: 'email', review_status, optin_status, reviewed_at: null, confirmed_at: optin_status === 'confirmed' ? '2026-11-06T12:00:00Z' : null, unsubscribed_at: null, token: 'SECRET-TOKEN' });
   };
+  const STATES = ['Launch Ready', 'Needs Tuning', 'Just Functioning', 'Not Ready', 'Not Started'];
+  db.addApp = (code, name, major, minor, extra = {}) => {
+    const rule = major < 1 ? 'Not Ready' : major < 3 ? 'Just Functioning' : 'Needs Tuning';
+    const a = { code, name, version_major: major, version_minor: minor, state: rule, state_source: major < 3 ? 'rule' : 'owner', lifecycle_stage: 'build', tile_slug: code.toLowerCase(),
+      supabase_project: null, owner: null, settings_schema_version: 1, console_url: null, tracker_url: null, linear_label: null, vercel_project: null, ...extra };
+    db.apps.push(a); return a;
+  };
+  db.addDef = (app_code, key, type, default_value, extra = {}) => {
+    const d = { app_code, key, label: key, description: null, type, min_value: null, max_value: null, options: null, default_value, enforcement_status: 'enforced', precedence_group: 'g', needs_redeploy: false, ...extra };
+    db.defs.push(d); return d;
+  };
+  const effective = (d) => { const v = db.vals.find((x) => x.app_code === d.app_code && x.key === d.key); return v ? v.value : d.default_value; };
   const embed = (p) => ({
     ...p,
     product_access: db.access.filter((a) => a.person_id === p.id).map(({ person_id, ...a }) => a),
@@ -47,6 +62,49 @@ export function fakeDb() {
       audit({ actor: b.p_actor, actor_verified: b.p_actor_verified === true, product: b.p_product, subject_email: email, action, reason: b.p_reason ?? null, old_value: before, new_value: { role: b.p_role, status: b.p_status, expires_at: exp, note }, via: b.p_via || 'sql' });
       return { changed: true, action, person_id: p.id, product: b.p_product, role: b.p_role, status: b.p_status, expires_at: exp };
     },
+    app_registry_promote(b) {
+      const a = db.apps.find((x) => x.code === b.p_code); if (!a) throw new Error('app_registry_promote: unknown app');
+      const rel = String(b.p_release || '').trim();
+      if (!rel || rel.length > 120) throw new Error('app_registry_promote: a release name is required (120 characters at most)');
+      const m = /^([0-9]{1,2})\.([0-9]{1,2})$/.exec(String(b.p_version || '').trim());
+      if (!m) throw new Error('app_registry_promote: version must be XX.YY');
+      const major = Number(m[1]), minor = Number(m[2]); const prev = String(a.version_major).padStart(2, '0') + '.' + String(a.version_minor).padStart(2, '0');
+      const text = String(major).padStart(2, '0') + '.' + String(minor).padStart(2, '0');
+      const rule = major < 1 ? 'Not Ready' : major < 3 ? 'Just Functioning' : null;
+      const nextState = rule || a.state, nextSource = rule ? 'rule' : a.state_source;
+      if (text === prev && nextState === a.state && nextSource === a.state_source) return { changed: false, code: a.code, version: text, state: a.state, state_source: a.state_source, previous_version: prev };
+      const before = { version: prev, state: a.state, state_source: a.state_source };
+      Object.assign(a, { version_major: major, version_minor: minor, state: nextState, state_source: nextSource });
+      audit({ actor: b.p_actor, actor_verified: b.p_actor_verified === true, product: 'apps', subject_email: a.code, action: 'app.promote', reason: b.p_reason ?? null, old_value: before, new_value: { version: text, state: nextState, state_source: nextSource, release: rel }, via: b.p_via || 'sql' });
+      return { changed: true, code: a.code, version: text, state: nextState, state_source: nextSource, previous_version: prev };
+    },
+    app_registry_set_state(b) {
+      const a = db.apps.find((x) => x.code === b.p_code); if (!a) throw new Error('app_registry_set_state: unknown app');
+      if (a.version_major < 3) throw new Error('app_registry_set_state: below 03.00 the state is set by rule');
+      if (!STATES.includes(b.p_state)) throw new Error('app_registry_set_state: unknown state');
+      if (a.state === b.p_state && a.state_source === 'owner') return { changed: false, code: a.code, state: a.state, state_source: 'owner' };
+      const before = { state: a.state, state_source: a.state_source };
+      Object.assign(a, { state: b.p_state, state_source: 'owner' });
+      audit({ actor: b.p_actor, actor_verified: b.p_actor_verified === true, product: 'apps', subject_email: a.code, action: 'app.set_state', reason: b.p_reason ?? null, old_value: before, new_value: { state: a.state, state_source: 'owner' }, via: b.p_via || 'sql' });
+      return { changed: true, code: a.code, state: a.state, state_source: 'owner' };
+    },
+    app_setting_set(b) {
+      const d = db.defs.find((x) => x.app_code === b.p_code && x.key === b.p_key); if (!d) throw new Error('app_setting_set: unknown setting');
+      const v = b.p_value;
+      const bad = (d.type === 'boolean' && typeof v !== 'boolean') || (d.type === 'text' && typeof v !== 'string') || (d.type === 'enum' && !(d.options || []).includes(v))
+        || (d.type === 'integer' && (typeof v !== 'number' || !Number.isInteger(v) || (d.min_value !== null && v < d.min_value) || (d.max_value !== null && v > d.max_value)));
+      if (bad) throw new Error('app_setting_set: value does not fit the setting');
+      const prev = effective(d);
+      if (JSON.stringify(prev) === JSON.stringify(v)) return { changed: false, code: d.app_code, key: d.key, value: prev, previous: prev };
+      const row = db.vals.find((x) => x.app_code === d.app_code && x.key === d.key);
+      if (row) Object.assign(row, { value: v, updated_at: new Date().toISOString(), updated_by: b.p_actor }); else db.vals.push({ app_code: d.app_code, key: d.key, value: v, updated_at: new Date().toISOString(), updated_by: b.p_actor });
+      audit({ actor: b.p_actor, actor_verified: b.p_actor_verified === true, product: 'apps', subject_email: d.app_code, action: 'app.setting', reason: b.p_reason ?? null, old_value: { [d.key]: prev }, new_value: { [d.key]: v }, via: b.p_via || 'sql' });
+      return { changed: true, code: d.app_code, key: d.key, value: v, previous: prev };
+    },
+    app_registry_metric(b) {
+      const m = db.metric[b.p_code];
+      return m ? { label: m.label, value: m.value, as_of: m.as_of || null } : { label: null, value: null, as_of: null };
+    },
     estate_person_set_persona(b) {
       const p = db.people.find((x) => x.email === norm(b.p_email));
       if (!p) throw new Error('estate_person_set_persona: no person with that email');
@@ -59,17 +117,35 @@ export function fakeDb() {
     }
   };
 
+  const hang = (init) => new Promise((_, rej) => { if (init.signal) init.signal.addEventListener('abort', () => rej(new Error('aborted'))); });
   db.fetch = async (url, init = {}) => {
     const u = new URL(url); const method = init.method || 'GET'; const body = init.body ? JSON.parse(init.body) : {};
     const json = (b, s = 200) => ({ ok: s < 300, status: s, json: async () => b });
+    if (u.hostname === 'api.vercel.com') {
+      db.vercel.calls.push({ url: String(url), auth: (init.headers || {}).Authorization });
+      if (db.vercel.mode === 'hang') return hang(init);
+      if (db.vercel.mode === 'fail') return json({ error: { message: 'nope' } }, 500);
+      return json({ deployments: db.vercel.deployments });
+    }
     db.calls.push({ method, path: u.pathname, search: u.search, body });
     const m = /^\/rest\/v1\/rpc\/(\w+)$/.exec(u.pathname);
     if (m) {
       if (!rpc[m[1]]) return json({ message: 'no function ' + m[1] }, 404);
       if (db.failRpc === m[1]) return json({ message: 'boom' }, 500);
+      if (db.hangRpc === m[1]) return hang(init);
       try { return json(rpc[m[1]](body)); } catch (e) { return json({ message: e.message }, 400); }
     }
     const sp = u.searchParams;
+    const tbl = /^\/rest\/v1\/(app_registry|app_setting_def|app_setting_value)$/.exec(u.pathname);
+    if (tbl && method === 'GET') {
+      if (db.failRead === tbl[1]) return json({ message: 'boom' }, 500);
+      const eq = (k) => { const v = sp.get(k); return v && v.startsWith('eq.') ? v.slice(3) : null; };
+      const inList = (k) => { const v = sp.get(k); return v && v.startsWith('in.(') ? v.slice(4, -1).split(',') : null; };
+      const keep = (row, codeCol) => (!eq(codeCol) || row[codeCol] === eq(codeCol)) && (!eq('key') || row.key === eq('key')) && (!inList('key') || inList('key').includes(row.key));
+      const rows = tbl[1] === 'app_registry' ? db.apps.filter((r) => keep(r, 'code')).slice().sort((a, b) => (a.code < b.code ? -1 : 1))
+        : tbl[1] === 'app_setting_def' ? db.defs.filter((r) => keep(r, 'app_code')) : db.vals.filter((r) => keep(r, 'app_code'));
+      return json(rows);
+    }
     if (u.pathname === '/rest/v1/estate_people' && method === 'GET') {
       let rows = db.people.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
       if (sp.get('id')) { const v = sp.get('id'); rows = v.startsWith('eq.') ? rows.filter((p) => p.id === v.slice(3)) : rows.filter((p) => v.slice(4, -1).split(',').includes(p.id)); }

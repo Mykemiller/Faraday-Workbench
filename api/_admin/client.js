@@ -287,6 +287,202 @@ module.exports = function adminClient() {
     loadPerson();
   }
 
+  /* ---- Apps (FDY-294): cards and settings --------------------------------------------------- */
+  if (area === 'apps') {
+    var APPS = null;
+    var STATE_OF_MAJOR = function (major) { return major < 1 ? 'Not Ready' : (major < 3 ? 'Just Functioning' : null); };
+    var VERSION_RE = /^([0-9]{1,2})\.([0-9]{1,2})$/;
+    var parseVer = function (v) {
+      var m = VERSION_RE.exec(String(v == null ? '' : v).trim()); if (!m) return null;
+      var a = Number(m[1]), b = Number(m[2]);
+      return { major: a, minor: b, text: (a < 10 ? '0' : '') + a + '.' + (b < 10 ? '0' : '') + b };
+    };
+    var appOf = function (code) { return APPS.apps.filter(function (x) { return x.code === code; })[0]; };
+    var safeUrl = function (u) { return /^(https:\/\/|http:\/\/|\/)/i.test(String(u || '')); };
+    var appsLoad = function () { return api('/api/admin/apps').then(function (d) { APPS = d; return d; }); };
+
+    /* ---- cards ---- */
+    if (!subview) {
+      var cardOf = function (code) { return document.querySelector('#apps-grid .card[data-code="' + code + '"]'); };
+      var field = function (code, name) { var c = cardOf(code); return c ? c.querySelector('[data-live="' + name + '"]') : null; };
+      var setLive = function (code, name, text, na, title) {
+        var el = field(code, name); if (!el) return;
+        el.textContent = text; el.className = na ? 'na' : ''; if (title) el.title = title; else el.removeAttribute('title');
+      };
+      var cardMsg = function (code, text, kind) { var c = cardOf(code); if (!c) return; var m = c.querySelector('[data-msg]'); m.textContent = text || ''; m.className = 'card-msg' + (kind ? ' ' + kind : ''); };
+      var cardHtml = function (a) {
+        var chip = 's-' + String(a.state).toLowerCase().replace(/[^a-z]/g, '');
+        var links = [];
+        if (a.trackerUrl && safeUrl(a.trackerUrl)) links.push('<a href="' + esc(a.trackerUrl) + '" target="_blank" rel="noopener">Tracker</a>');
+        if (a.consoleUrl && safeUrl(a.consoleUrl)) links.push('<a href="' + esc(a.consoleUrl) + '" target="_blank" rel="noopener">Console</a>');
+        var states = APPS.states.map(function (s) { return '<option' + (s === a.state ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('');
+        return '<article class="card" data-code="' + esc(a.code) + '">'
+          + '<div class="row"><span class="code">' + esc(a.code) + '</span><span class="tag" data-f="lifecycle">' + esc(a.lifecycle || '—') + '</span></div>'
+          + '<h3>' + esc(a.name) + '</h3>'
+          + '<div class="row"><span>Version <strong data-f="version">' + esc(a.version) + '</strong></span><span class="chip ' + chip + '" data-f="state-chip">' + esc(a.state) + '</span><span class="count" data-f="state-source">' + esc(a.stateSourceLabel) + '</span></div>'
+          + '<dl><dt>Owner</dt><dd' + (a.owner ? '' : ' class="na"') + '>' + esc(a.owner || 'Owner not set') + '</dd>'
+          + '<dt>Supabase</dt><dd' + (a.supabaseProject ? '' : ' class="na"') + '>' + esc(a.supabaseProject || 'None') + '</dd>'
+          + '<dt>Settings schema</dt><dd>' + esc(a.settingsSchemaVersion == null ? '—' : a.settingsSchemaVersion) + '</dd>'
+          + '<dt>Open tickets</dt><dd class="na" data-live="tickets">Loading…</dd>'
+          + '<dt>Last build</dt><dd class="na" data-live="build">Loading…</dd>'
+          + '<dt>Key metric</dt><dd class="na" data-live="metric">Loading…</dd>'
+          + '<dt>Links</dt><dd>' + (links.join(' · ') || '—') + '</dd></dl>'
+          + '<div class="acts"><button type="button" data-act="promote-toggle">Promote</button>'
+          + '<label class="count" for="st-' + esc(a.code) + '">Set state</label><select id="st-' + esc(a.code) + '" data-f="state" aria-label="Set state for ' + esc(a.code) + '"'
+          + (a.canSetState ? '' : ' disabled title="Below 03.00 the state is set by rule"') + '>' + states + '</select></div>'
+          + (a.canSetState ? '' : '<p class="count">Below 03.00 the state is set by rule.</p>')
+          + '<form class="promote" hidden><input name="version" aria-label="New version for ' + esc(a.code) + '" placeholder="03.05" autocomplete="off" maxlength="5">'
+          + '<input name="release" aria-label="Release name for ' + esc(a.code) + '" placeholder="Release name" maxlength="120" autocomplete="off"><button type="submit" class="gold">Review</button></form>'
+          + '<p class="card-msg" data-msg role="status" aria-live="polite"></p></article>';
+      };
+      var pool = function (tasks, n) {
+        var i = 0;
+        var worker = function () { if (i >= tasks.length) return Promise.resolve(); var t = tasks[i++]; return t().then(worker, worker); };
+        var ws = []; for (var k = 0; k < n; k++) ws.push(worker());
+        return Promise.all(ws);
+      };
+      var liveGet = function (code, part) {
+        return api('/api/admin/apps?live=' + encodeURIComponent(code) + '&part=' + part).catch(function () { return { status: 'unavailable' }; });
+      };
+      var loadTickets = function (a) {
+        if (!a.linearLabel) { setLive(a.code, 'tickets', 'unavailable', true, 'no Linear label'); return Promise.resolve(); }
+        return api('/api/workbench-linear?label=' + encodeURIComponent(a.linearLabel)).then(function (d) {
+          if (typeof d.count !== 'number') throw new Error('bad');
+          setLive(a.code, 'tickets', d.count + ' open', false);
+        }).catch(function () { setLive(a.code, 'tickets', 'unavailable', true); });
+      };
+      var loadBuild = function (a) {
+        return liveGet(a.code, 'build').then(function (d) {
+          if (d.status !== 'ok') return setLive(a.code, 'build', 'unavailable', true, d.reason || '');
+          setLive(a.code, 'build', ct(d.at) + ' CT' + (d.commit ? ' · ' + d.commit : '') + (d.message ? ' · ' + d.message : ''), false);
+        });
+      };
+      var loadMetric = function (a) {
+        return liveGet(a.code, 'metric').then(function (d) {
+          if (d.status === 'not_measured') return setLive(a.code, 'metric', 'Not measured', true);
+          if (d.status !== 'ok') return setLive(a.code, 'metric', 'unavailable', true);
+          setLive(a.code, 'metric', d.label + ': ' + (d.value == null ? '—' : d.value) + (d.asOf ? ' (as of ' + day(d.asOf) + ')' : ''), false);
+        });
+      };
+      /* Each live field settles on its own: one failing never holds back the card or the others. */
+      var loadLive = function (a) { return Promise.all([loadTickets(a), loadBuild(a), loadMetric(a)]); };
+      var redrawCard = function (code) {
+        var a = appOf(code), c = cardOf(code); if (!a || !c) return;
+        var t = document.createElement('div'); t.innerHTML = cardHtml(a);
+        c.parentNode.replaceChild(t.firstChild, c); loadLive(a);
+      };
+      var drawCards = function () {
+        $('apps-count').textContent = APPS.apps.length + (APPS.apps.length === 1 ? ' app' : ' apps');
+        say('apps-msg', APPS.apps.length ? '' : 'No apps are registered.');
+        $('apps-grid').innerHTML = APPS.apps.map(cardHtml).join('');
+        pool(APPS.apps.map(function (a) { return function () { return loadLive(a); }; }), 5);
+      };
+      var cardWrite = async function (code, title, before, after, body, undo) {
+        var ok = await reasonPanel({ title: title, before: before, after: after, linearIssue: ISSUE });
+        if (!ok) { if (undo) undo(); return; }
+        cardMsg(code, 'Saving…');
+        try {
+          var d = await api('/api/admin/apps', Object.assign({ code: code, reason: ok.reason, linearIssue: ok.linearIssue }, body));
+          await appsLoad(); redrawCard(code); cardMsg(code, d.message, 'ok');
+        } catch (err) { if (undo) undo(); cardMsg(code, err.message, 'err'); }
+      };
+      var grid = $('apps-grid');
+      grid.addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-act="promote-toggle"]'); if (!btn) return;
+        var f = btn.closest('.card').querySelector('form.promote'); f.hidden = !f.hidden;
+        if (!f.hidden) f.querySelector('input[name=version]').focus();
+      });
+      grid.addEventListener('submit', function (e) {
+        var form = e.target.closest('form.promote'); if (!form) return;
+        e.preventDefault();
+        var card = form.closest('.card'), code = card.dataset.code, a = appOf(code);
+        var v = parseVer(form.elements.version.value), release = form.elements.release.value.trim();
+        if (!v) { cardMsg(code, 'The version must look like 03.04: two whole numbers (one or two digits each) with a dot between them.', 'err'); return; }
+        if (!release) { cardMsg(code, 'A promote must name the release.', 'err'); return; }
+        if (release.length > 120) { cardMsg(code, 'The release name is at most 120 characters.', 'err'); return; }
+        var rule = STATE_OF_MAJOR(v.major);
+        cardWrite(code, 'Promote ' + a.name + ' to ' + v.text,
+          { version: a.version, release: '', state: a.state },
+          { version: v.text, release: release, state: rule || a.state },
+          { action: 'promote', version: v.text, release: release });
+      });
+      grid.addEventListener('change', function (e) {
+        var sel = e.target.closest('select[data-f="state"]'); if (!sel) return;
+        var code = sel.closest('.card').dataset.code, a = appOf(code), to = sel.value;
+        var undo = function () { sel.value = a.state; };
+        if (!a.canSetState) { undo(); cardMsg(code, 'Below 03.00 the state is set by rule; promote the version instead.', 'err'); return; }
+        if (to === a.state) return;
+        cardWrite(code, 'Set state: ' + a.name, { state: a.state, source: a.stateSourceLabel }, { state: to, source: 'set by Owner' }, { action: 'set_state', state: to }, undo);
+      });
+      appsLoad().then(drawCards).catch(function (e) { say('apps-msg', e.message, 'err'); });
+    }
+
+    /* ---- settings (pilot: the Workbench itself) ---- */
+    if (subview === 'settings') {
+      var okValue = function (s, v) {
+        if (s.type === 'boolean') return typeof v === 'boolean' ? '' : s.label + ' must be true or false.';
+        if (s.type === 'integer') {
+          if (typeof v !== 'number' || !isFinite(v) || Math.floor(v) !== v) return s.label + ' must be a whole number.';
+          if (s.min != null && v < s.min) return s.label + ' must be at least ' + s.min + '.';
+          if (s.max != null && v > s.max) return s.label + ' must be at most ' + s.max + '.';
+          return '';
+        }
+        if (s.type === 'enum') return typeof v === 'string' && (s.options || []).indexOf(v) >= 0 ? '' : s.label + ' must be one of: ' + (s.options || []).join(', ') + '.';
+        return typeof v === 'string' ? '' : s.label + ' must be text.';
+      };
+      var range = function (s) {
+        if (s.type === 'integer') return 'whole number' + (s.min != null || s.max != null ? ' ' + (s.min != null ? s.min : '…') + ' to ' + (s.max != null ? s.max : '…') : '');
+        if (s.type === 'enum') return 'one of ' + (s.options || []).join(', ');
+        return s.type;
+      };
+      var editor = function (s) {
+        var v = s.effective, id = 'set-' + esc(s.key);
+        if (s.type === 'boolean') return '<select id="' + id + '" data-f="value" aria-label="Value for ' + esc(s.label) + '"><option value="true"' + (v === true ? ' selected' : '') + '>true</option><option value="false"' + (v === false ? ' selected' : '') + '>false</option></select>';
+        if (s.type === 'enum') return '<select id="' + id + '" data-f="value" aria-label="Value for ' + esc(s.label) + '">' + (s.options || []).map(function (o) { return '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>';
+        if (s.type === 'integer') return '<input id="' + id + '" data-f="value" type="number" step="1"' + (s.min != null ? ' min="' + esc(s.min) + '"' : '') + (s.max != null ? ' max="' + esc(s.max) + '"' : '') + ' value="' + esc(v) + '" aria-label="Value for ' + esc(s.label) + '">';
+        return '<input id="' + id + '" data-f="value" type="text" value="' + esc(v) + '" aria-label="Value for ' + esc(s.label) + '">';
+      };
+      var findSetting = function (code, key) { return (APPS.settings[code] || []).filter(function (x) { return x.key === key; })[0]; };
+      var drawSettings = function () {
+        var codes = Object.keys(APPS.settings);
+        say('set-msg', codes.length ? '' : 'No settings are defined yet.');
+        $('set-groups').innerHTML = codes.map(function (code) {
+          var a = appOf(code);
+          return '<section data-code="' + esc(code) + '"><h2>' + esc(a ? a.name : code) + ' (' + esc(code) + ')</h2>'
+            + APPS.settings[code].map(function (s) {
+              return '<div class="setrow" data-key="' + esc(s.key) + '"><div><span class="name">' + esc(s.label) + '</span> <span class="key">' + esc(s.key) + '</span></div>'
+                + (s.description ? '<div class="count">' + esc(s.description) + '</div>' : '')
+                + '<div class="facts"><span>Type: ' + esc(range(s)) + '</span><span>Default: <b data-f="default">' + esc(show(s.default)) + '</b></span><span>Effective: <b data-f="effective">' + esc(show(s.effective)) + '</b></span>'
+                + '<span>' + (s.enforcement === 'enforced' ? 'Enforced' : 'Recorded only') + '</span><span>Group: ' + esc(s.group || '—') + '</span><span>' + (s.needsRedeploy ? 'Needs a redeploy' : 'No redeploy needed') + '</span></div>'
+                + '<div class="edit">' + editor(s) + '<button type="button" data-act="save">Review change</button></div>'
+                + '<p class="card-msg" data-msg role="status" aria-live="polite"></p></div>';
+            }).join('') + '</section>';
+        }).join('');
+      };
+      $('set-groups').addEventListener('click', async function (e) {
+        var btn = e.target.closest('button[data-act="save"]'); if (!btn) return;
+        var rowEl = btn.closest('.setrow'), code = btn.closest('section').dataset.code, s = findSetting(code, rowEl.dataset.key);
+        var msg = rowEl.querySelector('[data-msg]'), say2 = function (t, k) { msg.textContent = t || ''; msg.className = 'card-msg' + (k ? ' ' + k : ''); };
+        var el = rowEl.querySelector('[data-f="value"]'), raw = el.value, v;
+        if (s.type === 'boolean') v = raw === 'true' ? true : (raw === 'false' ? false : raw);
+        else if (s.type === 'integer') v = raw.trim() === '' ? NaN : Number(raw);
+        else v = raw;
+        var bad = okValue(s, v);
+        if (bad) { say2(bad, 'err'); return; }
+        if (show(v) === show(s.effective)) { say2('No change: that is already the effective value.'); return; }
+        var ok = await reasonPanel({ title: 'Change ' + s.label, before: { value: s.effective }, after: { value: v }, linearIssue: ISSUE });
+        if (!ok) { el.value = String(s.effective); return; }
+        say2('Saving…');
+        try {
+          var d = await api('/api/admin/apps', { action: 'set_setting', code: code, key: s.key, value: v, reason: ok.reason, linearIssue: ok.linearIssue });
+          await appsLoad(); drawSettings();
+          var row2 = document.querySelector('.setrow[data-key="' + s.key + '"] [data-msg]'); if (row2) { row2.textContent = d.message; row2.className = 'card-msg ok'; }
+        } catch (err) { say2(err.message, 'err'); el.value = String(s.effective); }
+      });
+      appsLoad().then(drawSettings).catch(function (e) { say('set-msg', e.message, 'err'); });
+    }
+  }
+
   /* ---- Audit --------------------------------------------------------------------------------- */
   if (area === 'audit') {
     var atimer = null;

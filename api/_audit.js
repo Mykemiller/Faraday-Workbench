@@ -26,7 +26,10 @@ const AUDITED_RPCS = Object.freeze({
   estate_person_set_persona: { verified: true, via: true },
   estate_audience_gate_set: { verified: true, via: true },
   estate_consent_review: { verified: false, via: false },
-  predicts_review_recipient: { verified: false, via: false }
+  predicts_review_recipient: { verified: false, via: false },
+  app_registry_promote: { verified: true, via: true },
+  app_registry_set_state: { verified: true, via: true },
+  app_setting_set: { verified: true, via: true }
 });
 
 /** A Linear issue key (FDY-123) from what the caller passed, or null. */
