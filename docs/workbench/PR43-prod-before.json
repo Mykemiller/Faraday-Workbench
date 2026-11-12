@@ -1,0 +1,106 @@
+{
+ "captured_utc": "2026-11-12 22:2x",
+ "project": "ycadmmngkdhvpcsrcuaq",
+ "table": "public.workbench_product_notes",
+ "columns": [
+  "id",
+  "slug",
+  "kind",
+  "body",
+  "status",
+  "author",
+  "created_at",
+  "done_at"
+ ],
+ "column_count": 8,
+ "rows": 14,
+ "checksum": "0628eb4b46e656455fbfef312e843516",
+ "read_fn_md5": "1ec3c427d40b49ff61610d935c1ebcb2",
+ "read_fn_acl": "{postgres=X/postgres,service_role=X/postgres,anon=X/postgres,authenticated=X/postgres}",
+ "rls": true,
+ "policies": 0,
+ "triggers": 0,
+ "table_grants_anon_auth_public": 0,
+ "indexes": 2,
+ "check_constraints": 3,
+ "touch_fn": null,
+ "migration_recorded": 0,
+ "role_probes": {
+  "anon_table_rw": false,
+  "authenticated_table_rw": false,
+  "anon_exec_read": true,
+  "authenticated_exec_read": true,
+  "read_rpc_md5": "c1746a8d5186f109b92a13508858322f",
+  "read_rpc_slugs": 14,
+  "anon_called_rpc_md5": "c1746a8d5186f109b92a13508858322f"
+ },
+ "estate_access_for_owner_workbench_usable": true,
+ "dry_run": {
+  "method": "BEGIN; file; ROLLBACK via execute_sql",
+  "columns": 18,
+  "indexes": 4,
+  "check_constraints": 7,
+  "triggers": 1,
+  "rows": 14,
+  "checksum": "0628eb4b46e656455fbfef312e843516",
+  "anon_exec_touch": false,
+  "anon_exec_read": true,
+  "rollback_held_cols": 8
+ },
+ "migration_file_md5": "131ec255919787d3203557ae2f502797",
+ "advisor_security": {
+  "summary": [
+   {
+    "name": "rls_enabled_no_policy",
+    "level": "INFO",
+    "count": 591
+   },
+   {
+    "name": "security_definer_view",
+    "level": "ERROR",
+    "count": 1
+   },
+   {
+    "name": "function_search_path_mutable",
+    "level": "WARN",
+    "count": 4
+   },
+   {
+    "name": "rls_disabled_in_public",
+    "level": "ERROR",
+    "count": 1
+   },
+   {
+    "name": "extension_in_public",
+    "level": "WARN",
+    "count": 7
+   },
+   {
+    "name": "anon_security_definer_function_executable",
+    "level": "WARN",
+    "count": 11
+   },
+   {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "count": 11
+   }
+  ],
+  "total_findings": 626,
+  "findings_md5": "f84f71eed79eb9350baf1862d815063e",
+  "touching_workbench_product_notes": [
+   {
+    "name": "rls_enabled_no_policy",
+    "detail": "Table \\`public.workbench_product_notes\\` has RLS enabled, but no policies exist"
+   },
+   {
+    "name": "anon_security_definer_function_executable",
+    "detail": "Function `public.workbench_product_notes()` can be executed by the `anon` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/workbench_product_notes`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional."
+   },
+   {
+    "name": "authenticated_security_definer_function_executable",
+    "detail": "Function `public.workbench_product_notes()` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/workbench_product_notes`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional."
+   }
+  ]
+ }
+}

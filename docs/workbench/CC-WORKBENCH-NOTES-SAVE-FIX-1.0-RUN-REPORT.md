@@ -2,9 +2,13 @@
 
 Stamped 2026-11-11 19:30 CT. Counts and checksums only; no row data.
 
-**Status: migration NOT applied. Note saving is still broken in production.** The code
-guard, the error message and the change-control rule in this pull request are done. The
-database change is waiting on an approval that did not reach the operator (see section 2).
+**Status: resolved 2026-11-12 22:24 UTC; see section 7 (Resolution).** The paragraph below is
+the original finding as written 2026-11-11 and is kept unchanged. When it was written the
+migration was not applied and note saving was broken in production.
+
+> Original status: migration NOT applied. Note saving is still broken in production. The code
+> guard, the error message and the change-control rule in this pull request are done. The
+> database change is waiting on an approval that did not reach the operator (see section 2).
 
 ## 1. Phase A findings
 
@@ -71,11 +75,13 @@ select count(*),
   from public.workbench_product_notes;
 ```
 
-## 4. Rollback (documented, not executed)
+## 4. Rollback (documented, not executed; corrected 2026-11-12 to retire the touch function instead of dropping it)
 
 ```sql
 drop trigger if exists workbench_product_notes_touch on public.workbench_product_notes;
-drop function if exists public.workbench_product_notes_touch();
+-- Never DROP FUNCTION (CLAUDE.md, production database protocol step 7): retire it instead.
+alter function public.workbench_product_notes_touch() rename to workbench_product_notes_touch_retired_20261112;
+revoke all on function public.workbench_product_notes_touch_retired_20261112() from public, anon, authenticated;
 drop index if exists public.workbench_product_notes_client_id_key;
 drop index if exists public.workbench_product_notes_sync_status_idx;
 alter table public.workbench_product_notes
@@ -146,3 +152,37 @@ should be run once on a machine where it normally passes before merge.
    instead of the template. Recommended.
 5. Decide whether `Mykemiller/faraday-workbench` should be private. Recommended: private.
 6. Review and merge this pull request, after action 0.
+
+## 7. Resolution (2026-11-12, CC-WORKBENCH-PR43-RESOLVE-1.0, Linear FDY-309)
+
+Sections 1 to 6 above are the original findings and stay as written. This section supersedes
+their "NOT applied" status and the "Myke applies" convention (CLAUDE.md, Orchestration contract v1.0).
+
+| Item | Result |
+|---|---|
+| Merge | `origin/main` (1f0500d) merged into the PR branch; one conflict, `package.json`, resolved by taking main's `test` chain (32 files) and appending ` && node test/notes-schema-contract.mjs` (33). |
+| Dry run | `BEGIN; <file>; ROLLBACK` through `execute_sql` at 22:2x UTC: 18 columns, 4 indexes, 7 check constraints, 1 trigger, 14 rows, checksum unchanged, `anon` has no EXECUTE on the touch function. Rollback confirmed (8 columns, no migration row, no touch function). |
+| Applied | `workbench_thoughtforge_notes_outbox_1_0`, version `20261112222452`, 2026-11-12 22:24:52 UTC, one `apply_migration` call (file content + `notify pgrst, 'reload schema';`). File md5 `131ec255919787d3203557ae2f502797`. |
+| After | 18 columns, 4 indexes (2 new), 7 check constraints (4 new), 1 trigger, RLS on, 0 policies, 14 rows, checksum `0628eb4b46e656455fbfef312e843516` (unchanged), 0 rows touched. |
+| Roles | `anon` and `authenticated`: no table privileges; `workbench_product_notes()` still executable and returns 14 slugs (probed in rolled-back transactions); neither can execute the touch function. |
+| Owner access | `estate_access_for(<owner>,'workbench')` is still `usable`. |
+| Advisors | Security advisor findings 626 before and 626 after; added 0, removed 0. |
+| Evidence | `docs/workbench/PR43-prod-before.json`, `docs/workbench/PR43-prod-after.json` |
+
+Section 3's verification queries were run in substance: column list, migration row, function
+privileges, RLS, and the 14-row checksum. The last query (`author='myke'` rows) returns none
+until someone presses Save, which is left to Myke (action 1 below).
+
+**Tests.** `test/notes-schema-contract.mjs` passes on the merged tree. Nine headless-browser test
+files fail on this branch and fail identically on clean `origin/main` (1f0500d) after
+`npx playwright install chromium`: `auth-page`, `scoring-panels.render`, `scoring-panels.states`,
+`information-architecture`, `surface-probe`, `findings-keys`, `fix-these.render`, `admin-tab`,
+`tf-notes-panel`. They are pre-existing, not caused by this change; see "Found, not changed" in the PR.
+Every other file passes (24 of 33 on the branch; 23 of 32 on main).
+
+**Rollback** is section 4 as corrected above. Not executed: verification passed.
+
+**Still Myke's (Tier 3):** press Save on the Signal Room tile; decide TF_NOTES_DRY_RUN
+(recommended: live, as designed in PR #30); set `CRON_SECRET` and `ANTHROPIC_API_KEY` in Vercel
+production; make the repo private. Exact places and rollbacks are in the PR description.
+

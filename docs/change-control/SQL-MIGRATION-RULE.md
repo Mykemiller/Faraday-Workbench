@@ -16,6 +16,8 @@ If the SQL has not been applied yet, the pull request stays a draft. If the SQL 
 deliberately staged and not meant to be applied, the description says so in those words and
 names what applies it later.
 
+Record both in the PR template's "Production state → Migrations" row.
+
 **How to check.**
 
 ```sql
