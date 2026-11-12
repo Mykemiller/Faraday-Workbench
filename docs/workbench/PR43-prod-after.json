@@ -1,0 +1,96 @@
+{
+ "captured_utc": "2026-11-12 22:25-22:27",
+ "migration": {
+  "name": "workbench_thoughtforge_notes_outbox_1_0",
+  "version": "20261112222452",
+  "applied_utc": "2026-11-12 22:24:52"
+ },
+ "columns": 18,
+ "column_names": [
+  "id",
+  "slug",
+  "kind",
+  "body",
+  "status",
+  "author",
+  "created_at",
+  "done_at",
+  "client_id",
+  "source",
+  "sync_status",
+  "attempts",
+  "last_error",
+  "linear_issue_id",
+  "linear_identifier",
+  "linear_url",
+  "prompt_source",
+  "updated_at"
+ ],
+ "indexes": 4,
+ "check_constraints": 7,
+ "triggers": 1,
+ "rows": 14,
+ "checksum": "0628eb4b46e656455fbfef312e843516",
+ "checksum_matches_before": true,
+ "rls": true,
+ "policies": 0,
+ "read_fn_acl": "{postgres=X/postgres,service_role=X/postgres,anon=X/postgres,authenticated=X/postgres}",
+ "role_probes_rolled_back": {
+  "anon": {
+   "table_rw": false,
+   "read_rpc_slugs": 14,
+   "touch_exec": false
+  },
+  "authenticated": {
+   "table_rw": false,
+   "read_rpc_slugs": 14,
+   "touch_exec": false
+  }
+ },
+ "read_rpc_has_client_id_key": true,
+ "rows_touched_by_migration": 0,
+ "estate_access_for_owner_workbench_usable": true,
+ "advisor_security": {
+  "summary": [
+   {
+    "name": "rls_enabled_no_policy",
+    "level": "INFO",
+    "count": 591
+   },
+   {
+    "name": "security_definer_view",
+    "level": "ERROR",
+    "count": 1
+   },
+   {
+    "name": "function_search_path_mutable",
+    "level": "WARN",
+    "count": 4
+   },
+   {
+    "name": "rls_disabled_in_public",
+    "level": "ERROR",
+    "count": 1
+   },
+   {
+    "name": "extension_in_public",
+    "level": "WARN",
+    "count": 7
+   },
+   {
+    "name": "anon_security_definer_function_executable",
+    "level": "WARN",
+    "count": 11
+   },
+   {
+    "name": "authenticated_security_definer_function_executable",
+    "level": "WARN",
+    "count": 11
+   }
+  ],
+  "total_findings": 626,
+  "added": [],
+  "removed": [],
+  "delta_zero": true
+ }
+}
