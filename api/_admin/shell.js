@@ -1,6 +1,6 @@
 /* The Admin console shell (FDY-287, ADM-0.4): one HTML page, six areas, each with its own URL
  * under /admin. Rendered on the server by api/admin/shell.js AFTER the Owner gate, so the markup
- * never reaches anyone else. People and Audit have content; the rest say which phase brings them.
+ * never reaches anyone else. People, Apps and Audit have content; the rest say which phase brings them.
  *
  * The page carries the reason side panel every write will use (window.AdminConsole.reasonPanel):
  * before and after, an optional reason, Save. Reason is never required; when the change names a
@@ -11,7 +11,7 @@
 const AREAS = Object.freeze([
   { id: 'home', path: '/admin', label: 'Home', phase: 1, blurb: 'A summary of people, access and recent changes.' },
   { id: 'people', path: '/admin/people', label: 'People', content: true },
-  { id: 'apps', path: '/admin/apps', label: 'Apps', phase: 2, blurb: 'Settings for each app, changed here without a redeploy.' },
+  { id: 'apps', path: '/admin/apps', label: 'Apps', content: true },
   { id: 'plans', path: '/admin/plans', label: 'Plans and billing', phase: 3, blurb: 'Plans, seats and billing.' },
   { id: 'audit', path: '/admin/audit', label: 'Audit', content: true },
   { id: 'console', path: '/admin/console', label: 'Console', phase: 2, blurb: 'Who may use this console, and in what role.' }
@@ -28,9 +28,26 @@ function areaFor(segment) {
 const STATE_OPTIONS = '<option value="">Any status</option><option value="active">Active</option><option value="paused">Paused</option><option value="expired">Expired</option><option value="revoked">Revoked</option><option value="none">No access</option>';
 const EXPIRY_OPTIONS = '<option value="">Any expiry</option><option value="7d">Expires within 7 days</option><option value="30d">Expires within 30 days</option><option value="none">Never expires</option><option value="expired">Expired</option>';
 
-const PEOPLE_TABS = (cur) => `<p class="tabs"><a href="/admin/people"${cur === 'directory' ? ' aria-current="page"' : ''}>Directory</a><a href="/admin/people/access"${cur === 'access' ? ' aria-current="page"' : ''}>Access</a></p>`;
+const PEOPLE_TABS = (cur) => `<p class="tabs"><a href="/admin/people"${cur === 'directory' ? ' aria-current="page"' : ''}>Directory</a><a href="/admin/people/access"${cur === 'access' ? ' aria-current="page"' : ''}>Access</a><a href="/admin/people/review"${cur === 'review' ? ' aria-current="page"' : ''}>Review</a><a href="/admin/people?tab=gate"${cur === 'gate' ? ' aria-current="page"' : ''}>Audience gate</a><a href="/admin/people?tab=operators"${cur === 'operators' ? ' aria-current="page"' : ''}>Operators</a></p>`;
+
+const APPS_TABS = '<p class="tabs" id="apps-tabs"><a href="/admin/apps" data-tab="cards" aria-current="page">Cards</a><a href="/admin/apps?tab=settings" data-tab="settings">Settings</a></p>';
 
 function body(area, id) {
+  if (area.id === 'apps') {
+    // One page, two panels; client.js shows one by ?tab= (no path segment, so no new page id).
+    return `<h1>Apps</h1>
+${APPS_TABS}
+<div id="apps-cards-panel">
+<p class="count" id="apps-count"></p>
+<div id="apps-msg" class="msg" role="status" aria-live="polite">Loading apps…</div>
+<div id="apps-grid" class="cards"></div>
+</div>
+<div id="apps-settings-panel" hidden>
+<p class="count" id="set-note">The Workbench is the pilot: its settings are listed here and changed here, with no redeploy. The other 14 apps follow.</p>
+<div id="set-msg" class="msg" role="status" aria-live="polite">Loading settings…</div>
+<div id="set-groups"></div>
+</div>`;
+  }
   if (area.id === 'people' && id === 'access') {
     return `<h1>People</h1>
 ${PEOPLE_TABS('access')}
@@ -63,6 +80,7 @@ ${PEOPLE_TABS('access')}
   if (area.id === 'people') {
     return `<h1>People</h1>
 ${PEOPLE_TABS('directory')}
+<div id="dir-panel">
 <div class="bar"><input id="f-q" type="search" placeholder="Search name or email" aria-label="Search name or email">
 <select id="f-app" aria-label="Filter by app"><option value="">Any app</option></select>
 <select id="f-status" aria-label="Filter by status">${STATE_OPTIONS}</select>
@@ -74,13 +92,52 @@ ${PEOPLE_TABS('directory')}
 <section><h2>Add a person</h2>
 <form id="add-form" class="bar"><input id="add-email" type="email" placeholder="email@example.com" aria-label="Email" autocapitalize="off" spellcheck="false" required>
 <select id="add-app" aria-label="App"></select><select id="add-role" aria-label="Role"></select><input id="add-exp" type="date" aria-label="Expiry (optional)"><button type="submit" class="gold">Add person</button></form>
-<div id="add-msg" class="msg" role="status" aria-live="polite"></div></section>`;
+<div id="add-msg" class="msg" role="status" aria-live="polite"></div></section>
+</div>
+<div id="ops-panel" hidden>
+<p class="count">Operators run the apps they are scoped to: review people, grant and expire access, change settings, send broadcasts. They cannot change prices, lock config, grant console roles or see secrets. <strong>Adding an operator does not let them in yet:</strong> console entry is Owner-only. Granting this needs a fresh sign-in.</p>
+<div id="ops-msg" class="msg" role="status" aria-live="polite">Loading operators…</div>
+<div class="scroll"><table id="ops-table" hidden><thead><tr><th>Email</th><th>Scope</th><th>State</th><th>Expires</th><th>Change</th></tr></thead><tbody></tbody></table></div>
+<section id="ops-add"><h2>Add an operator</h2>
+<form id="ops-form" class="bar"><input id="ops-email" type="email" placeholder="email@example.com" aria-label="Email" autocapitalize="off" spellcheck="false" required>
+<select id="ops-scope" aria-label="Scope"></select><input id="ops-exp" type="date" aria-label="Expiry (optional)"><button type="submit" class="gold">Add operator</button></form></section>
+</div>
+<div id="gate-panel" hidden>
+<p class="count">Who may be emailed by Predicts. <strong>Armed:</strong> only the pinned addresses. <strong>Lifted:</strong> every person who is approved and confirmed. A change reaches the senders within 60 seconds, and nothing here sends email.</p>
+<div id="gate-msg" class="msg" role="status" aria-live="polite">Loading the audience gate…</div>
+<div id="gate-card" hidden>
+<h2>Predicts</h2>
+<p id="gate-state"></p>
+<p class="count" id="gate-pinned"></p>
+<p class="count" id="gate-impact"></p>
+<p class="count">If a sender cannot read this setting it falls back to the two pinned owner addresses, closed.</p>
+<div class="bar"><button type="button" id="gate-arm">Arm the gate</button>
+<input id="gate-confirm" type="text" placeholder="type lift to confirm" aria-label="Type lift to confirm" autocomplete="off" spellcheck="false">
+<button type="button" class="gold" id="gate-lift" disabled>Lift the gate</button></div>
+<p class="count">A reason is required for every change to this gate.</p>
+</div>
+<section><h2>History</h2>
+<div class="scroll"><table id="gate-history" hidden><thead><tr><th>When (CT)</th><th>Who</th><th>Action</th><th>Reason</th></tr></thead><tbody></tbody></table></div></section>
+</div>
+<div id="rev-panel" hidden>
+<p class="count">People waiting for a Predicts decision, oldest first. <strong>Approving sends no email.</strong> The FDY-112 invitation job sends the invitation later.</p>
+<div id="rev-msg" class="msg" role="status" aria-live="polite">Loading the review queue…</div>
+<p class="count" id="rev-count"></p>
+<div class="scroll"><table id="rev-table" hidden><thead><tr><th>Email</th><th>Source</th><th>Created</th><th>Last seen</th><th>Opt-in</th><th>Review</th><th>Decide</th></tr></thead><tbody></tbody></table></div>
+</div>`;
   }
   if (area.id === 'audit') {
     return `<h1>Audit</h1>
-<div class="bar"><input id="audit-q" type="search" placeholder="Filter by subject email" aria-label="Filter by subject email"><span class="count" id="audit-count"></span></div>
+<p class="count">Console changes and League Office changes in one timeline, newest first. A revert makes a new change and a new row; nothing here is ever edited.</p>
+<div class="bar"><input id="audit-q" type="search" placeholder="Person (subject)" aria-label="Filter by person (subject)">
+<input id="audit-actor" type="search" placeholder="Who did it" aria-label="Filter by who made the change">
+<input id="audit-app" type="search" placeholder="App" aria-label="Filter by app">
+<input id="audit-setting" type="search" placeholder="Setting" aria-label="Filter by setting">
+<select id="audit-source" aria-label="Which log"><option value="">Both logs</option><option value="admin">Console</option><option value="league_office">League Office</option></select>
+<span class="count" id="audit-count"></span></div>
 <div id="audit-msg" class="msg" role="status" aria-live="polite">Loading the audit trail…</div>
-<div class="scroll"><table id="audit-table" hidden><thead><tr><th>When (CT)</th><th>Who</th><th>App</th><th>Subject</th><th>Action</th><th>Reason</th></tr></thead><tbody></tbody></table></div>`;
+<div class="scroll"><table id="audit-table" hidden><thead><tr><th>When (CT)</th><th>Who</th><th>App</th><th>Subject</th><th>Action</th><th>Before</th><th>After</th><th>Reason</th><th></th></tr></thead><tbody></tbody></table></div>
+<p class="bar"><button type="button" id="audit-more" hidden>Older rows</button></p>`;
   }
   return `<h1>${esc(area.label)}</h1>
 <div class="soon"><p class="soon-tag">Coming in Phase ${area.phase}</p><p>${esc(area.blurb)}</p></div>`;
@@ -126,6 +183,26 @@ td.wrap{overflow-wrap:anywhere}
 .tag{display:inline-block;font:500 11px/1.5 ui-monospace,Menlo,monospace;border:1px solid var(--line);border-radius:2px;padding:0 6px;margin:0 4px 4px 0;white-space:nowrap}
 .tag.off{opacity:.55;text-decoration:line-through}
 .unverified{color:var(--bad)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{border:1px solid var(--line);border-radius:4px;background:var(--panel);padding:14px 16px;min-width:0;display:flex;flex-direction:column;gap:8px}
+.card h3{font:600 17px/1.25 Georgia,"Times New Roman",serif;margin:0;overflow-wrap:anywhere}
+.card .code{font:600 12px/1.5 ui-monospace,Menlo,monospace;letter-spacing:.14em;color:var(--gold)}
+.card .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.card dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:13px}
+.card dt{color:var(--dim)}.card dd{margin:0;overflow-wrap:anywhere}
+.card dd.na{color:var(--dim)}
+.card .acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.card form.promote{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.card form.promote[hidden]{display:none}
+.card form.promote input{padding:6px 8px;font-size:14px;min-width:0}
+.card form.promote input[name=version]{width:84px}.card form.promote input[name=release]{flex:1 1 140px}
+.chip{display:inline-block;font:600 11px/1.6 ui-monospace,Menlo,monospace;letter-spacing:.06em;border:1px solid var(--gold);border-radius:10px;padding:0 9px;color:var(--gold-bright)}
+.chip.s-notready,.chip.s-notstarted{border-color:var(--line);color:var(--dim)}
+.card-msg{font-size:13px;color:var(--dim);margin:0}.card-msg.err{color:var(--bad)}.card-msg.ok{color:var(--gold-bright)}
+.setrow{border-top:1px solid rgba(248,245,240,.08);padding:12px 0}
+.setrow .name{font-weight:600}.setrow .key{font:12px/1.4 ui-monospace,Menlo,monospace;color:var(--dim)}
+.setrow .facts{display:flex;gap:6px 16px;flex-wrap:wrap;font-size:13px;color:var(--dim);margin:6px 0}
+.setrow .edit{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .soon{border:1px dashed var(--line);border-radius:4px;padding:28px 20px;max-width:560px}
 .soon-tag{font:500 12px/1.4 ui-monospace,Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 8px}
 .soon p{margin:0}

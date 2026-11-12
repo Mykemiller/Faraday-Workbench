@@ -51,12 +51,17 @@ assert.equal(resp.status(), 200);
 assert.equal(await page.textContent('h1'), 'Home'); assert.match(await page.textContent('main'), /Coming in Phase 1/);
 assert.equal(await page.locator('nav.areas a').count(), 6);
 assert.equal((await page.textContent('#who')).trim(), OWNER);
-for (const [label, url, re] of [['Apps', '/admin/apps', /Coming in Phase 2/], ['Plans and billing', '/admin/plans', /Coming in Phase 3/], ['Console', '/admin/console', /Coming in Phase 2/]]) {
+for (const [label, url, re] of [['Plans and billing', '/admin/plans', /Coming in Phase 3/], ['Console', '/admin/console', /Coming in Phase 2/]]) {
   await page.click(`nav.areas a:text-is("${label}")`); await page.waitForURL(ORIGIN + url);
   assert.equal(await page.textContent('h1'), label); assert.match(await page.textContent('main'), re);
   assert.equal(await page.getAttribute('nav.areas a[aria-current="page"]', 'href'), url);
 }
 console.log('PASS  six areas in the navigation; each opens at its own /admin URL; placeholders name their phase');
+
+// ---- Apps has content now (its own tests: test/apps.mjs, test/apps-page.mjs) ----
+await page.click('nav.areas a:text-is("Apps")'); await page.waitForURL(ORIGIN + '/admin/apps');
+assert.equal(await page.textContent('h1'), 'Apps'); assert.equal(await page.locator('main .soon').count(), 0); assert.equal(await page.locator('.tabs a').count(), 2);
+console.log('PASS  Apps opens with content (Cards and Settings tabs), not a placeholder');
 
 // ---- People (the directory and Person page have their own test: test/people-page.mjs) ----
 await page.click('nav.areas a:text-is("People")'); await page.waitForURL(ORIGIN + '/admin/people');

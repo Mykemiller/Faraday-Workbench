@@ -68,7 +68,7 @@ function world() {
   console.log('PASS  shell renders for an Owner session; 404 for no session, expired, non-owner, forged, revoked');
 }
 
-// ---- six areas, each with its own URL; only People and Audit have content ----
+// ---- six areas, each with its own URL; only People, Apps and Audit have content ----
 {
   world();
   assert.deepEqual(AREAS.map((a) => a.label), ['Home', 'People', 'Apps', 'Plans and billing', 'Audit', 'Console']);
@@ -85,11 +85,11 @@ function world() {
     if (a.content) assert.equal(/Coming in Phase/.test(r.body), false, `${a.label} has content`);
     else assert.match(r.body, new RegExp(`Coming in Phase ${a.phase}`), `${a.label} is a placeholder`);
   }
-  assert.deepEqual(AREAS.filter((a) => a.content).map((a) => a.id), ['people', 'audit']);
+  assert.deepEqual(AREAS.filter((a) => a.content).map((a) => a.id), ['people', 'apps', 'audit']);
   const rw = JSON.parse(fs.readFileSync(path.join(HERE, '..', 'vercel.json'), 'utf8')).rewrites;
-  assert.deepEqual(rw, [{ source: '/admin', destination: '/api/admin/shell' }, { source: '/admin/:area', destination: '/api/admin/shell?area=:area' }, { source: '/admin/:area/:id', destination: '/api/admin/shell?area=:area&id=:id' }]);
+  assert.deepEqual(rw, [{ source: '/admin/people/review', destination: '/api/admin/shell?area=people' }, { source: '/admin', destination: '/api/admin/shell' }, { source: '/admin/:area', destination: '/api/admin/shell?area=:area' }, { source: '/admin/:area/:id', destination: '/api/admin/shell?area=:area&id=:id' }]);
   assert.equal(fs.existsSync(path.join(HERE, '..', 'admin')), false, 'no static /admin files: the page only exists behind the gate');
-  console.log('PASS  six areas with their own URLs; People and Audit have content, the rest say "Coming in Phase N"');
+  console.log('PASS  six areas with their own URLs; People, Apps and Audit have content, the rest say "Coming in Phase N"');
 }
 
 // ---- no price strings, no secrets, escaped output ----
@@ -118,7 +118,7 @@ function world() {
   assert.equal(r.body.rows[0].actor, OWNER_ID); assert.equal(r.body.rows[0].actorEmail, OWNER); assert.equal(r.body.rows[0].actorVerified, true);
   assert.equal(r.body.rows[1].actorEmail, null); assert.equal(r.body.rows[1].actorVerified, false);
   const q = seen.find((s) => s.startsWith('/rest/v1/admin_audit'));
-  assert.match(q, /product=eq\.workbench/); assert.match(q, /subject_email=ilike\.\*owner%40x\*$/, 'wildcards and brackets typed by the user are stripped'); assert.match(q, /limit=100/);
+  assert.match(q, /product=eq\.workbench/); assert.match(q, /subject_email=ilike\.\*owner%40x\*$/, 'wildcards and brackets typed by the user are stripped'); assert.match(q, /limit=101/, 'a page of 100 plus one, to know whether older rows exist');
   assert.equal((await call(router, { method: 'GET', headers: h, query: { route: 'audit', product: 'x;drop' } })).code, 400);
   assert.equal((await call(router, { method: 'DELETE', headers: h, query: { route: 'audit' } })).code, 405, 'Audit is read-only');
   r = await call(router, { method: 'GET', url: '/api/admin/people?x=1', headers: h });
@@ -173,7 +173,7 @@ function world() {
   const failing = { key: 'svc', client: async () => ({ ok: false, status: 400, json: async () => ({ message: 'estate_access_set: status must be active or revoked (got x)' }) }) };
   await refuse(owner, { rpc: 'estate_access_set', args: {} }, failing, 400, /status must be active or revoked/);
   await refuse(owner, { rpc: 'estate_access_set', args: {} }, { key: 'svc', client: async () => { throw new Error('ECONNRESET'); } }, 502, /nothing was saved/);
-  assert.deepEqual(Object.keys(AUDITED_RPCS).sort(), ['estate_access_set', 'estate_audience_gate_set', 'estate_consent_review', 'estate_person_set_persona', 'predicts_review_recipient']);
+  assert.deepEqual(Object.keys(AUDITED_RPCS).sort(), ['app_registry_promote', 'app_registry_set_state', 'app_setting_set', 'estate_access_set', 'estate_audience_gate_set', 'estate_consent_review', 'estate_operator_set', 'estate_person_set_persona', 'predicts_review_recipient']);
   assert.ok(Object.isFrozen(AUDITED_RPCS));
   console.log('PASS  audit helper: actor = person id, reason optional, Linear issue default, only audited functions, refusals write nothing');
 }
