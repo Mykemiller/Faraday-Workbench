@@ -23,6 +23,13 @@ const { syncNote, depsFromEnv, COLS } = require('./_tfsync.js');
 const KINDS = new Set(['note', 'action']);
 const STATUSES = new Set(['open', 'done']);
 
+// PGRST204 = PostgREST cannot find a column the request names: the schema is behind the code.
+const MISSING_COLUMN = 'The database is missing a column this page needs. A migration has not been applied.';
+function pgError(rows, status) {
+  if (rows && rows.code === 'PGRST204') return MISSING_COLUMN;
+  return (rows && (rows.message || rows.hint)) || `HTTP ${status}`;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST' && req.method !== 'PATCH') {
@@ -56,7 +63,7 @@ module.exports = async function handler(req, res) {
         body: JSON.stringify(row)
       });
       const rows = await r.json().catch(() => null);
-      if (!r.ok) return res.status(r.status).json({ error: (rows && (rows.message || rows.hint)) || `HTTP ${r.status}` });
+      if (!r.ok) return res.status(r.status).json({ error: pgError(rows, r.status) });
       let note = Array.isArray(rows) ? rows[0] : rows;
       let duplicate = false;
       if (!note && clientId) {
@@ -91,7 +98,7 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({ status, done_at: status === 'done' ? new Date().toISOString() : null })
     });
     const rows = await r.json().catch(() => null);
-    if (!r.ok) return res.status(r.status).json({ error: (rows && (rows.message || rows.hint)) || `HTTP ${r.status}` });
+    if (!r.ok) return res.status(r.status).json({ error: pgError(rows, r.status) });
     if (!Array.isArray(rows) || !rows.length) return res.status(404).json({ error: 'No note with that id' });
     return res.status(200).json({ ok: true, note: rows[0] });
   } catch (e) {
