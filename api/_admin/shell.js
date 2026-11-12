@@ -28,7 +28,7 @@ function areaFor(segment) {
 const STATE_OPTIONS = '<option value="">Any status</option><option value="active">Active</option><option value="paused">Paused</option><option value="expired">Expired</option><option value="revoked">Revoked</option><option value="none">No access</option>';
 const EXPIRY_OPTIONS = '<option value="">Any expiry</option><option value="7d">Expires within 7 days</option><option value="30d">Expires within 30 days</option><option value="none">Never expires</option><option value="expired">Expired</option>';
 
-const PEOPLE_TABS = (cur) => `<p class="tabs"><a href="/admin/people"${cur === 'directory' ? ' aria-current="page"' : ''}>Directory</a><a href="/admin/people/access"${cur === 'access' ? ' aria-current="page"' : ''}>Access</a><a href="/admin/people/review"${cur === 'review' ? ' aria-current="page"' : ''}>Review</a><a href="/admin/people?tab=gate"${cur === 'gate' ? ' aria-current="page"' : ''}>Audience gate</a></p>`;
+const PEOPLE_TABS = (cur) => `<p class="tabs"><a href="/admin/people"${cur === 'directory' ? ' aria-current="page"' : ''}>Directory</a><a href="/admin/people/access"${cur === 'access' ? ' aria-current="page"' : ''}>Access</a><a href="/admin/people/review"${cur === 'review' ? ' aria-current="page"' : ''}>Review</a><a href="/admin/people?tab=gate"${cur === 'gate' ? ' aria-current="page"' : ''}>Audience gate</a><a href="/admin/people?tab=operators"${cur === 'operators' ? ' aria-current="page"' : ''}>Operators</a></p>`;
 
 const APPS_TABS = '<p class="tabs" id="apps-tabs"><a href="/admin/apps" data-tab="cards" aria-current="page">Cards</a><a href="/admin/apps?tab=settings" data-tab="settings">Settings</a></p>';
 
@@ -93,6 +93,14 @@ ${PEOPLE_TABS('directory')}
 <form id="add-form" class="bar"><input id="add-email" type="email" placeholder="email@example.com" aria-label="Email" autocapitalize="off" spellcheck="false" required>
 <select id="add-app" aria-label="App"></select><select id="add-role" aria-label="Role"></select><input id="add-exp" type="date" aria-label="Expiry (optional)"><button type="submit" class="gold">Add person</button></form>
 <div id="add-msg" class="msg" role="status" aria-live="polite"></div></section>
+</div>
+<div id="ops-panel" hidden>
+<p class="count">Operators run the apps they are scoped to: review people, grant and expire access, change settings, send broadcasts. They cannot change prices, lock config, grant console roles or see secrets. <strong>Adding an operator does not let them in yet:</strong> console entry is Owner-only. Granting this needs a fresh sign-in.</p>
+<div id="ops-msg" class="msg" role="status" aria-live="polite">Loading operators…</div>
+<div class="scroll"><table id="ops-table" hidden><thead><tr><th>Email</th><th>Scope</th><th>State</th><th>Expires</th><th>Change</th></tr></thead><tbody></tbody></table></div>
+<section id="ops-add"><h2>Add an operator</h2>
+<form id="ops-form" class="bar"><input id="ops-email" type="email" placeholder="email@example.com" aria-label="Email" autocapitalize="off" spellcheck="false" required>
+<select id="ops-scope" aria-label="Scope"></select><input id="ops-exp" type="date" aria-label="Expiry (optional)"><button type="submit" class="gold">Add operator</button></form></section>
 </div>
 <div id="gate-panel" hidden>
 <p class="count">Who may be emailed by Predicts. <strong>Armed:</strong> only the pinned addresses. <strong>Lifted:</strong> every person who is approved and confirmed. A change reaches the senders within 60 seconds, and nothing here sends email.</p>

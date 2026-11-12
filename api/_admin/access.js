@@ -15,6 +15,7 @@
 const { sb, readJson } = require('../_wb.js');
 const { auditedWrite, AuditError } = require('../_audit.js');
 const { requireFresh } = require('../_auth.js');
+const { guard, accessAction } = require('../_rights.js');
 const L = require('./people-logic.js');
 
 const DEFAULT_APP = 'ispyadc';
@@ -34,7 +35,7 @@ function appOf(v) {
 async function list(req, res, ctx) {
   const app = appOf(req.query && req.query.app);
   if (!app) return res.status(400).json({ error: 'app is not one of ' + Object.keys(L.PRODUCTS).join(', ') });
-  const rows = await read(`product_access?select=role,status,expires_at,note,added_by,created_at,updated_at,estate_people(id,email,display_name)&product=eq.${app}&order=created_at.desc&limit=1000`, ctx.key);
+  const rows = await read(`product_access?select=role,status,expires_at,note,added_by,created_at,updated_at,estate_people(id,email,display_name)&product=eq.${app}&role=neq.operator&order=created_at.desc&limit=1000`, ctx.key);
   const now = Date.now();
   return res.status(200).json({
     app, label: L.PRODUCTS[app].label, roles: L.PRODUCTS[app].roles, testerDefaultDays: L.TESTER_DEFAULT_DAYS,
@@ -52,6 +53,7 @@ async function grant(req, res, ctx) {
   try { body = await readJson(req); } catch (e) { return res.status(400).json({ error: 'Body is not JSON' }); }
   const app = appOf(body && body.app);
   if (!app) return res.status(400).json({ error: 'app is not one of ' + Object.keys(L.PRODUCTS).join(', ') });
+  if (!guard(ctx.actor, accessAction('access.grant', app), { product: app }, res)) return;   // rights: after the session check, before any read or write
   const email = L.normalizeEmail(body.email);
   if (!L.isEmail(email)) return res.status(400).json({ error: 'That does not look like an email address.' });
   const now = Date.now();
@@ -60,7 +62,7 @@ async function grant(req, res, ctx) {
   if (app === 'workbench' && !requireFresh(ctx.actor, res)) return;
 
   const who = await read(`estate_people?select=id,email,product_access(product,role,status,expires_at)&email_normalised=eq.${encodeURIComponent(email)}&limit=1`, ctx.key);
-  const cur = who.length ? (who[0].product_access || []).find((a) => a.product === app) : null;
+  const cur = who.length ? (who[0].product_access || []).find((a) => a.product === app && a.role !== 'operator') : null;
   if (cur) {
     return res.status(409).json({
       error: `${email} already has ${L.PRODUCTS[app].label} access (${cur.role}, ${L.accessState(cur, now)}). Change, restore or revoke that row instead.`,

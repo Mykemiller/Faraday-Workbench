@@ -17,6 +17,7 @@
 
 const { sb, readJson } = require('../_wb.js');
 const { auditedWrite, AuditError } = require('../_audit.js');
+const { guard, productForApp } = require('../_rights.js');
 const L = require('./apps-logic.js');
 
 const REGISTRY_COLS = 'code,name,version_major,version_minor,state,state_source,lifecycle_stage,tile_slug,supabase_project,owner,settings_schema_version,console_url,tracker_url,linear_label';
@@ -152,6 +153,9 @@ async function write(req, res, ctx) {
   if (!['promote', 'set_state', 'set_setting'].includes(action)) return res.status(400).json({ error: 'action must be promote, set_state or set_setting.' });
   const code = L.validateCode(body.code);
   if (!code) return res.status(400).json({ error: 'code must be an app code such as WB.' });
+  // rights: after the session check, before any read or write. Release and state changes are Owner-only; a setting is the app's own.
+  const right = action === 'promote' ? 'registry.promote' : action === 'set_state' ? 'registry.set_state' : 'setting.promote';
+  if (!guard(ctx.actor, right, { product: productForApp(code) }, res)) return;
   const common = { reason: body.reason, linearIssue: body.linearIssue };
   const key = ctx.key;
 

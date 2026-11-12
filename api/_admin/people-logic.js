@@ -51,7 +51,8 @@ function shapePerson(p, now) {
     plan: null, // Plans and entitlements arrive in Phase 3 (ADM-3.1). Until then: "None yet".
     access: (p.product_access || []).map((a) => ({
       product: a.product, label: (PRODUCTS[a.product] || {}).label || a.product, role: a.role, status: a.status,
-      state: accessState(a, now), expiresAt: a.expires_at || null, note: a.note || null, addedBy: a.added_by || null, updatedAt: a.updated_at || null
+      state: accessState(a, now), expiresAt: a.expires_at || null, note: a.note || null, addedBy: a.added_by || null, updatedAt: a.updated_at || null,
+      scope: a.role === 'operator' ? (a.scope_product || '') : undefined   // operator rows only: '' = all apps
     })).sort((x, y) => x.label.localeCompare(y.label)),
     consent: (p.contact_consent || []).map((c) => ({
       product: c.product, channel: c.channel, reviewStatus: c.review_status, optinStatus: c.optin_status, label: consentLabel(c),

@@ -173,7 +173,7 @@ function world() {
   const failing = { key: 'svc', client: async () => ({ ok: false, status: 400, json: async () => ({ message: 'estate_access_set: status must be active or revoked (got x)' }) }) };
   await refuse(owner, { rpc: 'estate_access_set', args: {} }, failing, 400, /status must be active or revoked/);
   await refuse(owner, { rpc: 'estate_access_set', args: {} }, { key: 'svc', client: async () => { throw new Error('ECONNRESET'); } }, 502, /nothing was saved/);
-  assert.deepEqual(Object.keys(AUDITED_RPCS).sort(), ['app_registry_promote', 'app_registry_set_state', 'app_setting_set', 'estate_access_set', 'estate_audience_gate_set', 'estate_consent_review', 'estate_person_set_persona', 'predicts_review_recipient']);
+  assert.deepEqual(Object.keys(AUDITED_RPCS).sort(), ['app_registry_promote', 'app_registry_set_state', 'app_setting_set', 'estate_access_set', 'estate_audience_gate_set', 'estate_consent_review', 'estate_operator_set', 'estate_person_set_persona', 'predicts_review_recipient']);
   assert.ok(Object.isFrozen(AUDITED_RPCS));
   console.log('PASS  audit helper: actor = person id, reason optional, Linear issue default, only audited functions, refusals write nothing');
 }

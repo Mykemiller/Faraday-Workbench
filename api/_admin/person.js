@@ -17,6 +17,7 @@
 const { sb, readJson } = require('../_wb.js');
 const { auditedWrite, AuditError } = require('../_audit.js');
 const { requireFresh } = require('../_auth.js');
+const { guard, accessAction } = require('../_rights.js');
 const L = require('./people-logic.js');
 const { PERSON_SELECT } = require('./people.js');
 
@@ -62,6 +63,10 @@ async function write(req, res, ctx) {
   const now = Date.now();
   const p = L.parseWrite(body, now);
   if (p.error) return res.status(400).json({ error: p.error });
+  // rights: after the session check, before any read or write. A change on the console itself is a console-role grant.
+  const right = p.action === 'set_persona' ? 'person.persona'
+    : accessAction(['grant', 'restore', 'resume', 'set_role'].includes(p.action) ? 'access.grant' : 'access.expire', p.product);
+  if (!guard(ctx.actor, right, { product: p.product }, res)) return;
   const row = await loadPerson(id, ctx.key);
   if (!row) return res.status(404).json({ error: 'No person with that id' });
   const email = L.normalizeEmail(row.email);
@@ -78,7 +83,7 @@ async function write(req, res, ctx) {
   }
 
   const label = L.PRODUCTS[p.product].label;
-  const cur = (row.product_access || []).find((a) => a.product === p.product) || null;
+  const cur = (row.product_access || []).find((a) => a.product === p.product && a.role !== 'operator') || null;
   const self = id === ctx.actor.personId && p.product === 'workbench';
 
   if (p.action === 'grant') {

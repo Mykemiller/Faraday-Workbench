@@ -13,6 +13,7 @@
 const { sb, readJson } = require('../_wb.js');
 const { auditedWrite, AuditError } = require('../_audit.js');
 const { requireFresh } = require('../_auth.js');
+const { guard } = require('../_rights.js');
 const A = require('./audit-logic.js');
 
 const COLS = 'id,at,actor,actor_verified,product,subject_email,action,reason,old_value,new_value,via';
@@ -99,6 +100,7 @@ async function stateFor(row, key) {
 }
 
 async function revert(req, res, ctx) {
+  if (!guard(ctx.actor, 'audit.revert', {}, res)) return;   // rights: after the session check, before any read or write
   let body;
   try { body = await readJson(req); } catch (e) { return res.status(400).json({ error: 'Body is not JSON' }); }
   const id = String((body && body.id) || '');

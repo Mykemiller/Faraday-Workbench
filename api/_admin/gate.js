@@ -16,6 +16,7 @@
 const { sb, readJson } = require('../_wb.js');
 const { auditedWrite, AuditError, resolveReason } = require('../_audit.js');
 const { requireFresh } = require('../_auth.js');
+const { guard } = require('../_rights.js');
 const G = require('./gate-logic.js');
 
 async function read(path, key) {
@@ -42,6 +43,7 @@ async function list(req, res, ctx) {
 }
 
 async function change(req, res, ctx) {
+  if (!guard(ctx.actor, 'gate.set', {}, res)) return;   // rights: after the session check, before any read or write
   let body;
   try { body = await readJson(req); } catch (e) { return res.status(400).json({ error: 'Body is not JSON' }); }
   const p = G.parseChange(body, resolveReason(body && body.reason, body && body.linearIssue));
