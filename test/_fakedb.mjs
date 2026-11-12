@@ -4,7 +4,7 @@
 import { randomUUID } from 'node:crypto';
 
 export function fakeDb() {
-  const db = { people: [], access: [], consent: [], audit: [], calls: [], failRpc: null, recipients: [], noView: false, noFunctions: new Set(), gates: [], noGate: false, lo: [], noLo: false,
+  const db = { people: [], access: [], consent: [], audit: [], calls: [], failRpc: null, recipients: [], noView: false, noFunctions: new Set(), gates: [], noGate: false, lo: [], noLo: false, noOperatorColumn: false,
     // ADM-2.1 (FDY-294): the app registry. Mirrors the database contract: deny-all tables read with the service key.
     apps: [], defs: [], vals: [], metric: {}, failRead: null, hangRpc: null,
     vercel: { mode: 'ok', deployments: [], calls: [] } };
@@ -54,17 +54,18 @@ export function fakeDb() {
   const rpc = {
     estate_access_for(b) {
       const p = db.people.find((x) => x.email === norm(b.p_email));
-      const a = p && db.access.find((x) => x.person_id === p.id && x.product === b.p_product);
+      const a = p && db.access.find((x) => x.person_id === p.id && x.product === b.p_product && x.role !== 'operator');   // FDY-298: an operator row is invisible here
       if (!a) return { product: b.p_product, usable: false, status: 'none' };
       return { person_id: p.id, product: a.product, role: a.role, status: a.status, expires_at: a.expires_at, usable: a.status === 'active' && (!a.expires_at || Date.parse(a.expires_at) > Date.now()) };
     },
     estate_access_set(b) {
       if (!b.p_actor || !String(b.p_actor).trim()) throw new Error('estate_access_set: actor is required');
       if (!['active', 'paused', 'revoked'].includes(b.p_status)) throw new Error(`estate_access_set: status must be active, paused or revoked (got ${b.p_status})`);
+      if (b.p_role === 'operator') throw new Error('estate_access_set: the operator role is set with estate_operator_set (it carries a scope)');
       const email = norm(b.p_email);
       let p = db.people.find((x) => x.email === email);
       if (!p) { p = db.addPerson(email, { source: 'access:' + b.p_product }); audit({ actor: 'system:estate_person_ensure', actor_verified: true, product: 'estate', subject_email: email, action: 'person.create', via: 'rpc:estate_person_ensure' }); }
-      const old = db.access.find((x) => x.person_id === p.id && x.product === b.p_product);
+      const old = db.access.find((x) => x.person_id === p.id && x.product === b.p_product && x.role !== 'operator');
       const exp = b.p_expires_at || null, note = b.p_note || null;
       if (old && old.role === b.p_role && old.status === b.p_status && (old.expires_at || null) === exp && (old.note || null) === note) return { changed: false, person_id: p.id, product: b.p_product, role: old.role, status: old.status, expires_at: old.expires_at };
       const before = old ? { role: old.role, status: old.status, expires_at: old.expires_at, note: old.note } : null;
@@ -73,6 +74,24 @@ export function fakeDb() {
       if (old) Object.assign(old, { role: b.p_role, status: b.p_status, expires_at: exp, note }); else db.access.push({ person_id: p.id, product: b.p_product, role: b.p_role, status: b.p_status, expires_at: exp, note, added_by: b.p_actor, updated_at: new Date().toISOString() });
       audit({ actor: b.p_actor, actor_verified: b.p_actor_verified === true, product: b.p_product, subject_email: email, action, reason: b.p_reason ?? null, old_value: before, new_value: { role: b.p_role, status: b.p_status, expires_at: exp, note }, via: b.p_via || 'sql' });
       return { changed: true, action, person_id: p.id, product: b.p_product, role: b.p_role, status: b.p_status, expires_at: exp };
+    },
+    estate_operator_set(b) {   // FDY-298: the ONE writer of operator rows; audits in the same step
+      if (!b.p_actor || !String(b.p_actor).trim()) throw new Error('estate_operator_set: actor is required');
+      if (!['active', 'paused', 'revoked'].includes(b.p_status)) throw new Error('estate_operator_set: status must be active, paused or revoked');
+      const scope = b.p_scope_product ? String(b.p_scope_product) : null;
+      if (scope && !['ispyadc', 'workbench', 'dailychallenge', 'jw', 'predicts'].includes(scope)) throw new Error('estate_operator_set: scope must be empty or an app key');
+      const email = norm(b.p_email);
+      let p = db.people.find((x) => x.email === email);
+      if (!p) { p = db.addPerson(email, { source: 'operator' }); audit({ actor: 'system:estate_person_ensure', actor_verified: true, product: 'estate', subject_email: email, action: 'person.create', via: 'rpc:estate_person_ensure' }); }
+      const old = db.access.find((x) => x.person_id === p.id && x.product === 'workbench' && x.role === 'operator' && (x.scope_product || null) === scope);
+      const exp = b.p_expires_at || null, note = b.p_note || null;
+      if (old && old.status === b.p_status && (old.expires_at || null) === exp && (old.note || null) === note) return { changed: false, person_id: p.id, scope_product: scope, status: old.status, expires_at: old.expires_at };
+      const before = old ? { role: 'operator', scope_product: old.scope_product || null, status: old.status, expires_at: old.expires_at, note: old.note } : null;
+      const action = !old ? 'operator.add' : old.status !== 'paused' && b.p_status === 'paused' ? 'operator.pause' : old.status === 'paused' && b.p_status === 'active' ? 'operator.resume'
+        : old.status !== 'revoked' && b.p_status === 'revoked' ? 'operator.revoke' : old.status === 'revoked' && b.p_status === 'active' ? 'operator.restore' : 'operator.update';
+      if (old) Object.assign(old, { status: b.p_status, expires_at: exp, note }); else db.access.push({ person_id: p.id, product: 'workbench', role: 'operator', scope_product: scope, status: b.p_status, expires_at: exp, note, added_by: b.p_actor, updated_at: new Date().toISOString() });
+      audit({ actor: b.p_actor, actor_verified: b.p_actor_verified === true, product: 'workbench', subject_email: email, action, reason: b.p_reason ?? null, old_value: before, new_value: { role: 'operator', scope_product: scope, status: b.p_status, expires_at: exp, note }, via: b.p_via || 'sql' });
+      return { changed: true, action, person_id: p.id, scope_product: scope, status: b.p_status, expires_at: exp };
     },
     app_registry_promote(b) {
       const a = db.apps.find((x) => x.code === b.p_code); if (!a) throw new Error('app_registry_promote: unknown app');
@@ -198,8 +217,10 @@ export function fakeDb() {
       return json((sp.get('select') || '').includes('product_access') ? rows.map(embed) : rows.map((p) => ((sp.get('select') || '').includes('persona_preset') ? { id: p.id, email: p.email, persona_preset: p.persona_preset } : { id: p.id, email: p.email })));
     }
     if (u.pathname === '/rest/v1/product_access' && method === 'GET') {
+      if (db.noOperatorColumn && (sp.get('select') || '').includes('scope_product')) return json({ code: '42703', message: 'column product_access.scope_product does not exist' }, 400);
       const product = (sp.get('product') || '').slice(3);
-      return json(db.access.filter((a) => !product || a.product === product).map(({ person_id, ...a }) => {
+      const rl = sp.get('role') || '';
+      return json(db.access.filter((a) => (!product || a.product === product) && (!rl.startsWith('eq.') || a.role === rl.slice(3)) && (!rl.startsWith('neq.') || a.role !== rl.slice(4))).map(({ person_id, ...a }) => {
         const p = db.people.find((x) => x.id === person_id);
         return { ...a, created_at: a.updated_at, estate_people: p ? { id: p.id, email: p.email, display_name: p.display_name } : null };
       }));

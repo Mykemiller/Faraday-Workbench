@@ -74,9 +74,11 @@ module.exports = function adminClient() {
   var isReview = area === 'people' && !subview && location.pathname.replace(/\/+$/, '') === '/admin/people/review';
   /* /admin/people?tab=gate is the audience gate (FDY-291): the same people page, a different panel. */
   var isGate = area === 'people' && !subview && !isReview && new URLSearchParams(location.search).get('tab') === 'gate';
+  /* /admin/people?tab=operators is the Operator role (FDY-298): the same people page, another panel. */
+  var isOps = area === 'people' && !subview && !isReview && new URLSearchParams(location.search).get('tab') === 'operators';
 
   /* ---- People directory -------------------------------------------------------------------- */
-  if (area === 'people' && !subview && !isReview && !isGate) {
+  if (area === 'people' && !subview && !isReview && !isGate && !isOps) {
     var F = ['q', 'app', 'status', 'expiry', 'persona'], OPTS = null, timer = null;
     var params = new URLSearchParams(location.search);
     /* Filters arrive in the URL. Status and expiry have fixed options; app and persona get theirs
@@ -190,6 +192,56 @@ module.exports = function adminClient() {
     $('gate-lift').addEventListener('click', function () { gateWrite(true); });
     $('gate-arm').addEventListener('click', function () { gateWrite(false); });
     gateLoad();
+  }
+
+  /* ---- People > Operators (FDY-298): who may run which apps from the console ---------------------- */
+  if (isOps) {
+    $('dir-panel').hidden = true; $('ops-panel').hidden = false;
+    document.title = 'Operators · Faraday Admin';
+    Array.prototype.forEach.call(document.querySelectorAll('.tabs a'), function (a) {
+      if (a.getAttribute('href') === '/admin/people?tab=operators') a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    var OPS = [], OPSCOPES = [];
+    var opsDraw = function () {
+      $('ops-table').hidden = !OPS.length;
+      document.querySelector('#ops-table tbody').innerHTML = OPS.map(function (r, i) {
+        var b = function (act, label, cls) { return '<button type="button" data-i="' + i + '" data-act="' + act + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + label + '</button>'; };
+        var acts = r.status === 'revoked' ? b('restore', 'Restore') : (r.status === 'paused' ? b('resume', 'Resume', 'gold') : b('pause', 'Pause')) + b('revoke', 'Revoke');
+        return '<tr><td class="wrap">' + esc(r.email) + '</td><td>' + esc(r.scopeLabel) + '</td><td><span class="tag' + (r.state === 'active' ? '' : ' off') + '">' + esc(r.state) + '</span></td><td>' + esc(r.expiresAt ? day(r.expiresAt) : '—') + '</td><td class="acts">' + acts + '</td></tr>';
+      }).join('');
+    };
+    var opsLoad = function () {
+      return api('/api/admin/operators').then(function (d) {
+        OPS = d.rows || []; OPSCOPES = d.scopes || [];
+        fillSelect($('ops-scope'), OPSCOPES.map(function (s) { return { id: s.value, label: s.label }; }));
+        $('ops-add').hidden = !!d.waiting;   // the whole section: .bar's display:flex would override hidden on the form itself
+        if (d.waiting) { say('ops-msg', d.message || 'Waiting on FDY-298 migration', 'err'); opsDraw(); return; }
+        say('ops-msg', OPS.length ? '' : 'No operators yet.'); opsDraw();
+      }).catch(function (e) { say('ops-msg', e.message, 'err'); });
+    };
+    var opsWrite = async function (title, before, after, body) {
+      var ok = await reasonPanel({ title: title, before: before, after: after, linearIssue: ISSUE });
+      if (!ok) return;
+      say('ops-msg', 'Saving…');
+      try {
+        var d = await api('/api/admin/operators', Object.assign({ reason: ok.reason, linearIssue: ok.linearIssue }, body));
+        await opsLoad(); say('ops-msg', d.message, 'ok');
+      } catch (err) { say('ops-msg', err.message, 'err'); }
+    };
+    $('ops-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var email = $('ops-email').value.trim().toLowerCase(), scope = $('ops-scope').value, exp = $('ops-exp').value;
+      var lab = (OPSCOPES.filter(function (s) { return s.value === scope; })[0] || { label: 'All apps' }).label;
+      opsWrite('Add operator ' + email, {}, { email: email, scope: lab, status: 'active', expires: exp || 'never' }, { action: 'add', email: email, scope: scope, expiresAt: exp || '' })
+        .then(function () { $('ops-email').value = ''; });
+    });
+    document.querySelector('#ops-table tbody').addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-act]'); if (!btn) return;
+      var r = OPS[Number(btn.dataset.i)], act = btn.dataset.act; if (!r) return;
+      var to = { pause: 'paused', resume: 'active', revoke: 'revoked', restore: 'active' }[act];
+      opsWrite(act.charAt(0).toUpperCase() + act.slice(1) + ' operator ' + r.email + ' (' + r.scopeLabel + ')', { status: r.status }, { status: to }, { action: act, email: r.email, scope: r.scope });
+    });
+    opsLoad();
   }
 
   /* ---- People > Review (FDY-290): the Predicts review queue ------------------------------------ */
@@ -336,6 +388,10 @@ module.exports = function adminClient() {
       $('person-meta').textContent = (P.displayName ? P.displayName + ' · ' : '') + 'source ' + P.source + ' · added ' + day(P.createdAt);
       fillSelect($('persona'), POPTS.personas.map(function (m) { return { id: m, label: m }; }), 'Not set'); $('persona').value = P.persona || '';
       document.querySelector('#access-table tbody').innerHTML = P.access.map(function (a) {
+        if (a.role === 'operator') {   // FDY-298: an operator grant is managed on People > Operators, never edited from here
+          var sc = a.scope ? ((POPTS.products.filter(function (x) { return x.id === a.scope; })[0] || {}).label || a.scope) : 'All apps';
+          return '<tr data-product="' + esc(a.product) + '" data-operator="1"><td>' + esc(a.label) + '</td><td>operator · ' + esc(sc) + '</td><td><span class="tag' + (a.state === 'active' ? '' : ' off') + '">' + esc(a.state) + '</span></td><td>' + esc(a.expiresAt ? day(a.expiresAt) : '—') + '</td><td class="acts"><a href="/admin/people?tab=operators">Manage in Operators</a></td></tr>';
+        }
         var prod = POPTS.products.filter(function (x) { return x.id === a.product; })[0] || { roles: [a.role] };
         var roles = prod.roles.indexOf(a.role) < 0 ? [a.role].concat(prod.roles) : prod.roles;
         var b = function (act, label, cls) { return '<button type="button" data-act="' + act + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + label + '</button>'; };
@@ -344,7 +400,7 @@ module.exports = function adminClient() {
         return '<tr data-product="' + esc(a.product) + '"><td>' + esc(a.label) + '</td><td><select data-f="role" aria-label="Role for ' + esc(a.label) + '">'
           + roles.map(function (r) { return '<option' + (r === a.role ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></td><td><span class="tag' + (a.state === 'active' ? '' : ' off') + '">' + esc(a.state) + '</span></td><td><input type="date" data-f="exp" aria-label="Expiry for ' + esc(a.label) + '" value="' + esc(a.expiresAt ? a.expiresAt.slice(0, 10) : '') + '"></td><td class="acts">' + acts + '</td></tr>';
       }).join('') || '<tr><td colspan="5">No access to any app.</td></tr>';
-      var free = POPTS.products.filter(function (x) { return !P.access.some(function (a) { return a.product === x.id; }); });
+      var free = POPTS.products.filter(function (x) { return !P.access.some(function (a) { return a.product === x.id && a.role !== 'operator'; }); });
       $('grant-form').hidden = !free.length;
       if (free.length) { fillSelect($('grant-app'), free); grantRoles(); }
       document.querySelector('#consent-table tbody').innerHTML = P.consent.map(function (c) {
@@ -379,7 +435,7 @@ module.exports = function adminClient() {
     });
     $('access-table').addEventListener('click', function (e) {
       var btn = e.target.closest('button[data-act]'); if (!btn) return;
-      var product = btn.closest('tr').dataset.product, a = P.access.filter(function (x) { return x.product === product; })[0], act = btn.dataset.act;
+      var product = btn.closest('tr').dataset.product, a = P.access.filter(function (x) { return x.product === product && x.role !== 'operator'; })[0], act = btn.dataset.act;
       var before = rowBefore(a), title = a.label + ' for ' + P.email;
       if (act === 'pause') writeChange('Pause ' + title, before, Object.assign({}, before, { status: 'paused' }), { action: 'pause', product: product });
       if (act === 'resume') writeChange('Resume ' + title, before, Object.assign({}, before, { status: 'active' }), { action: 'resume', product: product });
@@ -389,7 +445,7 @@ module.exports = function adminClient() {
     });
     $('access-table').addEventListener('change', function (e) {
       var f = e.target.dataset && e.target.dataset.f; if (!f) return;
-      var product = e.target.closest('tr').dataset.product, a = P.access.filter(function (x) { return x.product === product; })[0];
+      var product = e.target.closest('tr').dataset.product, a = P.access.filter(function (x) { return x.product === product && x.role !== 'operator'; })[0];
       var before = rowBefore(a), title = a.label + ' for ' + P.email, v = e.target.value;
       var undo = function () { draw(); };
       if (f === 'role') writeChange('Change role: ' + title, before, Object.assign({}, before, { role: v }), { action: 'set_role', product: product, role: v }).then(undo);

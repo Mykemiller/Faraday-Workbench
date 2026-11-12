@@ -15,6 +15,7 @@
 
 const { sb, readJson } = require('../_wb.js');
 const { auditedWrite, AuditError } = require('../_audit.js');
+const { guard } = require('../_rights.js');
 const R = require('./review-logic.js');
 
 const WAITING = 'Waiting on FDY-252 migration';
@@ -29,6 +30,7 @@ async function list(req, res, ctx) {
 }
 
 async function decide(req, res, ctx) {
+  if (!guard(ctx.actor, 'people.review', { product: 'predicts' }, res)) return;   // rights: after the session check, before any read or write
   let body;
   try { body = await readJson(req); } catch (e) { return res.status(400).json({ error: 'Body is not JSON' }); }
   const p = R.parseDecision(body);

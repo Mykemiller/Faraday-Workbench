@@ -9,6 +9,7 @@
  *   audit     Owner only                        api/_admin/audit.js
  *   review    Owner only                        api/_admin/review.js
  *   gate      Owner only                        api/_admin/gate.js
+ *   operators Owner only                        api/_admin/operators.js
  */
 'use strict';
 
@@ -23,7 +24,8 @@ const ROUTES = Object.freeze({
   audit: { gate: 'owner', run: require('../_admin/audit.js') },
   apps: { gate: 'owner', run: require('../_admin/apps.js') },
   review: { gate: 'owner', run: require('../_admin/review.js') },
-  gate: { gate: 'owner', run: require('../_admin/gate.js') }
+  gate: { gate: 'owner', run: require('../_admin/gate.js') },
+  operators: { gate: 'owner', run: require('../_admin/operators.js') }
 });
 
 function routeName(req) {
