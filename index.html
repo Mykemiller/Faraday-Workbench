@@ -57,10 +57,13 @@ nav a:hover,nav a:focus-visible{color:var(--gold-bright)}
 .hero h1 em{font-style:normal;color:var(--gold-bright)}
 .hero p{margin-top:10px;color:var(--warm-dim);max-width:56ch}
 .ticker{margin-top:26px;border:1px solid var(--hair);border-radius:4px;background:var(--forest);overflow:hidden}
-.ticker-inner{display:flex;gap:44px;white-space:nowrap;padding:10px 0;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--warm-dim);animation:tick 42s linear infinite;width:max-content}
+.ticker-inner{display:flex;flex-wrap:wrap;gap:6px 8px;padding:8px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--warm-dim)}
+.ticker-inner span{border:1px solid var(--hair);border-radius:2px;padding:3px 8px}
 .ticker-inner b{color:var(--warm);font-weight:500}
-@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-@media (prefers-reduced-motion: reduce){.ticker-inner{animation:none;flex-wrap:wrap;white-space:normal;width:auto;padding:10px 16px}}
+/* FDY-324 D-5: staleness of the last read. Amber >26h, red >48h. */
+.ticker-inner span.s-amber,.lstamp.s-amber{border-color:var(--amber);color:var(--amber)}
+.ticker-inner span.s-red,.lstamp.s-red{border-color:var(--red);color:var(--red)}
+.ticker-inner span.s-amber b,.ticker-inner span.s-red b{color:inherit}
 
 /* sections */
 section{padding:46px 0;border-top:1px solid var(--hair)}
@@ -189,9 +192,7 @@ footer{border-top:1px solid var(--hair);padding:26px 0 40px;font-family:'IBM Ple
 /* Edge fade so the clipped ends read as motion rather than as broken text.
    Height is capped because the reduced-motion rule below unwraps the ticker to
    static multi-line text, which in this flex slot would otherwise grow tall. */
-.hero-line .ticker{flex:2;min-width:280px;margin:0;max-height:40px;
-  -webkit-mask-image:linear-gradient(90deg,transparent,#000 22px,#000 calc(100% - 22px),transparent);
-  mask-image:linear-gradient(90deg,transparent,#000 22px,#000 calc(100% - 22px),transparent)}
+.hero-line .ticker{flex:2;min-width:280px;margin:0}
 .viewnav{display:flex;gap:2px;margin-left:auto;overflow-x:auto;scrollbar-width:none}
 .viewnav::-webkit-scrollbar{display:none}
 .viewnav button{appearance:none;background:none;border:0;border-bottom:2px solid transparent;
@@ -299,6 +300,15 @@ body.js-views .view.is-active{border-top:0}
 
 /* ===== CC-WORKBENCH-NOTES-LINEAR-1.0 — per-product drawer, notes, issues, stamps ===== */
 .card .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+/* FDY-324: OPEN ↗ to the tile's live application. Brand gold, IBM Plex Mono. */
+.olink{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:#C4922A;text-decoration:none;padding:4px 9px;border:1px solid rgba(196,146,42,.55);border-radius:2px;line-height:1.4}
+.olink:hover{color:var(--gold-bright);border-color:var(--gold-bright)}
+.olink.none{color:var(--idle);border-color:var(--hair);cursor:default}
+.rem a{color:var(--gold);text-decoration:underline}
+.chip.cleared-sum{cursor:pointer}
+.cleared-wrap summary{cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--gold);padding:4px 0}
+.cleared-wrap .callbtn{margin-left:10px}
 .abtn{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--hair);color:var(--warm-dim);padding:4px 9px;border-radius:2px;cursor:pointer;line-height:1.3}
 .abtn:hover,.abtn.on{border-color:var(--gold);color:var(--gold-bright)}
 .abtn .n{color:var(--gold);font-weight:600}
@@ -723,7 +733,61 @@ function surfaceConds(){
 /* One writer for the storefront lane, so a late surface probe adds to the
    board's own conditions instead of replacing them (and never registers a
    sixth source — renderTriage() counts REPORTED against SOURCES). */
-function reportStorefront(){ SF_REPORTED=true; reportConditions("storefront",SF_BASE_CONDS.concat(surfaceConds())); }
+function reportStorefront(){ SF_REPORTED=true; reportConditions("storefront",SF_BASE_CONDS.concat(estateConds(),surfaceConds())); }
+
+/* ---- FDY-324 D-1: Estate severity comes from real signals, never from status_tag ----
+   status_tag is an editorial release-maturity label ("JUST FUNCTIONING"); the old rule
+   read it as "broken". Now: RED when the tile's public surface is down OR a Linear issue
+   bound to the tile (same binding as its Open issues drawer) is Urgent and still open;
+   AMBER when status='warn' with no failing signal (headline "<Tile> — maturity <tag>").
+   The finding KEY is unchanged, so a re-rate updates the finding instead of clearing it. */
+const URGENT_STATE={};   // slug -> {state:"ok"|"unreadable", keys:[identifier,...]}
+function estateTileCond(t,urgent,surface){
+  if(!t||t.status!=="warn") return null;
+  const key=`ESTATE.${KSLUG(t.slug||t.name)}.${KSLUG(t.status_tag)}`;
+  const keys=urgent&&urgent.state==="ok"?urgent.keys:[];
+  if(keys.length){
+    const shown=keys.slice(0,4).join(", ")+(keys.length>4?` +${keys.length-4}`:"");
+    return cond(key,"red",`${t.name} — ${keys.length} Urgent open (${shown})`,"estate","storefronts",t.blurb);
+  }
+  if(surface&&surface.state==="down")
+    return cond(key,"red",`${t.name} — public surface down`,"estate","storefronts",surface.detail||surface.text);
+  const why=urgent&&urgent.state==="unreadable"?" · Linear unreadable, so Urgent issues were not checked"
+    :(!urgent?" · Urgent issues not checked":"");
+  return cond(key,"amber",`${t.name} — maturity ${t.status_tag}`,"estate","storefronts","release-maturity label, no failing signal"+why);
+}
+function estateConds(){
+  return (TILES||[]).map(t=>estateTileCond(t,URGENT_STATE[tileSlug(t)],SURFACE_STATE[tileSlug(t)])).filter(Boolean);
+}
+/* True once every warn tile's Urgent check has an answer; a signed-out or failed read must
+   not write a downgraded severity into the shared finding ledger. */
+function estateVerified(){
+  return (TILES||[]).filter(t=>t.status==="warn").every(t=>{
+    const u=URGENT_STATE[tileSlug(t)]; return u&&u.state==="ok"; });
+}
+async function probeUrgent(){
+  if(!SURFACE_PROBE_ON) return;
+  await WB_AUTH.ready;
+  const warn=(TILES||[]).filter(t=>t.status==="warn");
+  await Promise.all(warn.map(async t=>{
+    const slug=tileSlug(t); let st={state:"unreadable",keys:[]};
+    try{
+      if(!WB_AUTH.signedIn||!hasLinear(t)) throw new Error("not readable");
+      const r=await fetch(`/api/workbench-linear?${linearQs(t)}`,{signal:AbortSignal.timeout(12000)});
+      const d=await r.json().catch(()=>null);
+      if(r.ok&&d&&Array.isArray(d.issues))
+        st={state:"ok",keys:d.issues.filter(i=>i&&i.priority===1).map(i=>i.identifier)};
+    }catch(e){ /* unreadable: amber with the reason, and no ledger write */ }
+    URGENT_STATE[slug]=st;
+  }));
+  if(SF_REPORTED) reportStorefront();
+}
+/* D-5: staleness of a read. Amber >26h, red >48h; unknown reads as red-free blank. */
+function stalenessClass(ts){
+  if(!ts) return "";
+  const h=(Date.now()-new Date(ts).getTime())/3600000;
+  return h>48?"s-red":h>26?"s-amber":"";
+}
 
 async function probeSurfaces(){
   if(!SURFACE_PROBE_ON) return;
@@ -784,15 +848,15 @@ function renderStorefronts(tiles,computedAt,staleAfterHours){
   document.getElementById("board-sync").textContent=computedAt?fmtCT(computedAt):"unavailable";
   wireActs();
   const sc=[];
-  tiles.filter(t=>t.status==="warn").forEach(t=>sc.push(cond(`ESTATE.${KSLUG(t.slug||t.name)}.${KSLUG(t.status_tag)}`,"red",`${t.name} — ${t.status_tag}`,"estate","storefronts",t.blurb)));
+  /* Tile severity is no longer read from status_tag (FDY-324 D-1): see estateConds(). */
   if(stale) sc.push(cond("ESTATE.STOREFRONT.CACHE_STALE","amber",`Storefront cache stale (>${hrs}h)`,"estate","storefronts",
     computedAt?("computed "+computedAt):"no computed_at on the cache"));
   if(tiles.some(t=>t.metric_basis==="probe_error")) sc.push(cond("ESTATE.STOREFRONT.PROBE_ERROR","amber","A storefront metric probe errored","estate","storefronts"));
   if(tiles.some(t=>t.metric_basis==="fallback")) sc.push(cond("ESTATE.STOREFRONT.FALLBACK_COPY","amber","Storefront board is on fallback copy — RPC returned nothing","estate","storefronts"));
   SF_BASE_CONDS=sc; reportStorefront();
 
-  const tk=tiles.map(t=>`<span><b>${esc(t.name)}</b> ${esc(t.status_tag)}</span>`).join("");
-  document.getElementById("ticker").innerHTML=tk+tk;
+  const tcls=stalenessClass(computedAt);
+  document.getElementById("ticker").innerHTML=tiles.map(t=>`<span class="${tcls}"><b>${esc(t.name)}</b> ${esc(t.status_tag)}</span>`).join("");
 }
 
 
@@ -880,7 +944,14 @@ function actBtns(t){
   const list=NOTES[t.slug]||[]; const open=list.filter(n=>n.status==="open"&&n.kind==="action").length;
   const cnt=list.length?` <span class="n${open?" open":""}">${open?open+" open":list.length}</span>`:"";
   const lin=hasLinear(t)?`<button class="abtn" data-slug="${esc(t.slug)}" data-tab="issues">Open issues</button>`:"";
-  return `<button class="abtn" data-slug="${esc(t.slug)}" data-tab="notes">Notes${cnt}</button>${lin}`;
+  return `<button class="abtn" data-slug="${esc(t.slug)}" data-tab="notes">Notes${cnt}</button>${lin}${openLinkHtml(t)}`;
+}
+/* FDY-324. Only an http(s) URL becomes a link; anything else is NO LIVE URL, never a dead anchor. */
+function openLinkHtml(t){
+  const u=String(t&&t.live_url||"");
+  return /^https?:\/\//i.test(u)
+    ? `<a class="olink" href="${esc(u)}" target="_blank" rel="noopener noreferrer" title="${esc(u)}">OPEN ↗</a>`
+    : `<span class="olink none" title="No verified live URL for this tile">NO LIVE URL</span>`;
 }
 function wireActs(){
   document.querySelectorAll("#storefronts .abtn").forEach(b=>b.addEventListener("click",()=>{
@@ -1058,6 +1129,7 @@ async function loadStorefront(){
     renderStorefronts(SF_FALLBACK,null,26);
   }
   probeSurfaces();   /* not awaited: the board must not wait on another deployment */
+  await probeUrgent();   /* awaited: findings sync must not run before tile severity is known */
 }
 
 /* ---- live health: fetch workbench_health() RPC and render IDF/DC/engine health ---- */
@@ -1183,6 +1255,7 @@ const SOURCES=["storefront","health","forecast","scoring","idf"];
 const LANE_LABEL={storefront:"Storefront",health:"Health",forecast:"Forecast",scoring:"Scoring",idf:"IDF"};
 const CACHE_STAMP=new Map();   // source -> ISO timestamp last computed
 const BUSY=new Set();          // sources currently refreshing/reloading
+let CLEARED_OPEN=false, CLEARED_ALL=false;   // FDY-324 D-5: collapsed by default, last 24h
 const OPEN_REM=new Set();      // finding_keys whose remediation panel is expanded
 let CLEARED=[];                // [{key,lane,severity,headline,cleared_at}] from the sync RPC
 let REMEDIATION={};            // finding_key -> {plain_english, cc_prompt_seed, ...}
@@ -1196,13 +1269,19 @@ function shortStamp(ts){
 
 /* D5/D6. A finding with no authored row renders the literal string
    "No remediation authored" - never a generated or inferred fix. */
+/* FDY-324: the FIX text carries Linear links; escape first, then link https URLs only. */
+function linkifyEsc(text){
+  return esc(text).replace(/https:\/\/[^\s<"']+/g,m=>{
+    const t=m.match(/[.,;)]+$/)?m.match(/[.,;)]+$/)[0]:""; const u=t?m.slice(0,-t.length):m;
+    return `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>${t}`; });
+}
 function remPanel(c){
   const head='<div class="remhead"><span class="remkey">'+esc(c.key)+'</span>'
     +'<span class="remlane">'+esc(VIEW_LABEL[c.view]||c.view)+'</span></div>';
   const r=REMEDIATION[c.key];
   if(!r||!r.plain_english) return '<div class="rem">'+head+'<div class="remnone">No remediation authored</div></div>';
   return '<div class="rem">'+head
-    +'<div class="remtext">'+esc(r.plain_english)+'</div>'
+    +'<div class="remtext">'+linkifyEsc(r.plain_english)+'</div>'
     +'<div class="remseedhead">CC prompt seed<button class="copybtn" data-copy="'+esc(c.key)+'">Copy</button></div>'
     +'<pre class="remseed">'+esc(r.cc_prompt_seed||"")+'</pre></div>';
 }
@@ -1211,7 +1290,8 @@ function actionsHtml(){
   const busy=BUSY.size>0;
   const stamps=SOURCES.map(sname=>{
     const b=BUSY.has(sname);
-    return '<span class="lstamp'+(b?' busy':'')+'"><i>'+esc(LANE_LABEL[sname]||sname)+'</i> '
+    const sc=stalenessClass(CACHE_STAMP.get(sname));
+    return '<span class="lstamp'+(b?' busy':'')+(sc?' '+sc:'')+'"><i>'+esc(LANE_LABEL[sname]||sname)+'</i> '
       +(b?'<span class="spin"></span>':esc(shortStamp(CACHE_STAMP.get(sname))))+'</span>';
   }).join("");
   return '<div class="wbar">'
@@ -1255,7 +1335,9 @@ function renderTriage(){
   };
   /* D4: a key present before a refresh and absent after renders CLEARED for 24h. */
   const cutoff=Date.now()-24*3600*1000;
-  const clearedFresh=(CLEARED||[]).filter(x=>x&&x.cleared_at&&new Date(x.cleared_at).getTime()>cutoff);
+  const clearedSorted=(CLEARED||[]).filter(x=>x&&x.cleared_at).sort((a,b)=>String(b.cleared_at).localeCompare(String(a.cleared_at)));
+  const clearedFresh=clearedSorted.filter(x=>new Date(x.cleared_at).getTime()>cutoff);
+  const clearedShown=CLEARED_ALL?clearedSorted.slice(0,50):clearedFresh;
   const clearedChip=x=>`<span class="chip cleared" title="${esc(x.key||"")}">`
     + `<span class="ctag">Cleared</span>${esc(x.headline||x.key||"")}`
     + `<span class="where">${esc(shortStamp(x.cleared_at))}</span></span>`;
@@ -1265,7 +1347,10 @@ function renderTriage(){
   let html=`<span class="verdict ${vcls}" id="verdict">${esc(vtxt)}</span>`+actionsHtml();
   if(red.length) html+=`<div class="chips">${red.map(chip).join("")}</div>`;
   else if(!amber.length && !pending) html+=`<div class="chips"><span class="chip" style="border-left-color:var(--live);cursor:default">Nothing red or amber across all five views.</span></div>`;
-  if(clearedFresh.length) html+=`<div class="chips">${clearedFresh.map(clearedChip).join("")}</div>`;
+  if(clearedFresh.length||clearedShown.length) html+=`<details class="cleared-wrap" id="cleared-wrap"${CLEARED_OPEN?" open":""}>`
+    + `<summary>${clearedFresh.length} cleared · last 24h</summary>`
+    + `<div class="chips">${clearedShown.map(clearedChip).join("")}</div>`
+    + `<button class="wbtn callbtn" id="btn-cleared-all" type="button">${CLEARED_ALL?"last 24h":"all"}</button></details>`;
   if(amber.length) html+=`<details${red.length?"":" open"}><summary>▸ ${amber.length} warning${amber.length>1?"s":""} — documented characteristics and Proposed decisions</summary>`
     + `<div class="chips" style="padding-top:6px">${amber.map(chip).join("")}</div></details>`;
   bar.innerHTML=html;
@@ -1288,6 +1373,10 @@ function renderTriage(){
     catch(e){ b.textContent="Copy failed"; }
     setTimeout(()=>{ b.textContent="Copy"; },1600);
   }));
+  const cw=document.getElementById("cleared-wrap");
+  if(cw) cw.addEventListener("toggle",()=>{ CLEARED_OPEN=cw.open; });
+  const ca=document.getElementById("btn-cleared-all");
+  if(ca) ca.addEventListener("click",e=>{ e.preventDefault(); CLEARED_ALL=!CLEARED_ALL; CLEARED_OPEN=true; renderTriage(); });
   const rr=document.getElementById("btn-reread");   if(rr) rr.addEventListener("click",()=>reRead());
   const rc=document.getElementById("btn-recompute");if(rc) rc.addEventListener("click",()=>recompute());
 }
@@ -2048,6 +2137,13 @@ async function syncFindings(){
   if(REPORTED.size < SOURCES.length){ renderTriage(); return; }
   const all=[...CONDITIONS.values()].flat().filter(c=>c&&c.key);
   if(!all.length){ renderTriage(); return; }
+  /* FDY-324: never write an unverified Estate severity into the shared ledger. */
+  if(SURFACE_PROBE_ON && !estateVerified()){ renderTriage(); return; }
+  /* FDY-324: a degraded read (a lane's fetch failed, or the storefront board is on its hardcoded
+     fallback copy) is not a report of the estate, it is a report of this browser. Syncing it
+     re-opened findings whose live predicates are false (measured 2026-11-13 00:04 UTC) and
+     cleared real ones. The banner still shows it; the shared ledger does not take it. */
+  if(all.some(c=>/\.FETCH_FAILED$|STOREFRONT\.FALLBACK_COPY$/.test(c.key))){ renderTriage(); return; }
   try{
     const r=await fetch(`${SB_URL}/rest/v1/rpc/workbench_findings_sync`,{
       method:"POST",
