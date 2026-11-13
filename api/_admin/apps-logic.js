@@ -51,6 +51,15 @@ function canOwnerSetState(version) {
   return Number.isInteger(major) && major >= OWNER_STATE_FROM;
 }
 
+/** The live-site URL to store: null (remove) or a full https URL, at most 300 characters. */
+function checkLiveUrl(v) {
+  if (v === null || v === undefined || (typeof v === 'string' && v.trim() === '')) return { ok: true, value: null };
+  if (typeof v !== 'string') return { ok: false, error: 'The live site must be a full https:// address, or empty to remove it.' };
+  const t = v.trim();
+  if (t.length > 300 || !/^https:\/\/[^\s/?#]+/i.test(t) || /[\s<>"']/.test(t)) return { ok: false, error: 'The live site must be a full https:// address (300 characters at most), or empty to remove it.' };
+  return { ok: true, value: t };
+}
+
 function validateCode(code) { return CODE_RE.test(String(code || '')) ? String(code) : null; }
 
 /** A release name: non-empty after trimming, at most 120 characters. Returns the trimmed name or null. */
@@ -114,7 +123,7 @@ function shapeApp(row) {
     lifecycle: row.lifecycle_stage || null, tileSlug: row.tile_slug || null,
     supabaseProject: row.supabase_project || null, owner: row.owner || null,
     settingsSchemaVersion: row.settings_schema_version === undefined ? null : row.settings_schema_version,
-    consoleUrl: row.console_url || null, trackerUrl: row.tracker_url || null, linearLabel: row.linear_label || null
+    consoleUrl: row.console_url || null, trackerUrl: row.tracker_url || null, liveUrl: row.live_url || null, linearLabel: row.linear_label || null
   };
 }
 
@@ -167,6 +176,7 @@ function shapeMetric(payload) {
 }
 
 module.exports = {
+  checkLiveUrl,
   STATES, SETTING_TYPES, OWNER_STATE_FROM, RELEASE_MAX, VERSION_RE, CODE_RE, KEY_RE,
   parseVersion, formatVersion, ruleState, canOwnerSetState, validateCode, cleanRelease,
   checkPromote, checkSetState, validateSetting, effectiveSetting,

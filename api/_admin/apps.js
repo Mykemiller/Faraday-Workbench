@@ -7,6 +7,7 @@
  *   POST { action:'promote', code, version, release, reason?, linearIssue? }
  *   POST { action:'set_state', code, state, ... }
  *   POST { action:'set_setting', code, key, value, ... }
+ *   POST { action:'set_live_url', code, live_url|null, ... }   Owner only (FDY-360)
  *
  * The list never touches Vercel, Linear or a metric, so a slow outside service cannot hold the
  * cards back. A live read that fails answers { status: 'unavailable' }, never an error. Open
@@ -20,7 +21,7 @@ const { auditedWrite, AuditError } = require('../_audit.js');
 const { guard, productForApp } = require('../_rights.js');
 const L = require('./apps-logic.js');
 
-const REGISTRY_COLS = 'code,name,version_major,version_minor,state,state_source,lifecycle_stage,tile_slug,supabase_project,owner,settings_schema_version,console_url,tracker_url,linear_label';
+const REGISTRY_COLS = 'code,name,version_major,version_minor,state,state_source,lifecycle_stage,tile_slug,supabase_project,owner,settings_schema_version,console_url,tracker_url,live_url,linear_label';
 const DEF_COLS = 'app_code,key,label,description,type,min_value,max_value,options,default_value,enforcement_status,precedence_group,needs_redeploy';
 const VAL_COLS = 'app_code,key,value,updated_at,updated_by';
 const LIVE_APP = 'WB';            // the pilot settings below belong to the Workbench itself
@@ -150,11 +151,11 @@ async function write(req, res, ctx) {
   try { body = await readJson(req); } catch (e) { return res.status(400).json({ error: 'Body is not JSON' }); }
   body = body && typeof body === 'object' ? body : {};
   const action = String(body.action || '');
-  if (!['promote', 'set_state', 'set_setting'].includes(action)) return res.status(400).json({ error: 'action must be promote, set_state or set_setting.' });
+  if (!['promote', 'set_state', 'set_setting', 'set_live_url'].includes(action)) return res.status(400).json({ error: 'action must be promote, set_state, set_setting or set_live_url.' });
   const code = L.validateCode(body.code);
   if (!code) return res.status(400).json({ error: 'code must be an app code such as WB.' });
   // rights: after the session check, before any read or write. Release and state changes are Owner-only; a setting is the app's own.
-  const right = action === 'promote' ? 'registry.promote' : action === 'set_state' ? 'registry.set_state' : 'setting.promote';
+  const right = action === 'promote' ? 'registry.promote' : action === 'set_state' ? 'registry.set_state' : action === 'set_live_url' ? 'registry.set_live_url' : 'setting.promote';
   if (!guard(ctx.actor, right, { product: productForApp(code) }, res)) return;
   const common = { reason: body.reason, linearIssue: body.linearIssue };
   const key = ctx.key;
@@ -183,6 +184,16 @@ async function write(req, res, ctx) {
       const out = await auditedWrite(ctx.actor, { rpc: 'app_registry_set_state', ...common, args: { p_code: code, p_state: state } }, { key });
       const changed = !out || out.changed !== false;
       return res.status(200).json({ ok: true, changed, result: out || null, message: changed ? `${row.name} is now ${state}, set by Owner.` : `${row.name} is already ${state}. Nothing changed.` });
+    } catch (e) { return refuse(res, e); }
+  }
+
+  if (action === 'set_live_url') {
+    const u = L.checkLiveUrl(body.live_url);
+    if (!u.ok) return res.status(400).json({ error: u.error });
+    try {
+      const out = await auditedWrite(ctx.actor, { rpc: 'app_registry_set_live_url', ...common, args: { p_code: code, p_live_url: u.value } }, { key });
+      const changed = !out || out.changed !== false;
+      return res.status(200).json({ ok: true, changed, result: out || null, message: changed ? (u.value ? `${row.name} now links to ${u.value}.` : `${row.name} no longer has a live site link.`) : `${row.name} already has that live site. Nothing changed.` });
     } catch (e) { return refuse(res, e); }
   }
 

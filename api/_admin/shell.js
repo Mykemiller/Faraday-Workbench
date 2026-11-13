@@ -192,9 +192,10 @@ td.wrap{overflow-wrap:anywhere}
 .card dt{color:var(--dim)}.card dd{margin:0;overflow-wrap:anywhere}
 .card dd.na{color:var(--dim)}
 .card .acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
-.card form.promote{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.card form.promote[hidden]{display:none}
-.card form.promote input{padding:6px 8px;font-size:14px;min-width:0}
+.card form.promote,.card form.livesite{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.card form.promote[hidden],.card form.livesite[hidden]{display:none}
+.card form.promote input,.card form.livesite input{padding:6px 8px;font-size:14px;min-width:0}
+.card form.livesite input[name=live_url]{flex:1 1 220px}
 .card form.promote input[name=version]{width:84px}.card form.promote input[name=release]{flex:1 1 140px}
 .chip{display:inline-block;font:600 11px/1.6 ui-monospace,Menlo,monospace;letter-spacing:.06em;border:1px solid var(--gold);border-radius:10px;padding:0 9px;color:var(--gold-bright)}
 .chip.s-notready,.chip.s-notstarted{border-color:var(--line);color:var(--dim)}
@@ -222,7 +223,10 @@ button.gold{color:var(--gold-bright);border-color:var(--gold)}
 `;
 
 /* The browser code is api/_admin/client.js, printed into the page as source. */
-const JS = '(' + require('./client.js').toString() + ')();';
+/* FDY-360: the shared LiveSiteLink (live-link.js at the repo root, also loaded by the status board) is
+ * printed ahead of the client so both surfaces draw the live-site link with the same code. */
+const LIVE_LINK_JS = require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'live-link.js'), 'utf8');
+const JS = LIVE_LINK_JS + '\n(' + require('./client.js').toString() + ')();';
 
 /** The whole page for one area. `actor` is what requireOwner() returned. */
 function renderShell(area, actor, id) {

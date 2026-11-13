@@ -486,6 +486,8 @@ module.exports = function adminClient() {
       var cardHtml = function (a) {
         var chip = 's-' + String(a.state).toLowerCase().replace(/[^a-z]/g, '');
         var links = [];
+        var live = window.LiveSiteLink.html({ url: a.liveUrl, name: a.name, variant: 'inline' });
+        if (live) links.push(live);
         if (a.trackerUrl && safeUrl(a.trackerUrl)) links.push('<a href="' + esc(a.trackerUrl) + '" target="_blank" rel="noopener">Tracker</a>');
         if (a.consoleUrl && safeUrl(a.consoleUrl)) links.push('<a href="' + esc(a.consoleUrl) + '" target="_blank" rel="noopener">Console</a>');
         var states = APPS.states.map(function (s) { return '<option' + (s === a.state ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('');
@@ -501,11 +503,14 @@ module.exports = function adminClient() {
           + '<dt>Key metric</dt><dd class="na" data-live="metric">Loading…</dd>'
           + '<dt>Links</dt><dd>' + (links.join(' · ') || '—') + '</dd></dl>'
           + '<div class="acts"><button type="button" data-act="promote-toggle">Promote</button>'
+          + '<button type="button" data-act="livesite-toggle">Live site</button>'
           + '<label class="count" for="st-' + esc(a.code) + '">Set state</label><select id="st-' + esc(a.code) + '" data-f="state" aria-label="Set state for ' + esc(a.code) + '"'
           + (a.canSetState ? '' : ' disabled title="Below 03.00 the state is set by rule"') + '>' + states + '</select></div>'
           + (a.canSetState ? '' : '<p class="count">Below 03.00 the state is set by rule.</p>')
           + '<form class="promote" hidden><input name="version" aria-label="New version for ' + esc(a.code) + '" placeholder="03.05" autocomplete="off" maxlength="5">'
           + '<input name="release" aria-label="Release name for ' + esc(a.code) + '" placeholder="Release name" maxlength="120" autocomplete="off"><button type="submit" class="gold">Review</button></form>'
+          + '<form class="livesite" hidden><input name="live_url" type="url" inputmode="url" aria-label="Live site URL for ' + esc(a.code) + '" placeholder="https://… (blank removes the link)" autocomplete="off" maxlength="300" value="' + esc(a.liveUrl || '') + '">'
+          + '<button type="submit" class="gold">Review</button></form>'
           + '<p class="card-msg" data-msg role="status" aria-live="polite"></p></article>';
       };
       var pool = function (tasks, n) {
@@ -561,11 +566,27 @@ module.exports = function adminClient() {
       };
       var grid = $('apps-grid');
       grid.addEventListener('click', function (e) {
+        var lbtn = e.target.closest('button[data-act="livesite-toggle"]');
+        if (lbtn) {
+          var lf = lbtn.closest('.card').querySelector('form.livesite'); lf.hidden = !lf.hidden;
+          if (!lf.hidden) lf.querySelector('input[name=live_url]').focus();
+          return;
+        }
         var btn = e.target.closest('button[data-act="promote-toggle"]'); if (!btn) return;
         var f = btn.closest('.card').querySelector('form.promote'); f.hidden = !f.hidden;
         if (!f.hidden) f.querySelector('input[name=version]').focus();
       });
       grid.addEventListener('submit', function (e) {
+        var lform = e.target.closest('form.livesite');
+        if (lform) {
+          e.preventDefault();
+          var lcode = lform.closest('.card').dataset.code, la = appOf(lcode), raw = lform.elements.live_url.value.trim();
+          var next = raw === '' ? null : window.LiveSiteLink.safeUrl(raw);
+          if (raw !== '' && !next) { cardMsg(lcode, 'The live site must be a full https:// address, or blank to remove it.', 'err'); return; }
+          if (next === (la.liveUrl || null)) { cardMsg(lcode, 'That is already the live site. Nothing changed.', 'ok'); return; }
+          cardWrite(lcode, 'Set live site: ' + la.name, { live_url: la.liveUrl || '(none)' }, { live_url: next || '(none)' }, { action: 'set_live_url', live_url: next });
+          return;
+        }
         var form = e.target.closest('form.promote'); if (!form) return;
         e.preventDefault();
         var card = form.closest('.card'), code = card.dataset.code, a = appOf(code);
