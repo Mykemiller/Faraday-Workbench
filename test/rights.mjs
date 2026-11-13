@@ -7,7 +7,7 @@ const R = require('../api/_rights.js');
 const NOW = Date.parse('2026-11-12T12:00:00Z');
 
 const OPERATOR_MAY = ['people.review', 'access.grant', 'access.expire', 'setting.draft', 'setting.promote', 'broadcast.send'];
-const OPERATOR_MAY_NOT = ['price.change', 'config.lock', 'console_role.grant', 'operator.manage', 'secrets.view', 'registry.promote', 'registry.set_state', 'gate.set', 'audit.revert', 'person.persona'];
+const OPERATOR_MAY_NOT = ['price.change', 'config.lock', 'console_role.grant', 'operator.manage', 'secrets.view', 'registry.promote', 'registry.set_state', 'registry.set_live_url', 'gate.set', 'audit.revert', 'person.persona'];
 const owner = { kind: 'owner' };
 const op = (scope) => ({ kind: 'operator', grants: [{ scope }] });
 

@@ -11,6 +11,7 @@ function grab(name){                       // source of `function name(...){...}
   throw new Error('unbalanced ' + name);
 }
 const ctx = vm.createContext({});
+vm.runInContext(fs.readFileSync(new URL('../live-link.js', import.meta.url), 'utf8'), ctx);   // FDY-360: the shared LiveSiteLink
 vm.runInContext(`
   const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const KSLUG=s=>String(s||"").toUpperCase().replace(/[^A-Z0-9]+/g,"_").replace(/^_+|_+$/g,"").slice(0,64)||"UNKNOWN";
@@ -32,11 +33,11 @@ assert.equal(run('estateTileCond')(tile({ status: 'live' }), { state: 'ok', keys
 assert.equal(run('estateTileCond')(tile({ slug: 'boundstone', name: 'Boundstone', status_tag: 'BS 01.03 · JUST FUNCTIONING' }), { state: 'ok', keys: [] }, null).key,
   'ESTATE.BOUNDSTONE.BS_01_03_JUST_FUNCTIONING');            // key is stable, so a re-rate is not a clear
 
-// OPEN link
+// LIVE SITE link (FDY-360: https only)
 const open = run('openLinkHtml');
 assert.match(open({ live_url: 'https://ispyadc.com' }), /href="https:\/\/ispyadc.com" target="_blank" rel="noopener noreferrer"/);
-assert.match(open({ live_url: 'https://ispyadc.com' }), />OPEN ↗</);
-for (const bad of [null, '', 'javascript:alert(1)', 'ispyadc.com']) assert.match(open({ live_url: bad }), /NO LIVE URL/);
+assert.match(open({ live_url: 'https://ispyadc.com' }), />LIVE SITE ↗</);
+for (const bad of [null, '', 'javascript:alert(1)', 'ispyadc.com', 'http://ispyadc.com']) assert.match(open({ live_url: bad }), /NO LIVE URL/);
 assert.doesNotMatch(open({ live_url: null }), /<a /);
 
 // FIX linkify
@@ -53,7 +54,7 @@ assert.equal(sc(hrs(1)), ''); assert.equal(sc(hrs(27)), 's-amber'); assert.equal
 assert.doesNotMatch(html, /animation:tick/, 'ticker must not scroll');
 assert.match(html, /await probeUrgent\(\)/);
 assert.match(html, /FETCH_FAILED\$\|STOREFRONT\\.FALLBACK_COPY\$/, 'degraded reads must not sync');
-for (const f of ['wb_criticals_prestate_snapshots', 'wb_storefront_tiles_add_live_url', 'wb_finding_remediation_seed_estate']) {
+for (const f of ['wb_criticals_prestate_snapshots', 'wb_finding_remediation_seed_estate']) {
   const q = fs.readFileSync(new URL(`../sql/${f}.sql`, import.meta.url), 'utf8');
   assert.doesNotMatch(q, /\b(jpas_|jds_|jts_)\w*\s*(set|=)|update\s+public\.(jurisdictions|jpas|jds)/i, f + ' must not write scoring tables');
   assert.doesNotMatch(q, /drop\s+(function|table)\s/i);

@@ -577,6 +577,7 @@ body.js-views .view.is-active{border-top:0}
   <span>Follow the Thread, catch the Signals.</span>
 </footer>
 
+<script src="live-link.js"></script>
 <script src="fix-prompt.js"></script>
 <script src="tf-outbox.js"></script>
 <script>
@@ -946,12 +947,10 @@ function actBtns(t){
   const lin=hasLinear(t)?`<button class="abtn" data-slug="${esc(t.slug)}" data-tab="issues">Open issues</button>`:"";
   return `<button class="abtn" data-slug="${esc(t.slug)}" data-tab="notes">Notes${cnt}</button>${lin}${openLinkHtml(t)}`;
 }
-/* FDY-324. Only an http(s) URL becomes a link; anything else is NO LIVE URL, never a dead anchor. */
+/* FDY-360. The pill is drawn by the shared LiveSiteLink (live-link.js); the URL is app_registry.live_url,
+   reaching the tile through workbench_storefront_compute(). https only; anything else is NO LIVE URL. */
 function openLinkHtml(t){
-  const u=String(t&&t.live_url||"");
-  return /^https?:\/\//i.test(u)
-    ? `<a class="olink" href="${esc(u)}" target="_blank" rel="noopener noreferrer" title="${esc(u)}">OPEN ↗</a>`
-    : `<span class="olink none" title="No verified live URL for this tile">NO LIVE URL</span>`;
+  return LiveSiteLink.html({url:t&&t.live_url,name:t&&t.name});
 }
 function wireActs(){
   document.querySelectorAll("#storefronts .abtn").forEach(b=>b.addEventListener("click",()=>{

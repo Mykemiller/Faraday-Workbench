@@ -34,6 +34,7 @@ const ACTIONS = Object.freeze({
   'secrets.view': { operator: false },
   'registry.promote': { operator: false },
   'registry.set_state': { operator: false },
+  'registry.set_live_url': { operator: false },
   'gate.set': { operator: false },
   'audit.revert': { operator: false },
   'person.persona': { operator: false }

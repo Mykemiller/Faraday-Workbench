@@ -36,7 +36,7 @@ export function fakeDb() {
   db.addApp = (code, name, major, minor, extra = {}) => {
     const rule = major < 1 ? 'Not Ready' : major < 3 ? 'Just Functioning' : 'Needs Tuning';
     const a = { code, name, version_major: major, version_minor: minor, state: rule, state_source: major < 3 ? 'rule' : 'owner', lifecycle_stage: 'build', tile_slug: code.toLowerCase(),
-      supabase_project: null, owner: null, settings_schema_version: 1, console_url: null, tracker_url: null, linear_label: null, vercel_project: null, ...extra };
+      supabase_project: null, owner: null, settings_schema_version: 1, console_url: null, tracker_url: null, live_url: null, linear_label: null, vercel_project: null, ...extra };
     db.apps.push(a); return a;
   };
   db.addDef = (app_code, key, type, default_value, extra = {}) => {
@@ -118,6 +118,15 @@ export function fakeDb() {
       Object.assign(a, { state: b.p_state, state_source: 'owner' });
       audit({ actor: b.p_actor, actor_verified: b.p_actor_verified === true, product: 'apps', subject_email: a.code, action: 'app.set_state', reason: b.p_reason ?? null, old_value: before, new_value: { state: a.state, state_source: 'owner' }, via: b.p_via || 'sql' });
       return { changed: true, code: a.code, state: a.state, state_source: 'owner' };
+    },
+    app_registry_set_live_url(b) {
+      const a = db.apps.find((x) => x.code === b.p_code); if (!a) throw new Error('app_registry_set_live_url: unknown app');
+      const u = b.p_live_url === null || b.p_live_url === undefined || String(b.p_live_url).trim() === '' ? null : String(b.p_live_url).trim();
+      if (u !== null && !/^https:\/\/[^\s/?#]+/.test(u)) throw new Error('app_registry_set_live_url: live_url must be a full https:// address');
+      if ((a.live_url ?? null) === u) return { changed: false, code: a.code, live_url: a.live_url ?? null };
+      const before = { code: a.code, live_url: a.live_url ?? null }; a.live_url = u;
+      audit({ actor: b.p_actor, actor_verified: b.p_actor_verified === true, product: 'registry', subject_email: '*', action: 'app.live_url', reason: b.p_reason ?? null, old_value: before, new_value: { code: a.code, live_url: u }, via: b.p_via || 'sql' });
+      return { changed: true, code: a.code, live_url: u };
     },
     app_setting_set(b) {
       const d = db.defs.find((x) => x.app_code === b.p_code && x.key === b.p_key); if (!d) throw new Error('app_setting_set: unknown setting');
